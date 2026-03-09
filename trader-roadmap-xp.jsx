@@ -1,0 +1,811 @@
+import { useState, useEffect, useRef } from "react";
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const LEVELS = [
+  {
+    id: 1,
+    name: "The Apprentice",
+    subtitle: "Learn the Rules",
+    icon: "🌱",
+    tier: "BRONZE",
+    accent: "#56b886",
+    accentLight: "#d0f5e0",
+    bg: "linear-gradient(135deg, #e8fdf1 0%, #d0f5e0 100%)",
+    cardBg: "#f0faf5",
+    xpRequired: 0,
+    description: "You found the model. Now build the habits that make it work.",
+    achievements: [
+      { id: "a1", name: "First Steps", desc: "Define your trading model in writing", xp: 50, type: "process" },
+      { id: "a2", name: "Journal Keeper", desc: "Journal 10 consecutive sessions", xp: 75, type: "process" },
+      { id: "a3", name: "Session Lock", desc: "NY session only for 2 full weeks", xp: 100, type: "discipline" },
+      { id: "a4", name: "Checklist Mode", desc: "Pre-trade thesis on every trade (20 trades)", xp: 100, type: "process" },
+      { id: "a5", name: "Rule Book", desc: "Define A+ criteria and commit to paper", xp: 50, type: "process" },
+    ],
+  },
+  {
+    id: 2,
+    name: "The Grinder",
+    subtitle: "Breakeven → Funded",
+    icon: "⚔️",
+    tier: "SILVER",
+    accent: "#e8a838",
+    accentLight: "#fdf0d0",
+    bg: "linear-gradient(135deg, #fdf5e6 0%, #fce8c3 100%)",
+    cardBg: "#fdf8f0",
+    xpRequired: 375,
+    description: "Pass evals. Get funded. Prove the edge is real under pressure.",
+    achievements: [
+      { id: "b1", name: "Eval Slayer", desc: "Pass your first funded evaluation", xp: 150, type: "milestone" },
+      { id: "b2", name: "A+ Hunter", desc: "Only A+ trades for a full week", xp: 100, type: "discipline" },
+      { id: "b3", name: "Two & Done", desc: "2-trade max respected for 10 sessions", xp: 100, type: "discipline" },
+      { id: "b4", name: "First Blood", desc: "Receive your first funded payout", xp: 200, type: "payout", amount: "1st Payout" },
+      { id: "b5", name: "No Revenge", desc: "Stop after a loss 10 times (no revenge)", xp: 100, type: "discipline" },
+      { id: "b6", name: "Hands Off", desc: "Hold to TP without touching SL — 5 times", xp: 125, type: "discipline" },
+    ],
+  },
+  {
+    id: 3,
+    name: "Funded Warrior",
+    subtitle: "Consistent Payouts",
+    icon: "🛡️",
+    tier: "GOLD",
+    accent: "#4a8fe7",
+    accentLight: "#d0e4fd",
+    bg: "linear-gradient(135deg, #e6f0fd 0%, #c8ddfa 100%)",
+    cardBg: "#f0f6fd",
+    xpRequired: 1150,
+    description: "Multiple accounts running. The payout machine is humming.",
+    achievements: [
+      { id: "c1", name: "Multi-Account", desc: "3+ funded accounts running", xp: 150, type: "milestone" },
+      { id: "c2", name: "Payout Streak", desc: "3 consecutive payout cycles", xp: 200, type: "payout" },
+      { id: "c3", name: "$1K Month", desc: "Monthly payouts exceed $1,000", xp: 150, type: "payout", amount: "$1K/mo" },
+      { id: "c4", name: "$5K Total", desc: "Lifetime payouts reach $5,000", xp: 200, type: "payout", amount: "$5K" },
+      { id: "c5", name: "Five Alive", desc: "5+ funded accounts simultaneously", xp: 175, type: "milestone" },
+      { id: "c6", name: "$5K Month", desc: "Monthly payouts exceed $5,000", xp: 250, type: "payout", amount: "$5K/mo" },
+    ],
+  },
+  {
+    id: 4,
+    name: "The Architect",
+    subtitle: "Personal Capital Online",
+    icon: "🏗️",
+    tier: "PLATINUM",
+    accent: "#9b6fe0",
+    accentLight: "#ead8fd",
+    bg: "linear-gradient(135deg, #f3ecfd 0%, #e2d4f8 100%)",
+    cardBg: "#f8f4fd",
+    xpRequired: 2275,
+    description: "Payouts fuel personal accounts. Dual-engine activated.",
+    achievements: [
+      { id: "d1", name: "Seed Capital", desc: "Fund personal account from payouts ($2,500+)", xp: 200, type: "payout", amount: "$2.5K seed" },
+      { id: "d2", name: "$10K Month", desc: "Combined income hits $10K/month", xp: 300, type: "payout", amount: "$10K/mo" },
+      { id: "d3", name: "Personal Edge", desc: "Personal account profitable 3 months straight", xp: 250, type: "milestone" },
+      { id: "d4", name: "$25K Total", desc: "Lifetime trading income reaches $25K", xp: 250, type: "payout", amount: "$25K" },
+      { id: "d5", name: "$20K Month", desc: "Combined monthly income hits $20K", xp: 300, type: "payout", amount: "$20K/mo" },
+    ],
+  },
+  {
+    id: 5,
+    name: "The Master",
+    subtitle: "Full Independence",
+    icon: "👑",
+    tier: "DIAMOND",
+    accent: "#e05a6d",
+    accentLight: "#fdd8dd",
+    bg: "linear-gradient(135deg, #fde8ec 0%, #f8cdd4 100%)",
+    cardBg: "#fdf2f4",
+    xpRequired: 3575,
+    description: "Personal capital is primary. You trade for yourself. Freedom unlocked.",
+    achievements: [
+      { id: "e1", name: "Six Figures", desc: "Personal account reaches $100K+", xp: 400, type: "milestone", amount: "$100K" },
+      { id: "e2", name: "$25K Month", desc: "Monthly income exceeds $25,000", xp: 350, type: "payout", amount: "$25K/mo" },
+      { id: "e3", name: "The Model Works", desc: "12 consecutive profitable months", xp: 400, type: "milestone" },
+      { id: "e4", name: "Freedom", desc: "Trading fully replaces all other income", xp: 500, type: "milestone" },
+    ],
+  },
+];
+
+const ALL_ACH = LEVELS.flatMap((l) => l.achievements.map((a) => ({ ...a, levelId: l.id, levelName: l.name, levelAccent: l.accent })));
+const TOTAL_XP = ALL_ACH.reduce((s, a) => s + a.xp, 0);
+
+const TYPE_META = {
+  process: { icon: "📋", label: "Process", color: "#4a8fe7" },
+  discipline: { icon: "🎯", label: "Discipline", color: "#e8a838" },
+  milestone: { icon: "⭐", label: "Milestone", color: "#9b6fe0" },
+  payout: { icon: "💰", label: "Payout", color: "#56b886" },
+};
+
+// ─── COMPONENTS ──────────────────────────────────────────────────────────────
+
+function ProgressRing({ pct, size = 52, stroke = 5, color = "#4a8fe7", children }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8ecf2" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1)" }}
+        />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function XPBar({ current, max, color = "#4a8fe7", height = 10 }) {
+  const pct = max > 0 ? Math.min((current / max) * 100, 100) : 0;
+  return (
+    <div style={{ background: "#e8ecf2", borderRadius: 20, height, overflow: "hidden", position: "relative" }}>
+      <div
+        style={{
+          width: `${pct}%`,
+          height: "100%",
+          background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+          borderRadius: 20,
+          transition: "width 0.8s cubic-bezier(.4,0,.2,1)",
+          position: "relative",
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "45%",
+            background: "rgba(255,255,255,0.35)",
+            borderRadius: "20px 20px 0 0",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Card({ children, style = {}, onClick, hoverable = false }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: "#fff",
+        borderRadius: 16,
+        border: "1px solid #e8ecf2",
+        boxShadow: hovered && hoverable
+          ? "0 8px 30px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)"
+          : "0 2px 12px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02)",
+        transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
+        transform: hovered && hoverable ? "translateY(-2px)" : "none",
+        cursor: onClick ? "pointer" : "default",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Chip({ label, color, icon }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontSize: 10,
+        fontWeight: 700,
+        color: color,
+        background: `${color}15`,
+        border: `1px solid ${color}30`,
+        padding: "3px 10px",
+        borderRadius: 20,
+        letterSpacing: 0.5,
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      {icon && <span style={{ fontSize: 11 }}>{icon}</span>}
+      {label}
+    </span>
+  );
+}
+
+function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index }) {
+  const done = level.achievements.filter((a) => completedIds.has(a.id)).length;
+  const total = level.achievements.length;
+  const allDone = done === total;
+  const pct = Math.round((done / total) * 100);
+
+  return (
+    <div
+      onClick={isActive ? onClick : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 20,
+        padding: "18px 20px",
+        borderRadius: 16,
+        background: isCurrent ? level.bg : isActive ? "#fff" : "#f8f9fb",
+        border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}66` : "2px solid transparent",
+        cursor: isActive ? "pointer" : "default",
+        opacity: isActive ? 1 : 0.45,
+        transition: "all 0.3s",
+        position: "relative",
+        animation: `fadeSlideIn 0.4s ease ${index * 0.08}s both`,
+      }}
+    >
+      <ProgressRing pct={pct} size={56} stroke={5} color={level.accent}>
+        <span style={{ fontSize: 24 }}>{allDone ? "⭐" : level.icon}</span>
+      </ProgressRing>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+          <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 13, color: isActive ? "#1a1a2e" : "#999", fontWeight: 700 }}>
+            {level.name}
+          </span>
+          <Chip label={level.tier} color={level.accent} />
+        </div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#888", marginBottom: 8 }}>
+          {level.subtitle}
+        </div>
+        <XPBar current={done} max={total} color={level.accent} height={8} />
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#aaa", marginTop: 5, textAlign: "right" }}>
+          {done}/{total} quests · {pct}%
+        </div>
+      </div>
+
+      {isActive && (
+        <div style={{ fontSize: 18, color: "#ccc", flexShrink: 0 }}>›</div>
+      )}
+    </div>
+  );
+}
+
+function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
+  const meta = TYPE_META[ach.type];
+  return (
+    <div
+      onClick={onToggle}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: "14px 16px",
+        borderRadius: 14,
+        background: completed ? `${meta.color}08` : "#fafbfc",
+        border: `1.5px solid ${completed ? `${meta.color}35` : "#eef0f4"}`,
+        cursor: "pointer",
+        transition: "all 0.25s",
+        animation: `fadeSlideIn 0.35s ease ${delay}s both`,
+      }}
+    >
+      {/* Check circle */}
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          border: `2px solid ${completed ? meta.color : "#d0d5dd"}`,
+          background: completed ? meta.color : "transparent",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          transition: "all 0.25s",
+        }}
+      >
+        {completed && <span style={{ color: "#fff", fontSize: 13, lineHeight: 1 }}>✓</span>}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+          <span
+            style={{
+              fontFamily: "'Silkscreen', cursive",
+              fontSize: 11,
+              color: completed ? meta.color : "#2a2a3e",
+              fontWeight: 700,
+            }}
+          >
+            {ach.name}
+          </span>
+          <Chip label={meta.label} color={meta.color} icon={meta.icon} />
+          {ach.amount && <Chip label={ach.amount} color="#e8a838" icon="💰" />}
+        </div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#888", lineHeight: 1.4 }}>
+          {ach.desc}
+        </div>
+      </div>
+
+      <div
+        style={{
+          fontFamily: "'Silkscreen', cursive",
+          fontSize: 11,
+          color: "#e8a838",
+          flexShrink: 0,
+          background: "#fdf5e6",
+          padding: "4px 10px",
+          borderRadius: 10,
+          whiteSpace: "nowrap",
+        }}
+      >
+        +{ach.xp}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ────────────────────────────────────────────────────────────────
+
+export default function TraderRoadmapXP() {
+  const [completed, setCompleted] = useState(new Set());
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [view, setView] = useState("map");
+  const [showIntro, setShowIntro] = useState(true);
+  const [confirm, setConfirm] = useState(null);
+  const [introFade, setIntroFade] = useState(false);
+
+  const currentXP = ALL_ACH.filter((a) => completed.has(a.id)).reduce((s, a) => s + a.xp, 0);
+  const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
+  const nextLevel = LEVELS.find((l) => l.xpRequired > currentXP);
+  const selectedData = LEVELS.find((l) => l.id === selectedLevel);
+
+  const handleToggle = (id) => setConfirm(id);
+  const confirmToggle = () => {
+    if (!confirm) return;
+    setCompleted((prev) => {
+      const n = new Set(prev);
+      n.has(confirm) ? n.delete(confirm) : n.add(confirm);
+      return n;
+    });
+    setConfirm(null);
+  };
+
+  const dismissIntro = () => {
+    setIntroFade(true);
+    setTimeout(() => setShowIntro(false), 500);
+  };
+
+  const globalStyles = `
+    @import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes floatBounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+    @keyframes introGlow { 0%,100% { box-shadow: 0 0 30px rgba(232,168,56,0.15); } 50% { box-shadow: 0 0 50px rgba(232,168,56,0.3); } }
+    @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
+    button { font-family: inherit; }
+  `;
+
+  // ── INTRO SCREEN ───
+  if (showIntro) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          opacity: introFade ? 0 : 1,
+          transition: "opacity 0.5s ease",
+        }}
+      >
+        <style>{globalStyles}</style>
+        <div style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
+          <div style={{ fontSize: 64, marginBottom: 24, animation: "floatBounce 3s ease-in-out infinite" }}>⚔️</div>
+          <h1
+            style={{
+              fontFamily: "'Silkscreen', cursive",
+              fontSize: 22,
+              color: "#1a1a2e",
+              marginBottom: 10,
+              letterSpacing: 1,
+            }}
+          >
+            TRADER ROADMAP XP
+          </h1>
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 15,
+              color: "#777",
+              lineHeight: 1.7,
+              marginBottom: 8,
+            }}
+          >
+            From breakeven grinder to independent trader.
+          </p>
+          <p
+            style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: 13,
+              color: "#aaa",
+              lineHeight: 1.6,
+              marginBottom: 36,
+            }}
+          >
+            Complete quests. Earn XP. Level up through 5 tiers.
+            <br />
+            The model works — now prove it.
+          </p>
+
+          <button
+            onClick={dismissIntro}
+            style={{
+              fontFamily: "'Silkscreen', cursive",
+              fontSize: 13,
+              color: "#fff",
+              background: "linear-gradient(135deg, #e8a838, #e0823a)",
+              border: "none",
+              padding: "14px 42px",
+              borderRadius: 14,
+              cursor: "pointer",
+              boxShadow: "0 4px 20px rgba(232,168,56,0.35)",
+              animation: "introGlow 2.5s ease-in-out infinite",
+              transition: "transform 0.2s",
+            }}
+          >
+            ▶ START QUEST
+          </button>
+
+          <div style={{ marginTop: 40, display: "flex", justifyContent: "center", gap: 16 }}>
+            {LEVELS.map((l) => (
+              <div key={l.id} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 22, marginBottom: 4 }}>{l.icon}</div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 8, color: "#bbb", letterSpacing: 1, fontWeight: 700 }}>
+                  {l.tier}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MAIN UI ───
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(180deg, #f8f9fc 0%, #f0f2f8 100%)",
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      <style>{globalStyles}</style>
+
+      {/* ── Confirm Modal ── */}
+      {confirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.3)",
+            backdropFilter: "blur(4px)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            animation: "fadeSlideIn 0.2s ease",
+          }}
+          onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
+        >
+          <Card style={{ maxWidth: 340, padding: 28, textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 14 }}>
+              {completed.has(confirm) ? "🔄" : "🏆"}
+            </div>
+            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 6 }}>
+              {completed.has(confirm) ? "Undo Quest?" : "Quest Complete!"}
+            </div>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 4 }}>
+              {ALL_ACH.find((a) => a.id === confirm)?.name}
+            </div>
+            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 14, color: "#e8a838", marginBottom: 24 }}>
+              {completed.has(confirm) ? "−" : "+"}
+              {ALL_ACH.find((a) => a.id === confirm)?.xp} XP
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button
+                onClick={() => setConfirm(null)}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: "10px 22px",
+                  background: "#f0f2f5",
+                  border: "1px solid #e0e3e8",
+                  color: "#666",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmToggle}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "10px 22px",
+                  background: completed.has(confirm) ? "#e05a6d" : "#56b886",
+                  border: "none",
+                  color: "#fff",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  boxShadow: `0 4px 14px ${completed.has(confirm) ? "rgba(224,90,109,0.3)" : "rgba(86,184,134,0.3)"}`,
+                }}
+              >
+                {completed.has(confirm) ? "Undo" : "Confirm ✓"}
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Top Bar ── */}
+      <div style={{ background: "#fff", borderBottom: "1px solid #eef0f4", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 22 }}>{currentLevel.icon}</span>
+              <div>
+                <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e" }}>
+                  {currentLevel.name}
+                </span>
+                <Chip label={currentLevel.tier} color={currentLevel.accent} />
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 13, color: "#e8a838" }}>
+                {currentXP.toLocaleString()} XP
+              </div>
+              <div style={{ fontSize: 10, color: "#bbb" }}>
+                / {TOTAL_XP.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <XPBar
+            current={nextLevel ? currentXP - currentLevel.xpRequired : 1}
+            max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1}
+            color={currentLevel.accent}
+            height={8}
+          />
+          {nextLevel && (
+            <div style={{ fontSize: 10, color: "#bbb", textAlign: "right", marginTop: 4 }}>
+              {(nextLevel.xpRequired - currentXP).toLocaleString()} XP to {nextLevel.name}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Nav Tabs ── */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "#fff", borderBottom: "1px solid #eef0f4" }}>
+        {[
+          { key: "map", label: "🗺️ Roadmap", reset: true },
+          { key: "stats", label: "📊 Stats", reset: true },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
+            style={{
+              fontSize: 12,
+              fontWeight: view === tab.key ? 700 : 500,
+              padding: "8px 20px",
+              background: view === tab.key ? `${currentLevel.accent}12` : "transparent",
+              border: view === tab.key ? `1.5px solid ${currentLevel.accent}40` : "1.5px solid transparent",
+              color: view === tab.key ? currentLevel.accent : "#999",
+              borderRadius: 10,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Content ── */}
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 60px" }}>
+
+        {/* MAP VIEW */}
+        {view === "map" && !selectedLevel && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {LEVELS.map((level, i) => {
+              const isActive = currentXP >= level.xpRequired || i === 0;
+              const isCurrent = level.id === currentLevel.id;
+              return (
+                <LevelNode
+                  key={level.id}
+                  level={level}
+                  completedIds={completed}
+                  isActive={isActive}
+                  isCurrent={isCurrent}
+                  onClick={() => { setSelectedLevel(level.id); setView("level"); }}
+                  index={i}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* LEVEL DETAIL VIEW */}
+        {view === "level" && selectedData && (
+          <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+            <button
+              onClick={() => { setView("map"); setSelectedLevel(null); }}
+              style={{
+                fontSize: 12,
+                color: "#999",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                marginBottom: 16,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontWeight: 600,
+              }}
+            >
+              ← Back to Roadmap
+            </button>
+
+            <Card style={{ padding: 24, marginBottom: 20, background: selectedData.bg, border: `1.5px solid ${selectedData.accent}35` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
+                <span style={{ fontSize: 38 }}>{selectedData.icon}</span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 15, color: "#1a1a2e" }}>
+                      {selectedData.name}
+                    </span>
+                    <Chip label={selectedData.tier} color={selectedData.accent} />
+                  </div>
+                  <div style={{ fontSize: 13, color: "#888" }}>{selectedData.subtitle}</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 13, color: "#666", lineHeight: 1.6, marginBottom: 14 }}>
+                {selectedData.description}
+              </div>
+              <XPBar
+                current={selectedData.achievements.filter((a) => completed.has(a.id)).length}
+                max={selectedData.achievements.length}
+                color={selectedData.accent}
+              />
+              <div style={{ fontSize: 11, color: "#aaa", textAlign: "right", marginTop: 6 }}>
+                {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} complete
+              </div>
+            </Card>
+
+            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 14 }}>
+              Quests
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {selectedData.achievements.map((a, i) => (
+                <AchievementRow
+                  key={a.id}
+                  ach={a}
+                  completed={completed.has(a.id)}
+                  onToggle={() => handleToggle(a.id)}
+                  delay={i * 0.05}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STATS VIEW */}
+        {view === "stats" && (
+          <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+            {/* Stats Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+              {[
+                { label: "Total XP", value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`, color: "#e8a838", icon: "⚡" },
+                { label: "Level", value: `${currentLevel.id} / 5`, sub: currentLevel.name, color: currentLevel.accent, icon: currentLevel.icon },
+                { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "#56b886", icon: "✅" },
+                { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "#e05a6d", icon: nextLevel?.icon || "👑" },
+              ].map((s, i) => (
+                <Card key={i} style={{ padding: 18, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <span style={{ fontSize: 16 }}>{s.icon}</span>
+                    <span style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>{s.label}</span>
+                  </div>
+                  <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 16, color: s.color, marginBottom: 2 }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#bbb" }}>{s.sub}</div>
+                </Card>
+              ))}
+            </div>
+
+            {/* By Type */}
+            <Card style={{ padding: 22, marginBottom: 16 }}>
+              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 16 }}>
+                Quest Types
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {Object.entries(TYPE_META).map(([type, meta]) => {
+                  const typeAchs = ALL_ACH.filter((a) => a.type === type);
+                  const typeDone = typeAchs.filter((a) => completed.has(a.id)).length;
+                  return (
+                    <div key={type}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>{meta.label}</span>
+                        </div>
+                        <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{typeDone}/{typeAchs.length}</span>
+                      </div>
+                      <XPBar current={typeDone} max={typeAchs.length} color={meta.color} height={7} />
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            {/* Payout Milestones */}
+            <Card style={{ padding: 22 }}>
+              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 16 }}>
+                💰 Payout Milestones
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {ALL_ACH.filter((a) => a.type === "payout").map((a) => (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      background: completed.has(a.id) ? "#f0faf5" : "#fafbfc",
+                      border: `1px solid ${completed.has(a.id) ? "#56b88640" : "#eef0f4"}`,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 16 }}>{completed.has(a.id) ? "✅" : "⬜"}</span>
+                      <div>
+                        <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 10, color: completed.has(a.id) ? "#56b886" : "#555" }}>
+                          {a.name}
+                        </div>
+                        {a.amount && (
+                          <div style={{ fontSize: 10, color: "#e8a838", fontWeight: 700, marginTop: 2 }}>{a.amount}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#bbb" }}>{a.levelName}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
+        <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 8, color: "#ccc", letterSpacing: 2 }}>
+          TRADER ROADMAP XP · THE FRACTAL MODEL
+        </span>
+      </div>
+    </div>
+  );
+}
