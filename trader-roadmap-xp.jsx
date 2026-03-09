@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "./src/supabase.js";
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
@@ -360,35 +361,74 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 export default function TraderRoadmapXP() {
-  // completed is now a Map: id -> { note, link, completedAt }
-  const [completed, setCompleted] = useState(() => {
-    try {
-      const saved = localStorage.getItem("trxp-completed");
-      if (!saved) return new Map();
-      const parsed = JSON.parse(saved);
-      // Migration: if old format was an array of strings, convert
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") {
-        return new Map(parsed.map((id) => [id, { note: "(migrated)", link: "", completedAt: new Date().toISOString() }]));
-      }
-      return new Map(parsed);
-    } catch { return new Map(); }
-  });
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
+
+  // completed is a Map: quest_id -> { note, link, completedAt }
+  const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
-  const [showIntro, setShowIntro] = useState(() => {
-    try { return !localStorage.getItem("trxp-intro-seen"); }
-    catch { return true; }
-  });
-  const [confirm, setConfirm] = useState(null); // quest id being submitted or undone
+  const [showIntro, setShowIntro] = useState(true);
+  const [confirm, setConfirm] = useState(null);
   const [proofNote, setProofNote] = useState("");
   const [proofLink, setProofLink] = useState("");
-  const [viewingProof, setViewingProof] = useState(null); // quest id whose proof we're viewing
+  const [viewingProof, setViewingProof] = useState(null);
   const [introFade, setIntroFade] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  // Auth listener
   useEffect(() => {
-    try { localStorage.setItem("trxp-completed", JSON.stringify([...completed.entries()])); }
-    catch {}
-  }, [completed]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load completions from Supabase when user logs in
+  const loadCompletions = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("quest_completions")
+      .select("quest_id, note, link, completed_at")
+      .eq("user_id", user.id);
+    if (!error && data) {
+      const map = new Map();
+      data.forEach((row) => {
+        map.set(row.quest_id, {
+          note: row.note,
+          link: row.link || "",
+          completedAt: row.completed_at,
+        });
+      });
+      setCompleted(map);
+      if (data.length > 0) setShowIntro(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadCompletions(); }, [loadCompletions]);
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    const { error } = authMode === "signup"
+      ? await supabase.auth.signUp({ email: authEmail, password: authPassword })
+      : await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setCompleted(new Map());
+    setShowIntro(true);
+  };
 
   const currentXP = ALL_ACH.filter((a) => completed.has(a.id)).reduce((s, a) => s + a.xp, 0);
   const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
@@ -397,45 +437,60 @@ export default function TraderRoadmapXP() {
 
   const handleToggle = (id) => {
     if (completed.has(id)) {
-      // Already completed — view proof instead
       setViewingProof(id);
     } else {
-      // New completion — open proof form
       setConfirm(id);
       setProofNote("");
       setProofLink("");
     }
   };
-  const confirmToggle = () => {
-    if (!confirm || !proofNote.trim()) return;
-    setCompleted((prev) => {
-      const n = new Map(prev);
-      n.set(confirm, {
-        note: proofNote.trim(),
-        link: proofLink.trim(),
-        completedAt: new Date().toISOString(),
-      });
-      return n;
+  const confirmToggle = async () => {
+    if (!confirm || !proofNote.trim() || !user) return;
+    setSaving(true);
+    const { error } = await supabase.from("quest_completions").insert({
+      user_id: user.id,
+      quest_id: confirm,
+      note: proofNote.trim(),
+      link: proofLink.trim(),
     });
+    if (!error) {
+      setCompleted((prev) => {
+        const n = new Map(prev);
+        n.set(confirm, {
+          note: proofNote.trim(),
+          link: proofLink.trim(),
+          completedAt: new Date().toISOString(),
+        });
+        return n;
+      });
+    }
+    setSaving(false);
     setConfirm(null);
     setProofNote("");
     setProofLink("");
   };
-  const undoQuest = (id) => {
-    setCompleted((prev) => {
-      const n = new Map(prev);
-      n.delete(id);
-      return n;
-    });
+  const undoQuest = async (id) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from("quest_completions")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("quest_id", id);
+    if (!error) {
+      setCompleted((prev) => {
+        const n = new Map(prev);
+        n.delete(id);
+        return n;
+      });
+    }
+    setSaving(false);
     setViewingProof(null);
   };
 
   const dismissIntro = () => {
     setIntroFade(true);
-    setTimeout(() => {
-      setShowIntro(false);
-      try { localStorage.setItem("trxp-intro-seen", "1"); } catch {}
-    }, 500);
+    setTimeout(() => setShowIntro(false), 500);
   };
 
   const globalStyles = `
@@ -452,6 +507,83 @@ export default function TraderRoadmapXP() {
     button, input, textarea { font-family: inherit; }
     textarea:focus, input:focus { border-color: #4a8fe7 !important; }
   `;
+
+  // ── LOADING ───
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <style>{globalStyles}</style>
+        <div style={{ textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ fontSize: 40, marginBottom: 16, animation: "floatBounce 2s ease-in-out infinite" }}>⚔️</div>
+          <div style={{ fontSize: 16, color: "#999" }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── AUTH SCREEN ───
+  if (!user) {
+    return (
+      <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <style>{globalStyles}</style>
+        <div style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⚔️</div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 6 }}>Trader Roadmap XP</h1>
+            <p style={{ fontSize: 15, color: "#888" }}>{authMode === "signup" ? "Create your account" : "Sign in to continue"}</p>
+          </div>
+          <Card style={{ padding: 28 }}>
+            <form onSubmit={handleAuth}>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Email</label>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  required
+                  style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+                />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Password</label>
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+                />
+              </div>
+              {authError && (
+                <div style={{ fontSize: 14, color: "#e05a6d", marginBottom: 14, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>
+                  {authError}
+                </div>
+              )}
+              <button
+                type="submit"
+                style={{
+                  width: "100%", fontSize: 16, fontWeight: 700, padding: "12px 20px",
+                  background: "linear-gradient(135deg, #e8a838, #e0823a)", border: "none", color: "#fff",
+                  borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(232,168,56,0.3)",
+                }}
+              >
+                {authMode === "signup" ? "Create Account" : "Sign In"}
+              </button>
+            </form>
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button
+                onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
+                style={{ fontSize: 14, color: "#4a8fe7", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
+              >
+                {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+              </button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   // ── INTRO SCREEN ───
   if (showIntro) {
@@ -651,22 +783,22 @@ export default function TraderRoadmapXP() {
                 </button>
                 <button
                   onClick={confirmToggle}
-                  disabled={!proofNote.trim()}
+                  disabled={!proofNote.trim() || saving}
                   style={{
                     flex: 1,
                     fontSize: 15,
                     fontWeight: 700,
                     padding: "12px 20px",
-                    background: proofNote.trim() ? "#56b886" : "#ccc",
+                    background: proofNote.trim() && !saving ? "#56b886" : "#ccc",
                     border: "none",
                     color: "#fff",
                     borderRadius: 10,
-                    cursor: proofNote.trim() ? "pointer" : "not-allowed",
-                    boxShadow: proofNote.trim() ? "0 4px 14px rgba(86,184,134,0.3)" : "none",
+                    cursor: proofNote.trim() && !saving ? "pointer" : "not-allowed",
+                    boxShadow: proofNote.trim() && !saving ? "0 4px 14px rgba(86,184,134,0.3)" : "none",
                     transition: "all 0.2s",
                   }}
                 >
-                  Complete Quest
+                  {saving ? "Saving..." : "Complete Quest"}
                 </button>
               </div>
             </Card>
@@ -783,13 +915,25 @@ export default function TraderRoadmapXP() {
                 <Chip label={currentLevel.tier} color={currentLevel.accent} />
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: "#e8a838" }}>
-                {currentXP.toLocaleString()} XP
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: "#e8a838" }}>
+                  {currentXP.toLocaleString()} XP
+                </div>
+                <div style={{ fontSize: 19, color: "#bbb" }}>
+                  / {TOTAL_XP.toLocaleString()}
+                </div>
               </div>
-              <div style={{ fontSize: 19, color: "#bbb" }}>
-                / {TOTAL_XP.toLocaleString()}
-              </div>
+              <button
+                onClick={handleSignOut}
+                title="Sign out"
+                style={{
+                  fontSize: 13, color: "#bbb", background: "#f5f6f8", border: "1px solid #e8ecf2",
+                  borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 500,
+                }}
+              >
+                Sign out
+              </button>
             </div>
           </div>
           <XPBar
