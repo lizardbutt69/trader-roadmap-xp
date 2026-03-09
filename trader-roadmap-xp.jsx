@@ -353,12 +353,25 @@ function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 export default function TraderRoadmapXP() {
-  const [completed, setCompleted] = useState(new Set());
+  const [completed, setCompleted] = useState(() => {
+    try {
+      const saved = localStorage.getItem("trxp-completed");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return !localStorage.getItem("trxp-intro-seen"); }
+    catch { return true; }
+  });
   const [confirm, setConfirm] = useState(null);
   const [introFade, setIntroFade] = useState(false);
+
+  useEffect(() => {
+    try { localStorage.setItem("trxp-completed", JSON.stringify([...completed])); }
+    catch {}
+  }, [completed]);
 
   const currentXP = ALL_ACH.filter((a) => completed.has(a.id)).reduce((s, a) => s + a.xp, 0);
   const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
@@ -378,7 +391,10 @@ export default function TraderRoadmapXP() {
 
   const dismissIntro = () => {
     setIntroFade(true);
-    setTimeout(() => setShowIntro(false), 500);
+    setTimeout(() => {
+      setShowIntro(false);
+      try { localStorage.setItem("trxp-intro-seen", "1"); } catch {}
+    }, 500);
   };
 
   const globalStyles = `
