@@ -373,12 +373,17 @@ export default function TraderRoadmapXP() {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
   const [showIntro, setShowIntro] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [proofNote, setProofNote] = useState("");
   const [proofLink, setProofLink] = useState("");
   const [viewingProof, setViewingProof] = useState(null);
   const [introFade, setIntroFade] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profile, setProfile] = useState({ display_name: "", avatar_url: "" });
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [editName, setEditName] = useState("");
+  const avatarInputRef = useRef(null);
 
   // Auth listener
   useEffect(() => {
@@ -415,6 +420,31 @@ export default function TraderRoadmapXP() {
 
   useEffect(() => { loadCompletions(); }, [loadCompletions]);
 
+  // Load profile
+  const loadProfile = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single();
+    if (data) setProfile({ display_name: data.display_name || "", avatar_url: data.avatar_url || "" });
+  }, [user]);
+
+  useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Welcome back on login (not signup)
+  const prevUser = useRef(null);
+  useEffect(() => {
+    if (user && prevUser.current === null && !authLoading) {
+      // User just logged in — show welcome if they have completions
+      const timer = setTimeout(() => {
+        if (completed.size > 0) {
+          setShowWelcome(true);
+          setTimeout(() => setShowWelcome(false), 3000);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+    prevUser.current = user;
+  }, [user, completed.size, authLoading]);
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError("");
@@ -427,8 +457,31 @@ export default function TraderRoadmapXP() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setCompleted(new Map());
+    setProfile({ display_name: "", avatar_url: "" });
     setShowIntro(true);
   };
+
+  const saveProfile = async () => {
+    if (!user) return;
+    await supabase.from("profiles").upsert({ id: user.id, display_name: editName.trim(), avatar_url: profile.avatar_url, updated_at: new Date().toISOString() });
+    setProfile((p) => ({ ...p, display_name: editName.trim() }));
+    setShowProfileEditor(false);
+  };
+
+  const uploadAvatar = async (file) => {
+    if (!user || !file) return;
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/avatar.${ext}`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+    if (!error) {
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = publicUrl + "?t=" + Date.now();
+      await supabase.from("profiles").upsert({ id: user.id, avatar_url: url, updated_at: new Date().toISOString() });
+      setProfile((p) => ({ ...p, avatar_url: url }));
+    }
+  };
+
+  const displayName = profile.display_name || user?.email?.split("@")[0] || "Trader";
 
   const currentXP = ALL_ACH.filter((a) => completed.has(a.id)).reduce((s, a) => s + a.xp, 0);
   const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
@@ -902,17 +955,99 @@ export default function TraderRoadmapXP() {
         );
       })()}
 
+      {/* ── Welcome Back Banner ── */}
+      {showWelcome && (
+        <div style={{
+          position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 300,
+          background: "linear-gradient(135deg, #e8a838, #e0823a)", color: "#fff",
+          padding: "14px 28px", borderRadius: 14, fontSize: 16, fontWeight: 600,
+          boxShadow: "0 8px 30px rgba(232,168,56,0.4)", animation: "fadeSlideIn 0.4s ease",
+          display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <span style={{ fontSize: 24 }}>👋</span>
+          Welcome back, {displayName}!
+        </div>
+      )}
+
+      {/* ── Profile Editor Modal ── */}
+      {showProfileEditor && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+          onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
+        >
+          <Card style={{ maxWidth: 380, padding: 28, width: "100%" }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Edit Profile</div>
+              <div
+                onClick={() => avatarInputRef.current?.click()}
+                style={{
+                  width: 80, height: 80, borderRadius: "50%", margin: "0 auto 12px",
+                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : "linear-gradient(135deg, #e8a838, #e0823a)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", border: "3px solid #e8ecf2", position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                {!profile.avatar_url && <span style={{ fontSize: 32, color: "#fff" }}>{displayName[0]?.toUpperCase()}</span>}
+                <div style={{
+                  position: "absolute", bottom: 0, left: 0, right: 0,
+                  background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, padding: "4px 0",
+                  textAlign: "center", fontWeight: 600,
+                }}>
+                  Upload
+                </div>
+              </div>
+              <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => { if (e.target.files?.[0]) uploadAvatar(e.target.files[0]); }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Display Name</label>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Your trader name..."
+                style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setShowProfileEditor(false)}
+                style={{ flex: 1, fontSize: 15, fontWeight: 600, padding: "12px", background: "#f0f2f5", border: "1px solid #e0e3e8", color: "#666", borderRadius: 10, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={saveProfile}
+                style={{ flex: 1, fontSize: 15, fontWeight: 700, padding: "12px", background: "#56b886", border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(86,184,134,0.3)" }}>
+                Save
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* ── Top Bar ── */}
       <div style={{ background: "#fff", borderBottom: "1px solid #eef0f4", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 26 }}>{currentLevel.icon}</span>
+              <div
+                onClick={() => { setEditName(profile.display_name); setShowProfileEditor(true); }}
+                style={{
+                  width: 38, height: 38, borderRadius: "50%", cursor: "pointer",
+                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: `2px solid ${currentLevel.accent}40`, flexShrink: 0,
+                }}
+              >
+                {!profile.avatar_url && <span style={{ fontSize: 16, color: "#fff", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+              </div>
               <div>
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e" }}>
-                  {currentLevel.name}
-                </span>
-                <Chip label={currentLevel.tier} color={currentLevel.accent} />
+                <div style={{ fontSize: 14, color: "#888" }}>{displayName}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "#1a1a2e" }}>
+                    {currentLevel.name}
+                  </span>
+                  <Chip label={currentLevel.tier} color={currentLevel.accent} />
+                </div>
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -920,7 +1055,7 @@ export default function TraderRoadmapXP() {
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: "#e8a838" }}>
                   {currentXP.toLocaleString()} XP
                 </div>
-                <div style={{ fontSize: 19, color: "#bbb" }}>
+                <div style={{ fontSize: 14, color: "#bbb" }}>
                   / {TOTAL_XP.toLocaleString()}
                 </div>
               </div>
@@ -979,22 +1114,89 @@ export default function TraderRoadmapXP() {
       {/* ── Content ── */}
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 60px" }}>
 
-        {/* MAP VIEW */}
+        {/* MAP VIEW — Trail Style */}
         {view === "map" && !selectedLevel && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {LEVELS.map((level, i) => {
               const isActive = currentXP >= level.xpRequired || i === 0;
               const isCurrent = level.id === currentLevel.id;
+              const done = level.achievements.filter((a) => completed.has(a.id)).length;
+              const total = level.achievements.length;
+              const allDone = done === total;
+              const pct = Math.round((done / total) * 100);
+              const isPast = currentXP >= level.xpRequired && !isCurrent;
+              const isLast = i === LEVELS.length - 1;
+
               return (
-                <LevelNode
-                  key={level.id}
-                  level={level}
-                  completedIds={completed}
-                  isActive={isActive}
-                  isCurrent={isCurrent}
-                  onClick={() => { setSelectedLevel(level.id); setView("level"); }}
-                  index={i}
-                />
+                <div key={level.id} style={{ animation: `fadeSlideIn 0.4s ease ${i * 0.1}s both` }}>
+                  {/* Node row: dot + card */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {/* Dot */}
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                      background: allDone ? level.accent : isCurrent ? "#fff" : isPast ? level.accent + "88" : "#e8ecf2",
+                      border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "#ddd"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: isCurrent ? `0 0 14px ${level.accent}50` : "none",
+                      transition: "all 0.3s",
+                    }}>
+                      {allDone && <span style={{ fontSize: 11, color: "#fff", lineHeight: 1 }}>✓</span>}
+                      {isCurrent && !allDone && <div style={{ width: 10, height: 10, borderRadius: "50%", background: level.accent, animation: "pulse 2s infinite" }} />}
+                    </div>
+
+                    {/* Card */}
+                    <div
+                      onClick={isActive ? () => { setSelectedLevel(level.id); setView("level"); } : undefined}
+                      style={{
+                        flex: 1,
+                        padding: "16px 18px",
+                        borderRadius: 14,
+                        background: isCurrent ? level.bg : isActive ? "#fff" : "#f8f9fb",
+                        border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}55` : "1.5px solid #eef0f4",
+                        cursor: isActive ? "pointer" : "default",
+                        opacity: isActive ? 1 : 0.55,
+                        transition: "all 0.3s",
+                        boxShadow: isCurrent ? `0 4px 20px ${level.accent}18` : "0 1px 4px rgba(0,0,0,0.03)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <ProgressRing pct={pct} size={48} stroke={4} color={level.accent}>
+                          <span style={{ fontSize: 20 }}>{allDone ? "⭐" : level.icon}</span>
+                        </ProgressRing>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 700, fontSize: 16, color: isActive ? "#1a1a2e" : "#999" }}>
+                              {level.name}
+                            </span>
+                            <Chip label={level.tier} color={level.accent} />
+                            {isCurrent && <Chip label="YOU ARE HERE" color={level.accent} />}
+                          </div>
+                          <div style={{ fontSize: 14, color: "#888", marginBottom: 6 }}>{level.subtitle}</div>
+                          <XPBar current={done} max={total} color={level.accent} height={6} />
+                          <div style={{ fontSize: 12, color: "#aaa", marginTop: 4, textAlign: "right" }}>
+                            {done}/{total} quests · {pct}%
+                          </div>
+                        </div>
+                        {isActive && <div style={{ fontSize: 18, color: "#ccc", flexShrink: 0 }}>›</div>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Connector line between nodes */}
+                  {!isLast && (
+                    <div style={{ display: "flex", alignItems: "stretch", gap: 16 }}>
+                      <div style={{ width: 24, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                        <div style={{
+                          width: 3, height: 20,
+                          background: isPast ? LEVELS[i + 1]?.accent || "#ddd" : isCurrent ? `linear-gradient(to bottom, ${level.accent}, #ddd)` : "#e8ecf2",
+                          borderRadius: 3,
+                          transition: "background 0.3s",
+                        }} />
+                      </div>
+                      <div style={{ flex: 1 }} />
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
