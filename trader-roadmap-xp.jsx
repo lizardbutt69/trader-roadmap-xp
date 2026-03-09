@@ -208,7 +208,7 @@ function Chip({ label, color, icon }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
-        fontSize: 10,
+        fontSize: 19,
         fontWeight: 700,
         color: color,
         background: `${color}15`,
@@ -219,7 +219,7 @@ function Chip({ label, color, icon }) {
         fontFamily: "'DM Sans', sans-serif",
       }}
     >
-      {icon && <span style={{ fontSize: 11 }}>{icon}</span>}
+      {icon && <span style={{ fontSize: 17 }}>{icon}</span>}
       {label}
     </span>
   );
@@ -255,16 +255,16 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-          <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 13, color: isActive ? "#1a1a2e" : "#999", fontWeight: 700 }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: isActive ? "#1a1a2e" : "#999" }}>
             {level.name}
           </span>
           <Chip label={level.tier} color={level.accent} />
         </div>
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#888", marginBottom: 8 }}>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#888", marginBottom: 8 }}>
           {level.subtitle}
         </div>
         <XPBar current={done} max={total} color={level.accent} height={8} />
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#aaa", marginTop: 5, textAlign: "right" }}>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 19, color: "#aaa", marginTop: 5, textAlign: "right" }}>
           {done}/{total} quests · {pct}%
         </div>
       </div>
@@ -276,7 +276,7 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
   );
 }
 
-function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
+function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
   const meta = TYPE_META[ach.type];
   return (
     <div
@@ -309,17 +309,16 @@ function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
           transition: "all 0.25s",
         }}
       >
-        {completed && <span style={{ color: "#fff", fontSize: 13, lineHeight: 1 }}>✓</span>}
+        {completed && <span style={{ color: "#fff", fontSize: 19, lineHeight: 1 }}>✓</span>}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
           <span
             style={{
-              fontFamily: "'Silkscreen', cursive",
-              fontSize: 11,
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+              fontSize: 17,
               color: completed ? meta.color : "#2a2a3e",
-              fontWeight: 700,
             }}
           >
             {ach.name}
@@ -327,24 +326,32 @@ function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
           <Chip label={meta.label} color={meta.color} icon={meta.icon} />
           {ach.amount && <Chip label={ach.amount} color="#e8a838" icon="💰" />}
         </div>
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#888", lineHeight: 1.4 }}>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#888", lineHeight: 1.4 }}>
           {ach.desc}
         </div>
+        {completed && proof && (
+          <div style={{ fontSize: 13, color: "#aaa", marginTop: 6, fontStyle: "italic" }}>
+            "{proof.note.length > 60 ? proof.note.slice(0, 60) + "..." : proof.note}"
+            {" · "}
+            <span style={{ color: "#4a8fe7", fontStyle: "normal" }}>view proof</span>
+          </div>
+        )}
       </div>
 
       <div
         style={{
-          fontFamily: "'Silkscreen', cursive",
-          fontSize: 11,
-          color: "#e8a838",
+          fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+          fontSize: 17,
+          color: completed ? meta.color : "#e8a838",
           flexShrink: 0,
-          background: "#fdf5e6",
+          background: completed ? `${meta.color}12` : "#fdf5e6",
           padding: "4px 10px",
           borderRadius: 10,
           whiteSpace: "nowrap",
         }}
       >
-        +{ach.xp}
+        {completed ? "✓ " : "+"}
+        {ach.xp}
       </div>
     </div>
   );
@@ -353,11 +360,18 @@ function AchievementRow({ ach, completed, onToggle, delay = 0 }) {
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 export default function TraderRoadmapXP() {
+  // completed is now a Map: id -> { note, link, completedAt }
   const [completed, setCompleted] = useState(() => {
     try {
       const saved = localStorage.getItem("trxp-completed");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
+      if (!saved) return new Map();
+      const parsed = JSON.parse(saved);
+      // Migration: if old format was an array of strings, convert
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") {
+        return new Map(parsed.map((id) => [id, { note: "(migrated)", link: "", completedAt: new Date().toISOString() }]));
+      }
+      return new Map(parsed);
+    } catch { return new Map(); }
   });
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
@@ -365,11 +379,14 @@ export default function TraderRoadmapXP() {
     try { return !localStorage.getItem("trxp-intro-seen"); }
     catch { return true; }
   });
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] = useState(null); // quest id being submitted or undone
+  const [proofNote, setProofNote] = useState("");
+  const [proofLink, setProofLink] = useState("");
+  const [viewingProof, setViewingProof] = useState(null); // quest id whose proof we're viewing
   const [introFade, setIntroFade] = useState(false);
 
   useEffect(() => {
-    try { localStorage.setItem("trxp-completed", JSON.stringify([...completed])); }
+    try { localStorage.setItem("trxp-completed", JSON.stringify([...completed.entries()])); }
     catch {}
   }, [completed]);
 
@@ -378,15 +395,39 @@ export default function TraderRoadmapXP() {
   const nextLevel = LEVELS.find((l) => l.xpRequired > currentXP);
   const selectedData = LEVELS.find((l) => l.id === selectedLevel);
 
-  const handleToggle = (id) => setConfirm(id);
+  const handleToggle = (id) => {
+    if (completed.has(id)) {
+      // Already completed — view proof instead
+      setViewingProof(id);
+    } else {
+      // New completion — open proof form
+      setConfirm(id);
+      setProofNote("");
+      setProofLink("");
+    }
+  };
   const confirmToggle = () => {
-    if (!confirm) return;
+    if (!confirm || !proofNote.trim()) return;
     setCompleted((prev) => {
-      const n = new Set(prev);
-      n.has(confirm) ? n.delete(confirm) : n.add(confirm);
+      const n = new Map(prev);
+      n.set(confirm, {
+        note: proofNote.trim(),
+        link: proofLink.trim(),
+        completedAt: new Date().toISOString(),
+      });
       return n;
     });
     setConfirm(null);
+    setProofNote("");
+    setProofLink("");
+  };
+  const undoQuest = (id) => {
+    setCompleted((prev) => {
+      const n = new Map(prev);
+      n.delete(id);
+      return n;
+    });
+    setViewingProof(null);
   };
 
   const dismissIntro = () => {
@@ -398,7 +439,7 @@ export default function TraderRoadmapXP() {
   };
 
   const globalStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
     @keyframes fadeSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     @keyframes floatBounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
@@ -408,7 +449,8 @@ export default function TraderRoadmapXP() {
     ::-webkit-scrollbar { width:6px; }
     ::-webkit-scrollbar-track { background:transparent; }
     ::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
-    button { font-family: inherit; }
+    button, input, textarea { font-family: inherit; }
+    textarea:focus, input:focus { border-color: #4a8fe7 !important; }
   `;
 
   // ── INTRO SCREEN ───
@@ -431,8 +473,8 @@ export default function TraderRoadmapXP() {
           <div style={{ fontSize: 64, marginBottom: 24, animation: "floatBounce 3s ease-in-out infinite" }}>⚔️</div>
           <h1
             style={{
-              fontFamily: "'Silkscreen', cursive",
-              fontSize: 22,
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+              fontSize: 26,
               color: "#1a1a2e",
               marginBottom: 10,
               letterSpacing: 1,
@@ -443,7 +485,7 @@ export default function TraderRoadmapXP() {
           <p
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: 15,
+              fontSize: 18,
               color: "#777",
               lineHeight: 1.7,
               marginBottom: 8,
@@ -454,7 +496,7 @@ export default function TraderRoadmapXP() {
           <p
             style={{
               fontFamily: "'DM Sans', sans-serif",
-              fontSize: 13,
+              fontSize: 19,
               color: "#aaa",
               lineHeight: 1.6,
               marginBottom: 36,
@@ -468,8 +510,8 @@ export default function TraderRoadmapXP() {
           <button
             onClick={dismissIntro}
             style={{
-              fontFamily: "'Silkscreen', cursive",
-              fontSize: 13,
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+              fontSize: 19,
               color: "#fff",
               background: "linear-gradient(135deg, #e8a838, #e0823a)",
               border: "none",
@@ -487,8 +529,8 @@ export default function TraderRoadmapXP() {
           <div style={{ marginTop: 40, display: "flex", justifyContent: "center", gap: 16 }}>
             {LEVELS.map((l) => (
               <div key={l.id} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 22, marginBottom: 4 }}>{l.icon}</div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 8, color: "#bbb", letterSpacing: 1, fontWeight: 700 }}>
+                <div style={{ fontSize: 26, marginBottom: 4 }}>{l.icon}</div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#bbb", letterSpacing: 1, fontWeight: 700 }}>
                   {l.tier}
                 </div>
               </div>
@@ -510,92 +552,242 @@ export default function TraderRoadmapXP() {
     >
       <style>{globalStyles}</style>
 
-      {/* ── Confirm Modal ── */}
-      {confirm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.3)",
-            backdropFilter: "blur(4px)",
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-            animation: "fadeSlideIn 0.2s ease",
-          }}
-          onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
-        >
-          <Card style={{ maxWidth: 340, padding: 28, textAlign: "center" }}>
-            <div style={{ fontSize: 40, marginBottom: 14 }}>
-              {completed.has(confirm) ? "🔄" : "🏆"}
-            </div>
-            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 6 }}>
-              {completed.has(confirm) ? "Undo Quest?" : "Quest Complete!"}
-            </div>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 4 }}>
-              {ALL_ACH.find((a) => a.id === confirm)?.name}
-            </div>
-            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 14, color: "#e8a838", marginBottom: 24 }}>
-              {completed.has(confirm) ? "−" : "+"}
-              {ALL_ACH.find((a) => a.id === confirm)?.xp} XP
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <button
-                onClick={() => setConfirm(null)}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: "10px 22px",
-                  background: "#f0f2f5",
-                  border: "1px solid #e0e3e8",
-                  color: "#666",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmToggle}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: "10px 22px",
-                  background: completed.has(confirm) ? "#e05a6d" : "#56b886",
-                  border: "none",
-                  color: "#fff",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  boxShadow: `0 4px 14px ${completed.has(confirm) ? "rgba(224,90,109,0.3)" : "rgba(86,184,134,0.3)"}`,
-                }}
-              >
-                {completed.has(confirm) ? "Undo" : "Confirm ✓"}
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
+      {/* ── Proof Submission Modal ── */}
+      {confirm && (() => {
+        const ach = ALL_ACH.find((a) => a.id === confirm);
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.3)",
+              backdropFilter: "blur(4px)",
+              zIndex: 200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              animation: "fadeSlideIn 0.2s ease",
+            }}
+            onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
+          >
+            <Card style={{ maxWidth: 420, padding: 28, width: "100%" }}>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 4 }}>
+                  Submit Proof
+                </div>
+                <div style={{ fontSize: 16, color: "#888" }}>
+                  {ach?.name}
+                </div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#e8a838", marginTop: 4 }}>
+                  +{ach?.xp} XP
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+                  What did you do? *
+                </label>
+                <textarea
+                  value={proofNote}
+                  onChange={(e) => setProofNote(e.target.value)}
+                  placeholder="Describe how you completed this quest..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    fontSize: 15,
+                    fontFamily: "'DM Sans', sans-serif",
+                    border: "1.5px solid #e0e3e8",
+                    borderRadius: 10,
+                    outline: "none",
+                    resize: "vertical",
+                    background: "#fafbfc",
+                    color: "#333",
+                    lineHeight: 1.5,
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+                  Link / Evidence (optional)
+                </label>
+                <input
+                  value={proofLink}
+                  onChange={(e) => setProofLink(e.target.value)}
+                  placeholder="URL to screenshot, journal, spreadsheet..."
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    fontSize: 15,
+                    fontFamily: "'DM Sans', sans-serif",
+                    border: "1.5px solid #e0e3e8",
+                    borderRadius: 10,
+                    outline: "none",
+                    background: "#fafbfc",
+                    color: "#333",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => setConfirm(null)}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    padding: "12px 20px",
+                    background: "#f0f2f5",
+                    border: "1px solid #e0e3e8",
+                    color: "#666",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmToggle}
+                  disabled={!proofNote.trim()}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    padding: "12px 20px",
+                    background: proofNote.trim() ? "#56b886" : "#ccc",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 10,
+                    cursor: proofNote.trim() ? "pointer" : "not-allowed",
+                    boxShadow: proofNote.trim() ? "0 4px 14px rgba(86,184,134,0.3)" : "none",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  Complete Quest
+                </button>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* ── Proof Viewer Modal ── */}
+      {viewingProof && (() => {
+        const ach = ALL_ACH.find((a) => a.id === viewingProof);
+        const proof = completed.get(viewingProof);
+        const meta = TYPE_META[ach?.type];
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.3)",
+              backdropFilter: "blur(4px)",
+              zIndex: 200,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+              animation: "fadeSlideIn 0.2s ease",
+            }}
+            onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
+          >
+            <Card style={{ maxWidth: 420, padding: 28, width: "100%" }}>
+              <div style={{ textAlign: "center", marginBottom: 16 }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: meta?.color || "#1a1a2e" }}>
+                  {ach?.name}
+                </div>
+                <div style={{ fontSize: 14, color: "#aaa", marginTop: 4 }}>
+                  Completed {proof?.completedAt ? new Date(proof.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                </div>
+              </div>
+
+              <div style={{ background: "#f8f9fb", borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  Proof
+                </div>
+                <div style={{ fontSize: 15, color: "#444", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                  {proof?.note || "(no note)"}
+                </div>
+              </div>
+
+              {proof?.link && (
+                <div style={{ background: "#f8f9fb", borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    Evidence Link
+                  </div>
+                  <a
+                    href={proof.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 15, color: "#4a8fe7", wordBreak: "break-all" }}
+                  >
+                    {proof.link}
+                  </a>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                <button
+                  onClick={() => undoQuest(viewingProof)}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: 600,
+                    padding: "12px 20px",
+                    background: "#fef2f2",
+                    border: "1px solid #e05a6d30",
+                    color: "#e05a6d",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  Undo Quest
+                </button>
+                <button
+                  onClick={() => setViewingProof(null)}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: 700,
+                    padding: "12px 20px",
+                    background: "#f0f2f5",
+                    border: "1px solid #e0e3e8",
+                    color: "#555",
+                    borderRadius: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* ── Top Bar ── */}
       <div style={{ background: "#fff", borderBottom: "1px solid #eef0f4", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 22 }}>{currentLevel.icon}</span>
+              <span style={{ fontSize: 26 }}>{currentLevel.icon}</span>
               <div>
-                <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e" }}>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e" }}>
                   {currentLevel.name}
                 </span>
                 <Chip label={currentLevel.tier} color={currentLevel.accent} />
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 13, color: "#e8a838" }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: "#e8a838" }}>
                 {currentXP.toLocaleString()} XP
               </div>
-              <div style={{ fontSize: 10, color: "#bbb" }}>
+              <div style={{ fontSize: 19, color: "#bbb" }}>
                 / {TOTAL_XP.toLocaleString()}
               </div>
             </div>
@@ -607,7 +799,7 @@ export default function TraderRoadmapXP() {
             height={8}
           />
           {nextLevel && (
-            <div style={{ fontSize: 10, color: "#bbb", textAlign: "right", marginTop: 4 }}>
+            <div style={{ fontSize: 19, color: "#bbb", textAlign: "right", marginTop: 4 }}>
               {(nextLevel.xpRequired - currentXP).toLocaleString()} XP to {nextLevel.name}
             </div>
           )}
@@ -624,7 +816,7 @@ export default function TraderRoadmapXP() {
             key={tab.key}
             onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
             style={{
-              fontSize: 12,
+              fontSize: 18,
               fontWeight: view === tab.key ? 700 : 500,
               padding: "8px 20px",
               background: view === tab.key ? `${currentLevel.accent}12` : "transparent",
@@ -641,7 +833,7 @@ export default function TraderRoadmapXP() {
       </div>
 
       {/* ── Content ── */}
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 60px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 60px" }}>
 
         {/* MAP VIEW */}
         {view === "map" && !selectedLevel && (
@@ -670,7 +862,7 @@ export default function TraderRoadmapXP() {
             <button
               onClick={() => { setView("map"); setSelectedLevel(null); }}
               style={{
-                fontSize: 12,
+                fontSize: 18,
                 color: "#999",
                 background: "transparent",
                 border: "none",
@@ -690,15 +882,15 @@ export default function TraderRoadmapXP() {
                 <span style={{ fontSize: 38 }}>{selectedData.icon}</span>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 15, color: "#1a1a2e" }}>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e" }}>
                       {selectedData.name}
                     </span>
                     <Chip label={selectedData.tier} color={selectedData.accent} />
                   </div>
-                  <div style={{ fontSize: 13, color: "#888" }}>{selectedData.subtitle}</div>
+                  <div style={{ fontSize: 19, color: "#888" }}>{selectedData.subtitle}</div>
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: "#666", lineHeight: 1.6, marginBottom: 14 }}>
+              <div style={{ fontSize: 19, color: "#666", lineHeight: 1.6, marginBottom: 14 }}>
                 {selectedData.description}
               </div>
               <XPBar
@@ -706,12 +898,12 @@ export default function TraderRoadmapXP() {
                 max={selectedData.achievements.length}
                 color={selectedData.accent}
               />
-              <div style={{ fontSize: 11, color: "#aaa", textAlign: "right", marginTop: 6 }}>
+              <div style={{ fontSize: 17, color: "#aaa", textAlign: "right", marginTop: 6 }}>
                 {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} complete
               </div>
             </Card>
 
-            <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 14 }}>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 14 }}>
               Quests
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -720,6 +912,7 @@ export default function TraderRoadmapXP() {
                   key={a.id}
                   ach={a}
                   completed={completed.has(a.id)}
+                  proof={completed.get(a.id)}
                   onToggle={() => handleToggle(a.id)}
                   delay={i * 0.05}
                 />
@@ -741,20 +934,20 @@ export default function TraderRoadmapXP() {
               ].map((s, i) => (
                 <Card key={i} style={{ padding: 18, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    <span style={{ fontSize: 16 }}>{s.icon}</span>
-                    <span style={{ fontSize: 11, color: "#999", fontWeight: 600 }}>{s.label}</span>
+                    <span style={{ fontSize: 19 }}>{s.icon}</span>
+                    <span style={{ fontSize: 17, color: "#999", fontWeight: 600 }}>{s.label}</span>
                   </div>
-                  <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 16, color: s.color, marginBottom: 2 }}>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: s.color, marginBottom: 2 }}>
                     {s.value}
                   </div>
-                  <div style={{ fontSize: 11, color: "#bbb" }}>{s.sub}</div>
+                  <div style={{ fontSize: 17, color: "#bbb" }}>{s.sub}</div>
                 </Card>
               ))}
             </div>
 
             {/* By Type */}
             <Card style={{ padding: 22, marginBottom: 16 }}>
-              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 16 }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 16 }}>
                 Quest Types
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -765,10 +958,10 @@ export default function TraderRoadmapXP() {
                     <div key={type}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 14 }}>{meta.icon}</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>{meta.label}</span>
+                          <span style={{ fontSize: 17 }}>{meta.icon}</span>
+                          <span style={{ fontSize: 18, fontWeight: 600, color: "#555" }}>{meta.label}</span>
                         </div>
-                        <span style={{ fontSize: 11, color: "#aaa", fontWeight: 600 }}>{typeDone}/{typeAchs.length}</span>
+                        <span style={{ fontSize: 17, color: "#aaa", fontWeight: 600 }}>{typeDone}/{typeAchs.length}</span>
                       </div>
                       <XPBar current={typeDone} max={typeAchs.length} color={meta.color} height={7} />
                     </div>
@@ -779,7 +972,7 @@ export default function TraderRoadmapXP() {
 
             {/* Payout Milestones */}
             <Card style={{ padding: 22 }}>
-              <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 12, color: "#1a1a2e", marginBottom: 16 }}>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 16 }}>
                 💰 Payout Milestones
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -797,17 +990,17 @@ export default function TraderRoadmapXP() {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 16 }}>{completed.has(a.id) ? "✅" : "⬜"}</span>
+                      <span style={{ fontSize: 19 }}>{completed.has(a.id) ? "✅" : "⬜"}</span>
                       <div>
-                        <div style={{ fontFamily: "'Silkscreen', cursive", fontSize: 10, color: completed.has(a.id) ? "#56b886" : "#555" }}>
+                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: completed.has(a.id) ? "#56b886" : "#555" }}>
                           {a.name}
                         </div>
                         {a.amount && (
-                          <div style={{ fontSize: 10, color: "#e8a838", fontWeight: 700, marginTop: 2 }}>{a.amount}</div>
+                          <div style={{ fontSize: 19, color: "#e8a838", fontWeight: 700, marginTop: 2 }}>{a.amount}</div>
                         )}
                       </div>
                     </div>
-                    <div style={{ fontSize: 10, color: "#bbb" }}>{a.levelName}</div>
+                    <div style={{ fontSize: 19, color: "#bbb" }}>{a.levelName}</div>
                   </div>
                 ))}
               </div>
@@ -818,7 +1011,7 @@ export default function TraderRoadmapXP() {
 
       {/* Footer */}
       <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
-        <span style={{ fontFamily: "'Silkscreen', cursive", fontSize: 8, color: "#ccc", letterSpacing: 2 }}>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#ccc", letterSpacing: 2 }}>
           TRADER ROADMAP XP · THE FRACTAL MODEL
         </span>
       </div>
