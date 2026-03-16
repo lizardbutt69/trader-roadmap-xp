@@ -56,7 +56,7 @@ function buildDayMap(trades) {
     const k = dateKey(t.dt);
     if (!m[k]) m[k] = { pnl: 0, count: 0, trades: [], aplusTrades: 0 };
     m[k].pnl += parseFloat(t.profit) || 0;
-    if (t.taken === "Yes") m[k].count++;
+    if (t.taken) m[k].count++;
     m[k].trades.push(t);
     if (t.aplus === "Yes") m[k].aplusTrades++;
   });
@@ -429,9 +429,12 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
           <Field label="Taken?">
             <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
               <option value="">Select...</option>
-              <option>Yes</option>
-              <option>No</option>
               <option>Missed</option>
+              <option>Personal</option>
+              <option>Eval</option>
+              <option>PA &amp; Funded</option>
+              <option>Crypto</option>
+              <option>Funded Account</option>
             </select>
           </Field>
           <Field label="My Bias For the Day">
@@ -555,9 +558,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
 
   // Stats
   const total = trades.length;
-  const taken = trades.filter((t) => t.taken === "Yes").length;
+  const taken = trades.filter((t) => t.taken && t.taken !== "Missed").length;
   const aplus = trades.filter((t) => t.aplus === "Yes").length;
-  const wins = trades.filter((t) => parseFloat(t.profit) > 0).length;
+  const wins = trades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
   const wr = taken ? Math.round((wins / taken) * 100) : 0;
   const pnl = trades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
 
@@ -673,46 +676,47 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
           <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged yet.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-tertiary)" }}>
-                  {["Date", "Asset", "Dir", "A+?", "Taken?", "Bias", "Profit", "Chart", "After", "Notes", ""].map((h) => (
-                    <th key={h} style={{ fontFamily: "'JetBrains Mono', monospace", padding: "12px 16px", textAlign: "left", color: "var(--text-tertiary)", fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: "0.08em" }}>{h}</th>
+                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "P&L", "Chart", "After", "Notes", ""].map((h) => (
+                    <th key={h} style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-tertiary)", fontSize: 10, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: "0.1em", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {trades.map((t) => {
                   const p = parseFloat(t.profit);
+                  const cellStyle = { padding: "10px 12px", borderTop: "1px solid var(--border-primary)", whiteSpace: "nowrap", fontSize: 12 };
                   return (
                     <tr key={t.id} style={{ transition: "background 0.15s" }}>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t.dt ? fmtDate(t.dt) : "—"}</td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)", fontWeight: 600, color: "var(--text-primary)" }}>{t.asset}</td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.direction === "Long" ? <Badge label="Long" color="var(--accent-secondary)" /> : t.direction === "Short" ? <Badge label="Short" color="var(--red)" /> : "—"}
+                      <td style={{ ...cellStyle, color: "var(--text-secondary)" }}>{t.dt ? new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—"}</td>
+                      <td style={{ ...cellStyle, fontWeight: 600, color: "var(--text-primary)" }}>{t.asset}</td>
+                      <td style={cellStyle}>
+                        {t.direction === "Long" ? <span style={{ color: "var(--accent-secondary)" }}>LONG</span> : t.direction === "Short" ? <span style={{ color: "var(--red)" }}>SHORT</span> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.aplus === "Yes" ? <Badge label="Yes" color="var(--green)" /> : t.aplus === "No" ? <Badge label="No" color="var(--red)" /> : "—"}
+                      <td style={cellStyle}>
+                        {t.aplus === "Yes" ? <span style={{ color: "var(--green)" }}>YES</span> : t.aplus === "No" ? <span style={{ color: "var(--red)" }}>NO</span> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.taken === "Yes" ? <Badge label="Yes" color="var(--green)" /> : t.taken === "No" ? <Badge label="No" color="var(--red)" /> : t.taken === "Missed" ? <Badge label="Missed" color="var(--gold)" /> : "—"}
+                      <td style={cellStyle}>
+                        {t.taken === "Yes" ? <span style={{ color: "var(--green)" }}>YES</span> : t.taken === "No" ? <span style={{ color: "var(--red)" }}>NO</span> : t.taken === "Missed" ? <span style={{ color: "var(--gold)" }}>MISS</span> : <span style={{ color: "var(--text-tertiary)" }}>{t.taken || "—"}</span>}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.bias === "Bullish" ? <Badge label="Bullish" color="var(--green)" /> : t.bias === "Bearish" ? <Badge label="Bearish" color="var(--red)" /> : "—"}
+                      <td style={cellStyle}>
+                        {t.bias === "Bullish" ? <span style={{ color: "var(--green)" }}>BULL</span> : t.bias === "Bearish" ? <span style={{ color: "var(--red)" }}>BEAR</span> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.profit != null ? <span style={{ fontFamily: "'JetBrains Mono', monospace", color: p >= 0 ? "var(--green)" : "var(--red)", fontWeight: 600 }}>{p >= 0 ? "+" : ""}${p.toFixed(0)}</span> : "—"}
+                      <td style={cellStyle}>
+                        {t.profit != null ? <span style={{ color: p >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{p >= 0 ? "+" : ""}{p.toFixed(0)}</span> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.chart ? <a href={t.chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none", fontSize: 14 }}>View ↗</a> : "—"}
+                      <td style={cellStyle}>
+                        {t.chart ? <a href={t.chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        {t.after_chart ? <a href={t.after_chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none", fontSize: 14 }}>View ↗</a> : "—"}
+                      <td style={cellStyle}>
+                        {t.after_chart ? <a href={t.after_chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)", maxWidth: 160, color: "var(--text-tertiary)", fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>{t.notes || "—"}</td>
-                      <td style={{ padding: "13px 16px", borderTop: "1px solid var(--border-primary)" }}>
-                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--accent-secondary)", padding: "4px 8px" }}>✏️</button>
-                        <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--text-tertiary)", padding: "4px 8px" }}>✕</button>
+                      <td style={{ ...cellStyle, maxWidth: 140, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>{t.notes || "—"}</td>
+                      <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
+                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--accent-secondary)", padding: "2px 6px" }}>✏️</button>
+                        <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", padding: "2px 6px" }}>✕</button>
                       </td>
                     </tr>
                   );
@@ -758,9 +762,12 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
               <Field label="Taken?">
                 <select style={selectStyle} value={editForm.taken} onChange={(e) => setEditForm({ ...editForm, taken: e.target.value })}>
                   <option value="">Select...</option>
-                  <option>Yes</option>
-                  <option>No</option>
                   <option>Missed</option>
+                  <option>Personal</option>
+                  <option>Eval</option>
+                  <option>PA &amp; Funded</option>
+                  <option>Crypto</option>
+                  <option>Funded Account</option>
                 </select>
               </Field>
               <Field label="Bias">
@@ -832,11 +839,11 @@ function AISummarySection({ trades }) {
     if (!apiKey) { setOutput("No API key set. Click the key icon to add your Anthropic API key."); setPeriod(label); return; }
 
     setPeriod(label); setLoading(true); setOutput("");
-    const taken = periodTrades.filter((t) => t.taken === "Yes").length;
-    const wins = periodTrades.filter((t) => parseFloat(t.profit) > 0).length;
-    const losses = periodTrades.filter((t) => parseFloat(t.profit) < 0).length;
-    const aplusTaken = periodTrades.filter((t) => t.aplus === "Yes" && t.taken === "Yes").length;
-    const nonAplus = periodTrades.filter((t) => t.aplus === "No" && t.taken === "Yes").length;
+    const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed").length;
+    const wins = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
+    const losses = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) < 0).length;
+    const aplusTaken = periodTrades.filter((t) => t.aplus === "Yes" && t.taken && t.taken !== "Missed").length;
+    const nonAplus = periodTrades.filter((t) => t.aplus === "No" && t.taken && t.taken !== "Missed").length;
     const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
     const missed = periodTrades.filter((t) => t.taken === "Missed").length;
 
