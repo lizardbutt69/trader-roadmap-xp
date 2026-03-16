@@ -556,13 +556,18 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
     loadTrades();
   };
 
-  // Stats
-  const total = trades.length;
-  const taken = trades.filter((t) => t.taken && t.taken !== "Missed").length;
-  const aplus = trades.filter((t) => t.aplus === "Yes").length;
-  const wins = trades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
+  // Stats — filtered to current calendar month
+  const monthTrades = trades.filter((t) => {
+    if (!t.dt) return false;
+    const d = new Date(t.dt);
+    return d.getMonth() === calMonth && d.getFullYear() === calYear;
+  });
+  const total = monthTrades.length;
+  const taken = monthTrades.filter((t) => t.taken && t.taken !== "Missed").length;
+  const aplus = monthTrades.filter((t) => t.aplus === "Yes").length;
+  const wins = monthTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
   const wr = taken ? Math.round((wins / taken) * 100) : 0;
-  const pnl = trades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const pnl = monthTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
 
   // Calendar
   const calPrev = () => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); };
@@ -574,6 +579,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       {/* Stats Bar */}
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
+        {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} Stats
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={total} label="Logged" color="var(--text-secondary)" />
         <StatBox value={taken} label="Taken" color="var(--text-secondary)" />

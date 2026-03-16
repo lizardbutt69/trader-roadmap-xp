@@ -1222,6 +1222,34 @@ export default function TraderRoadmapXP() {
       {/* ── Content ── */}
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
 
+        {/* HOME — default view */}
+        {view === "map" && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+            <div style={{
+              border: "1px solid var(--border-glow)",
+              background: "var(--bg-secondary)",
+              boxShadow: "var(--card-glow)",
+              borderRadius: 4,
+              padding: "32px 40px",
+              maxWidth: 480,
+              textAlign: "center",
+            }}>
+              <p style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 14,
+                lineHeight: 1.8,
+                color: "var(--text-secondary)",
+                letterSpacing: "0.02em",
+                margin: 0,
+              }}>
+                The setup is the edge.<br />
+                The discomfort is the cost.<br />
+                Pay it and sit still.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* MAP VIEW — Trail Style */}
         {view === "roadmap" && !selectedLevel && (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
