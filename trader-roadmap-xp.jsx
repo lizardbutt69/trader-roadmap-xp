@@ -1,5 +1,60 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView } from "./src/trading.jsx";
+
+// ─── THEME ──────────────────────────────────────────────────────────────────
+
+const LIGHT_THEME = {
+  "--bg-primary": "#f0f2f5",
+  "--bg-secondary": "#ffffff",
+  "--bg-tertiary": "#f5f7fa",
+  "--bg-input": "#f5f7fa",
+  "--border-primary": "#d8dce3",
+  "--border-secondary": "#e2e6eb",
+  "--border-glow": "rgba(0,180,150,0.1)",
+  "--text-primary": "#0f1117",
+  "--text-secondary": "#5a6577",
+  "--text-tertiary": "#8a95a5",
+  "--text-accent": "#00b896",
+  "--accent": "#00b896",
+  "--accent-dim": "#00b89630",
+  "--accent-glow": "rgba(0,184,150,0.06)",
+  "--accent-glow-strong": "rgba(0,184,150,0.15)",
+  "--accent-secondary": "#3b82f6",
+  "--card-shadow": "0 1px 4px rgba(0,0,0,0.06)",
+  "--card-glow": "0 1px 4px rgba(0,0,0,0.06)",
+  "--green": "#00b896",
+  "--red": "#e53e3e",
+  "--gold": "#d69e2e",
+  "--purple": "#805ad5",
+  "--hud-grid": "rgba(0,0,0,0.02)",
+};
+
+const DARK_THEME = {
+  "--bg-primary": "#0a0a0f",
+  "--bg-secondary": "#0f1117",
+  "--bg-tertiary": "#141820",
+  "--bg-input": "#141820",
+  "--border-primary": "#1a2332",
+  "--border-secondary": "#1e2a3a",
+  "--border-glow": "rgba(0,232,196,0.15)",
+  "--text-primary": "#e0e6ed",
+  "--text-secondary": "#7a8a9e",
+  "--text-tertiary": "#4a5568",
+  "--text-accent": "#00e8c4",
+  "--accent": "#00e8c4",
+  "--accent-dim": "#00e8c440",
+  "--accent-glow": "rgba(0,232,196,0.08)",
+  "--accent-glow-strong": "rgba(0,232,196,0.2)",
+  "--accent-secondary": "#3b82f6",
+  "--card-shadow": "0 0 20px rgba(0,0,0,0.4), 0 0 2px rgba(0,232,196,0.05)",
+  "--card-glow": "0 0 15px rgba(0,232,196,0.06), inset 0 1px 0 rgba(0,232,196,0.05)",
+  "--green": "#00e8c4",
+  "--red": "#ff4757",
+  "--gold": "#ffa502",
+  "--purple": "#a78bfa",
+  "--hud-grid": "rgba(0,232,196,0.03)",
+};
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
 
@@ -126,7 +181,7 @@ function ProgressRing({ pct, size = 52, stroke = 5, color = "#4a8fe7", children 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8ecf2" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border-primary)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -150,29 +205,18 @@ function ProgressRing({ pct, size = 52, stroke = 5, color = "#4a8fe7", children 
 function XPBar({ current, max, color = "#4a8fe7", height = 10 }) {
   const pct = max > 0 ? Math.min((current / max) * 100, 100) : 0;
   return (
-    <div style={{ background: "#e8ecf2", borderRadius: 20, height, overflow: "hidden", position: "relative" }}>
+    <div style={{ background: "var(--bg-tertiary)", borderRadius: 4, height, overflow: "hidden", position: "relative", border: "1px solid var(--border-primary)" }}>
       <div
         style={{
           width: `${pct}%`,
           height: "100%",
           background: `linear-gradient(90deg, ${color}, ${color}cc)`,
-          borderRadius: 20,
+          borderRadius: 4,
           transition: "width 0.8s cubic-bezier(.4,0,.2,1)",
           position: "relative",
+          boxShadow: `0 0 8px ${color}40`,
         }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "45%",
-            background: "rgba(255,255,255,0.35)",
-            borderRadius: "20px 20px 0 0",
-          }}
-        />
-      </div>
+      />
     </div>
   );
 }
@@ -185,14 +229,14 @@ function Card({ children, style = {}, onClick, hoverable = false }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: "#fff",
-        borderRadius: 16,
-        border: "1px solid #e8ecf2",
+        background: "var(--bg-secondary)",
+        borderRadius: 8,
+        border: "1px solid var(--border-primary)",
         boxShadow: hovered && hoverable
-          ? "0 8px 30px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)"
-          : "0 2px 12px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02)",
-        transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
-        transform: hovered && hoverable ? "translateY(-2px)" : "none",
+          ? "0 0 30px var(--accent-glow-strong), 0 0 2px var(--border-glow)"
+          : "var(--card-shadow)",
+        transition: "all 0.3s cubic-bezier(.4,0,.2,1)",
+        transform: hovered && hoverable ? "translateY(-1px)" : "none",
         cursor: onClick ? "pointer" : "default",
         ...style,
       }}
@@ -209,18 +253,19 @@ function Chip({ label, color, icon }) {
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
-        fontSize: 19,
+        fontSize: 11,
         fontWeight: 700,
         color: color,
         background: `${color}15`,
         border: `1px solid ${color}30`,
-        padding: "3px 10px",
-        borderRadius: 20,
-        letterSpacing: 0.5,
-        fontFamily: "'DM Sans', sans-serif",
+        padding: "2px 8px",
+        borderRadius: 4,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        fontFamily: "'JetBrains Mono', monospace",
       }}
     >
-      {icon && <span style={{ fontSize: 17 }}>{icon}</span>}
+      {icon && <span style={{ fontSize: 12 }}>{icon}</span>}
       {label}
     </span>
   );
@@ -240,8 +285,8 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
         alignItems: "center",
         gap: 20,
         padding: "18px 20px",
-        borderRadius: 16,
-        background: isCurrent ? level.bg : isActive ? "#fff" : "#f8f9fb",
+        borderRadius: 6,
+        background: isCurrent ? level.bg : isActive ? "var(--bg-secondary)" : "var(--bg-tertiary)",
         border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}66` : "2px solid transparent",
         cursor: isActive ? "pointer" : "default",
         opacity: isActive ? 1 : 0.45,
@@ -256,22 +301,22 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: isActive ? "#1a1a2e" : "#999" }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
             {level.name}
           </span>
           <Chip label={level.tier} color={level.accent} />
         </div>
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#888", marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>
           {level.subtitle}
         </div>
         <XPBar current={done} max={total} color={level.accent} height={8} />
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 19, color: "#aaa", marginTop: 5, textAlign: "right" }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)", marginTop: 5, textAlign: "right" }}>
           {done}/{total} quests · {pct}%
         </div>
       </div>
 
       {isActive && (
-        <div style={{ fontSize: 18, color: "#ccc", flexShrink: 0 }}>›</div>
+        <div style={{ fontSize: 18, color: "var(--text-tertiary)", flexShrink: 0 }}>›</div>
       )}
     </div>
   );
@@ -287,9 +332,9 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
         alignItems: "center",
         gap: 14,
         padding: "14px 16px",
-        borderRadius: 14,
-        background: completed ? `${meta.color}08` : "#fafbfc",
-        border: `1.5px solid ${completed ? `${meta.color}35` : "#eef0f4"}`,
+        borderRadius: 6,
+        background: completed ? `${meta.color}08` : "var(--bg-tertiary)",
+        border: `1.5px solid ${completed ? `${meta.color}35` : "var(--border-primary)"}`,
         cursor: "pointer",
         transition: "all 0.25s",
         animation: `fadeSlideIn 0.35s ease ${delay}s both`,
@@ -300,8 +345,8 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
         style={{
           width: 28,
           height: 28,
-          borderRadius: 14,
-          border: `2px solid ${completed ? meta.color : "#d0d5dd"}`,
+          borderRadius: 4,
+          border: `2px solid ${completed ? meta.color : "var(--border-primary)"}`,
           background: completed ? meta.color : "transparent",
           display: "flex",
           alignItems: "center",
@@ -310,44 +355,44 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
           transition: "all 0.25s",
         }}
       >
-        {completed && <span style={{ color: "#fff", fontSize: 19, lineHeight: 1 }}>✓</span>}
+        {completed && <span style={{ color: "var(--bg-primary)", fontSize: 14, lineHeight: 1 }}>✓</span>}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
           <span
             style={{
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-              fontSize: 17,
-              color: completed ? meta.color : "#2a2a3e",
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+              fontSize: 14,
+              color: completed ? meta.color : "var(--text-primary)",
             }}
           >
             {ach.name}
           </span>
           <Chip label={meta.label} color={meta.color} icon={meta.icon} />
-          {ach.amount && <Chip label={ach.amount} color="#e8a838" icon="💰" />}
+          {ach.amount && <Chip label={ach.amount} color="var(--gold)" icon="💰" />}
         </div>
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#888", lineHeight: 1.4 }}>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
           {ach.desc}
         </div>
         {completed && proof && (
-          <div style={{ fontSize: 13, color: "#aaa", marginTop: 6, fontStyle: "italic" }}>
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 6, fontStyle: "italic" }}>
             "{proof.note.length > 60 ? proof.note.slice(0, 60) + "..." : proof.note}"
             {" · "}
-            <span style={{ color: "#4a8fe7", fontStyle: "normal" }}>view proof</span>
+            <span style={{ color: "var(--accent-secondary)", fontStyle: "normal" }}>view proof</span>
           </div>
         )}
       </div>
 
       <div
         style={{
-          fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-          fontSize: 17,
-          color: completed ? meta.color : "#e8a838",
+          fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+          fontSize: 13,
+          color: completed ? meta.color : "var(--gold)",
           flexShrink: 0,
-          background: completed ? `${meta.color}12` : "#fdf5e6",
+          background: completed ? `${meta.color}12` : "var(--accent-glow)",
           padding: "4px 10px",
-          borderRadius: 10,
+          borderRadius: 4,
           whiteSpace: "nowrap",
         }}
       >
@@ -368,6 +413,16 @@ export default function TraderRoadmapXP() {
   const [authError, setAuthError] = useState("");
   const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
 
+  // Dark mode
+  const [dark, setDark] = useState(() => { try { return localStorage.getItem("theme") === "dark" || !localStorage.getItem("theme"); } catch { return true; } });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const vars = dark ? DARK_THEME : LIGHT_THEME;
+    Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
+    try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch {}
+  }, [dark]);
+
   // completed is a Map: quest_id -> { note, link, completedAt }
   const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
@@ -384,6 +439,16 @@ export default function TraderRoadmapXP() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [editName, setEditName] = useState("");
   const avatarInputRef = useRef(null);
+
+  // Trading app state
+  const [trades, setTrades] = useState([]);
+  const [gsUrl, setGsUrl] = useState(() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } });
+
+  const syncToSheets = useCallback(async (data) => {
+    const url = gsUrl || (() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } })();
+    if (!url) return;
+    try { await fetch(url, { method: "POST", body: JSON.stringify(data) }); } catch (e) {}
+  }, [gsUrl]);
 
   // Auth listener
   useEffect(() => {
@@ -428,6 +493,19 @@ export default function TraderRoadmapXP() {
   }, [user]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Load trades from Supabase
+  const loadTrades = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("trades")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("dt", { ascending: false });
+    if (data) setTrades(data);
+  }, [user]);
+
+  useEffect(() => { loadTrades(); }, [loadTrades]);
 
   // Welcome back on login (not signup)
   const prevUser = useRef(null);
@@ -547,28 +625,32 @@ export default function TraderRoadmapXP() {
   };
 
   const globalStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
     @keyframes fadeSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes floatBounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+    @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+    @keyframes hudPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+    @keyframes dataFlicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.97; } }
+    @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 var(--border-glow); } 50% { box-shadow: 0 0 20px var(--accent-glow-strong), inset 0 1px 0 var(--border-glow); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
-    @keyframes introGlow { 0%,100% { box-shadow: 0 0 30px rgba(232,168,56,0.15); } 50% { box-shadow: 0 0 50px rgba(232,168,56,0.3); } }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     * { box-sizing:border-box; margin:0; padding:0; }
-    ::-webkit-scrollbar { width:6px; }
-    ::-webkit-scrollbar-track { background:transparent; }
-    ::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
-    button, input, textarea { font-family: inherit; }
-    textarea:focus, input:focus { border-color: #4a8fe7 !important; }
+    body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+    button, input, textarea, select { font-family: inherit; }
+    textarea:focus, input:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 10px var(--accent-glow) !important; }
+    ::selection { background: var(--accent-dim); color: var(--text-primary); }
   `;
 
   // ── LOADING ───
   if (authLoading) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{globalStyles}</style>
-        <div style={{ textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>
-          <div style={{ fontSize: 40, marginBottom: 16, animation: "floatBounce 2s ease-in-out infinite" }}>⚔️</div>
-          <div style={{ fontSize: 16, color: "#999" }}>Loading...</div>
+        <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>
+          <div style={{ fontSize: 40, marginBottom: 16, animation: "hudPulse 2s ease-in-out infinite" }}>⚔️</div>
+          <div style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.1em", textTransform: "uppercase" }}>INITIALIZING...</div>
         </div>
       </div>
     );
@@ -577,48 +659,49 @@ export default function TraderRoadmapXP() {
   // ── AUTH SCREEN ───
   if (!user) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <style>{globalStyles}</style>
-        <div style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⚔️</div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1a1a2e", marginBottom: 6 }}>Trader Roadmap XP</h1>
-            <p style={{ fontSize: 15, color: "#888" }}>{authMode === "signup" ? "Create your account" : "Sign in to continue"}</p>
+            <div style={{ fontSize: 48, marginBottom: 16, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
+            <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: 4, textTransform: "uppercase" }}>TRADER ROADMAP XP</h1>
+            <p style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>{authMode === "signup" ? "CREATE YOUR ACCOUNT" : "AUTHENTICATE TO CONTINUE"}</p>
           </div>
           <Card style={{ padding: 28 }}>
             <form onSubmit={handleAuth}>
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Email</label>
+                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Email</label>
                 <input
                   type="email"
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
                   required
-                  style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+                  style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
                 />
               </div>
               <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Password</label>
+                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Password</label>
                 <input
                   type="password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   required
                   minLength={6}
-                  style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+                  style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
                 />
               </div>
               {authError && (
-                <div style={{ fontSize: 14, color: "#e05a6d", marginBottom: 14, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>
+                <div style={{ fontSize: 13, color: "var(--red)", marginBottom: 14, padding: "8px 12px", background: "var(--bg-tertiary)", borderRadius: 4, fontFamily: "'JetBrains Mono', monospace" }}>
                   {authError}
                 </div>
               )}
               <button
                 type="submit"
                 style={{
-                  width: "100%", fontSize: 16, fontWeight: 700, padding: "12px 20px",
-                  background: "linear-gradient(135deg, #e8a838, #e0823a)", border: "none", color: "#fff",
-                  borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(232,168,56,0.3)",
+                  width: "100%", fontSize: 14, fontWeight: 700, padding: "12px 20px",
+                  background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)",
+                  borderRadius: 4, cursor: "pointer", boxShadow: "0 0 20px var(--accent-glow)",
+                  fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase",
                 }}
               >
                 {authMode === "signup" ? "Create Account" : "Sign In"}
@@ -627,7 +710,7 @@ export default function TraderRoadmapXP() {
             <div style={{ textAlign: "center", marginTop: 16 }}>
               <button
                 onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                style={{ fontSize: 14, color: "#4a8fe7", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
+                style={{ fontSize: 12, color: "var(--accent-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
               >
                 {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
               </button>
@@ -644,7 +727,7 @@ export default function TraderRoadmapXP() {
       <div
         style={{
           minHeight: "100vh",
-          background: "linear-gradient(160deg, #fdf8f0 0%, #f0f4fd 50%, #f5ecfd 100%)",
+          background: "var(--bg-primary)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -655,23 +738,24 @@ export default function TraderRoadmapXP() {
       >
         <style>{globalStyles}</style>
         <div style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
-          <div style={{ fontSize: 64, marginBottom: 24, animation: "floatBounce 3s ease-in-out infinite" }}>⚔️</div>
+          <div style={{ fontSize: 64, marginBottom: 24, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
           <h1
             style={{
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-              fontSize: 26,
-              color: "#1a1a2e",
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+              fontSize: 22,
+              color: "var(--text-primary)",
               marginBottom: 10,
-              letterSpacing: 1,
+              letterSpacing: 4,
+              textTransform: "uppercase",
             }}
           >
             TRADER ROADMAP XP
           </h1>
           <p
             style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 18,
-              color: "#777",
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 15,
+              color: "var(--text-secondary)",
               lineHeight: 1.7,
               marginBottom: 8,
             }}
@@ -680,9 +764,9 @@ export default function TraderRoadmapXP() {
           </p>
           <p
             style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 19,
-              color: "#aaa",
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 13,
+              color: "var(--text-tertiary)",
               lineHeight: 1.6,
               marginBottom: 36,
             }}
@@ -695,17 +779,19 @@ export default function TraderRoadmapXP() {
           <button
             onClick={dismissIntro}
             style={{
-              fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
-              fontSize: 19,
-              color: "#fff",
-              background: "linear-gradient(135deg, #e8a838, #e0823a)",
-              border: "none",
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+              fontSize: 14,
+              color: "var(--accent)",
+              background: "transparent",
+              border: "1px solid var(--accent)",
               padding: "14px 42px",
-              borderRadius: 14,
+              borderRadius: 4,
               cursor: "pointer",
-              boxShadow: "0 4px 20px rgba(232,168,56,0.35)",
-              animation: "introGlow 2.5s ease-in-out infinite",
+              boxShadow: "0 0 20px var(--accent-glow)",
+              animation: "glowPulse 2.5s ease-in-out infinite",
               transition: "transform 0.2s",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
             }}
           >
             ▶ START QUEST
@@ -715,7 +801,7 @@ export default function TraderRoadmapXP() {
             {LEVELS.map((l) => (
               <div key={l.id} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 26, marginBottom: 4 }}>{l.icon}</div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#bbb", letterSpacing: 1, fontWeight: 700 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", letterSpacing: "0.1em", fontWeight: 700, textTransform: "uppercase" }}>
                   {l.tier}
                 </div>
               </div>
@@ -731,8 +817,8 @@ export default function TraderRoadmapXP() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(180deg, #f8f9fc 0%, #f0f2f8 100%)",
-        fontFamily: "'DM Sans', sans-serif",
+        background: "var(--bg-primary)",
+        fontFamily: "'Inter', sans-serif",
       }}
     >
       <style>{globalStyles}</style>
@@ -745,8 +831,8 @@ export default function TraderRoadmapXP() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.3)",
-              backdropFilter: "blur(4px)",
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(8px)",
               zIndex: 200,
               display: "flex",
               alignItems: "center",
@@ -756,22 +842,22 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
           >
-            <Card style={{ maxWidth: 420, padding: 28, width: "100%" }}>
+            <Card style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 4 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
                   Submit Proof
                 </div>
-                <div style={{ fontSize: 16, color: "#888" }}>
+                <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                   {ach?.name}
                 </div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 15, color: "#e8a838", marginTop: 4 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--gold)", marginTop: 4 }}>
                   +{ach?.xp} XP
                 </div>
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
                   What did you do? *
                 </label>
                 <textarea
@@ -782,21 +868,21 @@ export default function TraderRoadmapXP() {
                   style={{
                     width: "100%",
                     padding: "10px 14px",
-                    fontSize: 15,
-                    fontFamily: "'DM Sans', sans-serif",
-                    border: "1.5px solid #e0e3e8",
-                    borderRadius: 10,
+                    fontSize: 14,
+                    fontFamily: "'Inter', sans-serif",
+                    border: "1.5px solid var(--border-primary)",
+                    borderRadius: 4,
                     outline: "none",
                     resize: "vertical",
-                    background: "#fafbfc",
-                    color: "#333",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
                     lineHeight: 1.5,
                   }}
                 />
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
                   Link / Evidence (optional)
                 </label>
                 <input
@@ -806,13 +892,13 @@ export default function TraderRoadmapXP() {
                   style={{
                     width: "100%",
                     padding: "10px 14px",
-                    fontSize: 15,
-                    fontFamily: "'DM Sans', sans-serif",
-                    border: "1.5px solid #e0e3e8",
-                    borderRadius: 10,
+                    fontSize: 14,
+                    fontFamily: "'Inter', sans-serif",
+                    border: "1.5px solid var(--border-primary)",
+                    borderRadius: 4,
                     outline: "none",
-                    background: "#fafbfc",
-                    color: "#333",
+                    background: "var(--bg-input)",
+                    color: "var(--text-primary)",
                   }}
                 />
               </div>
@@ -822,14 +908,15 @@ export default function TraderRoadmapXP() {
                   onClick={() => setConfirm(null)}
                   style={{
                     flex: 1,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: 600,
                     padding: "12px 20px",
-                    background: "#f0f2f5",
-                    border: "1px solid #e0e3e8",
-                    color: "#666",
-                    borderRadius: 10,
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--border-primary)",
+                    color: "var(--text-secondary)",
+                    borderRadius: 4,
                     cursor: "pointer",
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
                   Cancel
@@ -839,16 +926,17 @@ export default function TraderRoadmapXP() {
                   disabled={!proofNote.trim() || saving}
                   style={{
                     flex: 1,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: 700,
                     padding: "12px 20px",
-                    background: proofNote.trim() && !saving ? "#56b886" : "#ccc",
-                    border: "none",
-                    color: "#fff",
-                    borderRadius: 10,
+                    background: proofNote.trim() && !saving ? "transparent" : "var(--bg-tertiary)",
+                    border: proofNote.trim() && !saving ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+                    color: proofNote.trim() && !saving ? "var(--accent)" : "var(--text-tertiary)",
+                    borderRadius: 4,
                     cursor: proofNote.trim() && !saving ? "pointer" : "not-allowed",
-                    boxShadow: proofNote.trim() && !saving ? "0 4px 14px rgba(86,184,134,0.3)" : "none",
+                    boxShadow: proofNote.trim() && !saving ? "0 0 20px var(--accent-glow)" : "none",
                     transition: "all 0.2s",
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
                   {saving ? "Saving..." : "Complete Quest"}
@@ -869,8 +957,8 @@ export default function TraderRoadmapXP() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.3)",
-              backdropFilter: "blur(4px)",
+              background: "rgba(0,0,0,0.7)",
+              backdropFilter: "blur(8px)",
               zIndex: 200,
               display: "flex",
               alignItems: "center",
@@ -880,36 +968,36 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
           >
-            <Card style={{ maxWidth: 420, padding: 28, width: "100%" }}>
+            <Card style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: meta?.color || "#1a1a2e" }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
                   {ach?.name}
                 </div>
-                <div style={{ fontSize: 14, color: "#aaa", marginTop: 4 }}>
+                <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4 }}>
                   Completed {proof?.completedAt ? new Date(proof.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
                 </div>
               </div>
 
-              <div style={{ background: "#f8f9fb", borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: "14px 16px", marginBottom: 12 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Proof
                 </div>
-                <div style={{ fontSize: 15, color: "#444", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
                   {proof?.note || "(no note)"}
                 </div>
               </div>
 
               {proof?.link && (
-                <div style={{ background: "#f8f9fb", borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: "14px 16px", marginBottom: 12 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Evidence Link
                   </div>
                   <a
                     href={proof.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ fontSize: 15, color: "#4a8fe7", wordBreak: "break-all" }}
+                    style={{ fontSize: 15, color: "var(--accent-secondary)", wordBreak: "break-all" }}
                   >
                     {proof.link}
                   </a>
@@ -921,14 +1009,15 @@ export default function TraderRoadmapXP() {
                   onClick={() => undoQuest(viewingProof)}
                   style={{
                     flex: 1,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: 600,
                     padding: "12px 20px",
-                    background: "#fef2f2",
-                    border: "1px solid #e05a6d30",
-                    color: "#e05a6d",
-                    borderRadius: 10,
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--red)",
+                    color: "var(--red)",
+                    borderRadius: 4,
                     cursor: "pointer",
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
                   Undo Quest
@@ -937,14 +1026,15 @@ export default function TraderRoadmapXP() {
                   onClick={() => setViewingProof(null)}
                   style={{
                     flex: 1,
-                    fontSize: 15,
+                    fontSize: 13,
                     fontWeight: 700,
                     padding: "12px 20px",
-                    background: "#f0f2f5",
-                    border: "1px solid #e0e3e8",
-                    color: "#555",
-                    borderRadius: 10,
+                    background: "var(--bg-tertiary)",
+                    border: "1px solid var(--border-primary)",
+                    color: "var(--text-secondary)",
+                    borderRadius: 4,
                     cursor: "pointer",
+                    fontFamily: "'JetBrains Mono', monospace",
                   }}
                 >
                   Close
@@ -959,9 +1049,9 @@ export default function TraderRoadmapXP() {
       {showWelcome && (
         <div style={{
           position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 300,
-          background: "linear-gradient(135deg, #e8a838, #e0823a)", color: "#fff",
-          padding: "14px 28px", borderRadius: 14, fontSize: 16, fontWeight: 600,
-          boxShadow: "0 8px 30px rgba(232,168,56,0.4)", animation: "fadeSlideIn 0.4s ease",
+          background: "var(--accent)", color: "var(--bg-primary)",
+          padding: "14px 28px", borderRadius: 6, fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
+          boxShadow: "0 8px 30px var(--accent-glow)", animation: "fadeSlideIn 0.4s ease",
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <span style={{ fontSize: 24 }}>👋</span>
@@ -972,23 +1062,23 @@ export default function TraderRoadmapXP() {
       {/* ── Profile Editor Modal ── */}
       {showProfileEditor && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", backdropFilter: "blur(4px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
         >
-          <Card style={{ maxWidth: 380, padding: 28, width: "100%" }}>
+          <Card style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", marginBottom: 16 }}>Edit Profile</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit Profile</div>
               <div
                 onClick={() => avatarInputRef.current?.click()}
                 style={{
                   width: 80, height: 80, borderRadius: "50%", margin: "0 auto 12px",
-                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : "linear-gradient(135deg, #e8a838, #e0823a)",
+                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", border: "3px solid #e8ecf2", position: "relative",
+                  cursor: "pointer", border: "3px solid var(--border-primary)", position: "relative",
                   overflow: "hidden",
                 }}
               >
-                {!profile.avatar_url && <span style={{ fontSize: 32, color: "#fff" }}>{displayName[0]?.toUpperCase()}</span>}
+                {!profile.avatar_url && <span style={{ fontSize: 32, color: "var(--bg-primary)" }}>{displayName[0]?.toUpperCase()}</span>}
                 <div style={{
                   position: "absolute", bottom: 0, left: 0, right: 0,
                   background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, padding: "4px 0",
@@ -1002,21 +1092,21 @@ export default function TraderRoadmapXP() {
               />
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 14, fontWeight: 600, color: "#555", display: "block", marginBottom: 6 }}>Display Name</label>
+              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Your trader name..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 15, border: "1.5px solid #e0e3e8", borderRadius: 10, outline: "none", background: "#fafbfc", color: "#333" }}
+                style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
               />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowProfileEditor(false)}
-                style={{ flex: 1, fontSize: 15, fontWeight: 600, padding: "12px", background: "#f0f2f5", border: "1px solid #e0e3e8", color: "#666", borderRadius: 10, cursor: "pointer" }}>
+                style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace" }}>
                 Cancel
               </button>
               <button onClick={saveProfile}
-                style={{ flex: 1, fontSize: 15, fontWeight: 700, padding: "12px", background: "#56b886", border: "none", color: "#fff", borderRadius: 10, cursor: "pointer", boxShadow: "0 4px 14px rgba(86,184,134,0.3)" }}>
+                style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "0 0 20px var(--accent-glow)", fontFamily: "'JetBrains Mono', monospace" }}>
                 Save
               </button>
             </div>
@@ -1025,8 +1115,8 @@ export default function TraderRoadmapXP() {
       )}
 
       {/* ── Top Bar ── */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #eef0f4", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+      <div style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)", borderTop: "1px solid var(--border-glow)", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div
@@ -1038,12 +1128,12 @@ export default function TraderRoadmapXP() {
                   border: `2px solid ${currentLevel.accent}40`, flexShrink: 0,
                 }}
               >
-                {!profile.avatar_url && <span style={{ fontSize: 16, color: "#fff", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+                {!profile.avatar_url && <span style={{ fontSize: 16, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
               </div>
               <div>
-                <div style={{ fontSize: 14, color: "#888" }}>{displayName}</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "var(--text-secondary)" }}>{displayName}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "#1a1a2e" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
                     {currentLevel.name}
                   </span>
                   <Chip label={currentLevel.tier} color={currentLevel.accent} />
@@ -1052,19 +1142,30 @@ export default function TraderRoadmapXP() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: "#e8a838" }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--gold)", textShadow: "0 0 10px var(--accent-glow)" }}>
                   {currentXP.toLocaleString()} XP
                 </div>
-                <div style={{ fontSize: 14, color: "#bbb" }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>
                   / {TOTAL_XP.toLocaleString()}
                 </div>
               </div>
               <button
+                onClick={() => setDark(d => !d)}
+                title="Toggle dark mode"
+                style={{
+                  fontSize: 18, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                  borderRadius: 4, padding: "6px 10px", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >
+                {dark ? "☀️" : "🌙"}
+              </button>
+              <button
                 onClick={handleSignOut}
                 title="Sign out"
                 style={{
-                  fontSize: 13, color: "#bbb", background: "#f5f6f8", border: "1px solid #e8ecf2",
-                  borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 500,
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                  borderRadius: 4, padding: "6px 10px", cursor: "pointer", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
                 }}
               >
                 Sign out
@@ -1078,7 +1179,7 @@ export default function TraderRoadmapXP() {
             height={8}
           />
           {nextLevel && (
-            <div style={{ fontSize: 19, color: "#bbb", textAlign: "right", marginTop: 4 }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textAlign: "right", marginTop: 4, letterSpacing: "0.05em" }}>
               {(nextLevel.xpRequired - currentXP).toLocaleString()} XP to {nextLevel.name}
             </div>
           )}
@@ -1086,24 +1187,31 @@ export default function TraderRoadmapXP() {
       </div>
 
       {/* ── Nav Tabs ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "#fff", borderBottom: "1px solid #eef0f4" }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
         {[
-          { key: "map", label: "🗺️ Roadmap", reset: true },
-          { key: "stats", label: "📊 Stats", reset: true },
+          { key: "roadmap", label: "ROADMAP", reset: true },
+          { key: "checklist", label: "CHECKLIST" },
+          { key: "journal", label: "JOURNAL" },
+          { key: "accounts", label: "ACCOUNTS" },
+          { key: "stats", label: "STATS" },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
             style={{
-              fontSize: 18,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 13,
               fontWeight: view === tab.key ? 700 : 500,
               padding: "8px 20px",
-              background: view === tab.key ? `${currentLevel.accent}12` : "transparent",
-              border: view === tab.key ? `1.5px solid ${currentLevel.accent}40` : "1.5px solid transparent",
-              color: view === tab.key ? currentLevel.accent : "#999",
-              borderRadius: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              background: view === tab.key ? "var(--accent-glow)" : "transparent",
+              border: view === tab.key ? "1px solid var(--accent-dim)" : "1px solid transparent",
+              color: view === tab.key ? "var(--accent)" : "var(--text-tertiary)",
+              borderRadius: 4,
               cursor: "pointer",
               transition: "all 0.2s",
+              boxShadow: view === tab.key ? "0 0 10px var(--accent-glow)" : "none",
             }}
           >
             {tab.label}
@@ -1112,10 +1220,10 @@ export default function TraderRoadmapXP() {
       </div>
 
       {/* ── Content ── */}
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 16px 60px" }}>
+      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
 
         {/* MAP VIEW — Trail Style */}
-        {view === "map" && !selectedLevel && (
+        {view === "roadmap" && !selectedLevel && (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             {LEVELS.map((level, i) => {
               const isActive = currentXP >= level.xpRequired || i === 0;
@@ -1134,13 +1242,13 @@ export default function TraderRoadmapXP() {
                     {/* Dot */}
                     <div style={{
                       width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
-                      background: allDone ? level.accent : isCurrent ? "#fff" : isPast ? level.accent + "88" : "#e8ecf2",
-                      border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "#ddd"}`,
+                      background: allDone ? level.accent : isCurrent ? "var(--bg-secondary)" : isPast ? level.accent + "88" : "var(--bg-tertiary)",
+                      border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "var(--border-primary)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: isCurrent ? `0 0 14px ${level.accent}50` : "none",
+                      boxShadow: isCurrent ? `0 0 14px ${level.accent}50, 0 0 4px var(--accent-glow)` : "none",
                       transition: "all 0.3s",
                     }}>
-                      {allDone && <span style={{ fontSize: 11, color: "#fff", lineHeight: 1 }}>✓</span>}
+                      {allDone && <span style={{ fontSize: 11, color: "var(--bg-primary)", lineHeight: 1 }}>✓</span>}
                       {isCurrent && !allDone && <div style={{ width: 10, height: 10, borderRadius: "50%", background: level.accent, animation: "pulse 2s infinite" }} />}
                     </div>
 
@@ -1150,13 +1258,13 @@ export default function TraderRoadmapXP() {
                       style={{
                         flex: 1,
                         padding: "16px 18px",
-                        borderRadius: 14,
-                        background: isCurrent ? level.bg : isActive ? "#fff" : "#f8f9fb",
-                        border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}55` : "1.5px solid #eef0f4",
+                        borderRadius: 6,
+                        background: isCurrent ? "var(--bg-secondary)" : isActive ? "var(--bg-secondary)" : "var(--bg-tertiary)",
+                        border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}55` : `1.5px solid var(--border-primary)`,
                         cursor: isActive ? "pointer" : "default",
                         opacity: isActive ? 1 : 0.55,
                         transition: "all 0.3s",
-                        boxShadow: isCurrent ? `0 4px 20px ${level.accent}18` : "0 1px 4px rgba(0,0,0,0.03)",
+                        boxShadow: isCurrent ? `0 0 20px ${level.accent}18, inset 0 1px 0 var(--border-glow)` : "var(--card-shadow)",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1165,19 +1273,19 @@ export default function TraderRoadmapXP() {
                         </ProgressRing>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
-                            <span style={{ fontWeight: 700, fontSize: 16, color: isActive ? "#1a1a2e" : "#999" }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
                               {level.name}
                             </span>
                             <Chip label={level.tier} color={level.accent} />
                             {isCurrent && <Chip label="YOU ARE HERE" color={level.accent} />}
                           </div>
-                          <div style={{ fontSize: 14, color: "#888", marginBottom: 6 }}>{level.subtitle}</div>
+                          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>{level.subtitle}</div>
                           <XPBar current={done} max={total} color={level.accent} height={6} />
-                          <div style={{ fontSize: 12, color: "#aaa", marginTop: 4, textAlign: "right" }}>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, textAlign: "right" }}>
                             {done}/{total} quests · {pct}%
                           </div>
                         </div>
-                        {isActive && <div style={{ fontSize: 18, color: "#ccc", flexShrink: 0 }}>›</div>}
+                        {isActive && <div style={{ fontSize: 18, color: "var(--text-tertiary)", flexShrink: 0 }}>›</div>}
                       </div>
                     </div>
                   </div>
@@ -1188,7 +1296,7 @@ export default function TraderRoadmapXP() {
                       <div style={{ width: 24, display: "flex", justifyContent: "center", flexShrink: 0 }}>
                         <div style={{
                           width: 3, height: 20,
-                          background: isPast ? LEVELS[i + 1]?.accent || "#ddd" : isCurrent ? `linear-gradient(to bottom, ${level.accent}, #ddd)` : "#e8ecf2",
+                          background: isPast ? LEVELS[i + 1]?.accent || "var(--border-primary)" : isCurrent ? `linear-gradient(to bottom, ${level.accent}, var(--border-primary))` : "var(--bg-tertiary)",
                           borderRadius: 3,
                           transition: "background 0.3s",
                         }} />
@@ -1202,14 +1310,46 @@ export default function TraderRoadmapXP() {
           </div>
         )}
 
+        {/* QUEST STATS + TRADING PERFORMANCE (shown on roadmap tab, map sub-view) */}
+        {view === "roadmap" && !selectedLevel && (
+          <div style={{ marginTop: 28 }}>
+            {/* Quest Progress Summary */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
+              {[
+                { label: "Total XP", value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`, color: "var(--gold)", icon: "⚡" },
+                { label: "Level", value: `${currentLevel.id} / 5`, sub: currentLevel.name, color: currentLevel.accent, icon: currentLevel.icon },
+                { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "var(--green)", icon: "✅" },
+                { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "var(--red)", icon: nextLevel?.icon || "👑" },
+              ].map((s, i) => (
+                <Card key={i} style={{ padding: 20, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontSize: 18 }}>{s.icon}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</span>
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: s.color, marginBottom: 2 }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Trading Performance */}
+            {trades.length > 0 && (
+              <TradingStatsView trades={trades} />
+            )}
+          </div>
+        )}
+
         {/* LEVEL DETAIL VIEW */}
         {view === "level" && selectedData && (
           <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
             <button
-              onClick={() => { setView("map"); setSelectedLevel(null); }}
+              onClick={() => { setView("roadmap"); setSelectedLevel(null); }}
               style={{
-                fontSize: 18,
-                color: "#999",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 13,
+                color: "var(--text-tertiary)",
                 background: "transparent",
                 border: "none",
                 cursor: "pointer",
@@ -1218,25 +1358,26 @@ export default function TraderRoadmapXP() {
                 alignItems: "center",
                 gap: 6,
                 fontWeight: 600,
+                letterSpacing: "0.05em",
               }}
             >
-              ← Back to Roadmap
+              ← BACK TO ROADMAP
             </button>
 
-            <Card style={{ padding: 24, marginBottom: 20, background: selectedData.bg, border: `1.5px solid ${selectedData.accent}35` }}>
+            <Card style={{ padding: 24, marginBottom: 20, background: "var(--bg-secondary)", border: `1.5px solid ${selectedData.accent}35` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
                 <span style={{ fontSize: 38 }}>{selectedData.icon}</span>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e" }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
                       {selectedData.name}
                     </span>
                     <Chip label={selectedData.tier} color={selectedData.accent} />
                   </div>
-                  <div style={{ fontSize: 19, color: "#888" }}>{selectedData.subtitle}</div>
+                  <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{selectedData.subtitle}</div>
                 </div>
               </div>
-              <div style={{ fontSize: 19, color: "#666", lineHeight: 1.6, marginBottom: 14 }}>
+              <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>
                 {selectedData.description}
               </div>
               <XPBar
@@ -1244,12 +1385,12 @@ export default function TraderRoadmapXP() {
                 max={selectedData.achievements.length}
                 color={selectedData.accent}
               />
-              <div style={{ fontSize: 17, color: "#aaa", textAlign: "right", marginTop: 6 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
                 {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} complete
               </div>
             </Card>
 
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 14 }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Quests
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1267,97 +1408,30 @@ export default function TraderRoadmapXP() {
           </div>
         )}
 
-        {/* STATS VIEW */}
+        {/* CHECKLIST VIEW */}
+        {view === "checklist" && (
+          <ChecklistView />
+        )}
+
+        {/* JOURNAL VIEW */}
+        {view === "journal" && (
+          <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} />
+        )}
+
+        {/* STATS VIEW — Trade performance data */}
         {view === "stats" && (
-          <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-            {/* Stats Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
-              {[
-                { label: "Total XP", value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`, color: "#e8a838", icon: "⚡" },
-                { label: "Level", value: `${currentLevel.id} / 5`, sub: currentLevel.name, color: currentLevel.accent, icon: currentLevel.icon },
-                { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "#56b886", icon: "✅" },
-                { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "#e05a6d", icon: nextLevel?.icon || "👑" },
-              ].map((s, i) => (
-                <Card key={i} style={{ padding: 18, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    <span style={{ fontSize: 19 }}>{s.icon}</span>
-                    <span style={{ fontSize: 17, color: "#999", fontWeight: 600 }}>{s.label}</span>
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: s.color, marginBottom: 2 }}>
-                    {s.value}
-                  </div>
-                  <div style={{ fontSize: 17, color: "#bbb" }}>{s.sub}</div>
-                </Card>
-              ))}
-            </div>
+          <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} />
+        )}
 
-            {/* By Type */}
-            <Card style={{ padding: 22, marginBottom: 16 }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 16 }}>
-                Quest Types
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {Object.entries(TYPE_META).map(([type, meta]) => {
-                  const typeAchs = ALL_ACH.filter((a) => a.type === type);
-                  const typeDone = typeAchs.filter((a) => completed.has(a.id)).length;
-                  return (
-                    <div key={type}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 17 }}>{meta.icon}</span>
-                          <span style={{ fontSize: 18, fontWeight: 600, color: "#555" }}>{meta.label}</span>
-                        </div>
-                        <span style={{ fontSize: 17, color: "#aaa", fontWeight: 600 }}>{typeDone}/{typeAchs.length}</span>
-                      </div>
-                      <XPBar current={typeDone} max={typeAchs.length} color={meta.color} height={7} />
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-
-            {/* Payout Milestones */}
-            <Card style={{ padding: 22 }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#1a1a2e", marginBottom: 16 }}>
-                💰 Payout Milestones
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {ALL_ACH.filter((a) => a.type === "payout").map((a) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      borderRadius: 10,
-                      background: completed.has(a.id) ? "#f0faf5" : "#fafbfc",
-                      border: `1px solid ${completed.has(a.id) ? "#56b88640" : "#eef0f4"}`,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 19 }}>{completed.has(a.id) ? "✅" : "⬜"}</span>
-                      <div>
-                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 19, color: completed.has(a.id) ? "#56b886" : "#555" }}>
-                          {a.name}
-                        </div>
-                        {a.amount && (
-                          <div style={{ fontSize: 19, color: "#e8a838", fontWeight: 700, marginTop: 2 }}>{a.amount}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 19, color: "#bbb" }}>{a.levelName}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
+        {/* ACCOUNTS VIEW */}
+        {view === "accounts" && (
+          <AccountsView supabase={supabase} user={user} />
         )}
       </div>
 
       {/* Footer */}
       <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 18, color: "#ccc", letterSpacing: 2 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 11, color: "var(--text-tertiary)", letterSpacing: 4, textTransform: "uppercase" }}>
           TRADER ROADMAP XP · THE FRACTAL MODEL
         </span>
       </div>
