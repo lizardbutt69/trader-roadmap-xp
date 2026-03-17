@@ -44,11 +44,11 @@ All tables have RLS policies scoped to auth.uid().
 - **payout** (💰) — monetary targets ($1K/mo → $5K/mo → $10K/mo → $20K/mo → $25K/mo)
 
 Levels and their XP thresholds:
-1. The Apprentice (0 XP) — BRONZE — Learn the rules
-2. The Grinder (375 XP) — SILVER — Breakeven → Funded
-3. Funded Warrior (1,150 XP) — GOLD — Consistent payouts
-4. The Architect (2,275 XP) — PLATINUM — Personal capital online
-5. The Master (3,575 XP) — DIAMOND — Full independence
+1. Foundation (0 XP) — STAGE 1 — Build the process
+2. Evaluation (375 XP) — STAGE 2 — Pass evals & get funded
+3. Funded (1,150 XP) — STAGE 3 — Consistent payouts
+4. Scaling (2,275 XP) — STAGE 4 — Personal capital online
+5. Independent (3,575 XP) — STAGE 5 — Full-time trader
 
 Total possible XP: ~5,250 (sum of all achievement XP values)
 

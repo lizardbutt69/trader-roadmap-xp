@@ -92,9 +92,9 @@ function buildDayMap(trades) {
 
 // ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
 
-function TCard({ children, style = {} }) {
+function TCard({ children, style = {}, className = "" }) {
   return (
-    <div style={{
+    <div className={`card-pad ${className}`} style={{
       background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border-primary)",
       boxShadow: "var(--card-glow)",
       ...style,
@@ -104,10 +104,10 @@ function TCard({ children, style = {} }) {
   );
 }
 
-function StatBox({ value, label, color = "var(--green)" }) {
+function StatBox({ value, label, color = "var(--green)", style = {} }) {
   return (
-    <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color }}>{value}</div>
+    <TCard style={{ padding: "18px 20px", textAlign: "center", ...style }}>
+      <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color }}>{value}</div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>{label}</div>
     </TCard>
   );
@@ -388,7 +388,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
         <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginBottom: 20 }}>
           {today.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
           <Field label="Daily Bias">
             <select style={selectStyle} value={plan.bias} onChange={(e) => setPlan({ ...plan, bias: e.target.value })}>
               <option value="">Select...</option>
@@ -429,7 +429,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.08em" }}>
           LOG A TRADE
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
           <Field label="Date & Time">
             <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
           </Field>
@@ -620,7 +620,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
         {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} Stats
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={total} label="Logged" color="var(--text-secondary)" />
         <StatBox value={taken} label="Taken" color="var(--text-secondary)" />
         <StatBox value={aplus} label="A+ Setups" color="var(--green)" />
@@ -647,12 +647,12 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
           </div>
         </div>
         <div style={{ padding: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
               <div key={d} style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", padding: 6, letterSpacing: "0.05em" }}>{d}</div>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
             {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
             {Array.from({ length: daysInMonth }, (_, i) => {
               const d = i + 1;
@@ -665,6 +665,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
                 <div
                   key={d}
                   onClick={data ? () => setDayPopup({ day: d, k, data }) : undefined}
+                  className="cal-day"
                   style={{
                     minHeight: 80, borderRadius: 4, padding: "8px 10px", fontSize: 13,
                     border: `1.5px solid ${isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--border-primary)"}`,
@@ -674,13 +675,13 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
                     transition: "all 0.2s",
                   }}
                 >
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--text-tertiary)", marginBottom: 4 }}>{d}</div>
+                  <div className="cal-day-num" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--text-tertiary)", marginBottom: 4 }}>{d}</div>
                   {data && (
                     <>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: isGreen ? "var(--green)" : "var(--red)" }}>
+                      <div className="cal-pnl" style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: isGreen ? "var(--green)" : "var(--red)" }}>
                         {data.pnl >= 0 ? "+" : ""}${data.pnl.toFixed(0)}
                       </div>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{data.count} trade{data.count !== 1 ? "s" : ""}</div>
+                      <div className="cal-count" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{data.count} trade{data.count !== 1 ? "s" : ""}</div>
                     </>
                   )}
                 </div>
@@ -779,9 +780,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setEditing(null)}
         >
-          <TCard style={{ padding: 32, width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+          <TCard className="modal-card" style={{ padding: 32, width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 24, textTransform: "uppercase", letterSpacing: "0.08em" }}>EDIT TRADE</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+            <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
               <Field label="Date & Time">
                 <input type="datetime-local" style={inputStyle} value={editForm.dt} onChange={(e) => setEditForm({ ...editForm, dt: e.target.value })} />
               </Field>
@@ -1121,9 +1122,9 @@ export function TradingStatsView({ trades }) {
           {isMax ? "Max level reached!" : `${xp - level.min} / ${level.max - level.min} XP to next level`}
         </div>
       </TCard>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <TCard style={{ padding: 22, textAlign: "center" }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 32, fontWeight: 700, color: "var(--gold)" }}>{greenStreak}</div>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 32, fontWeight: 700, color: "var(--gold)" }}>{greenStreak}</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Green Day Streak</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>Best: {bestGreen} days</div>
         </TCard>
@@ -1231,7 +1232,7 @@ export function AccountsView({ supabase, user }) {
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       {/* Summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
         <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
         <StatBox value={passedCount} label="Passed" color="var(--green)" />
@@ -1304,7 +1305,7 @@ export function AccountsView({ supabase, user }) {
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           {editing ? "EDIT ACCOUNT" : "ADD ACCOUNT"}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
           <Field label="Firm Name">
             <input style={inputStyle} placeholder="e.g. Apex, Topstep, FTMO" value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} />
           </Field>
@@ -1324,7 +1325,7 @@ export function AccountsView({ supabase, user }) {
             </select>
           </Field>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
+        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
           <Field label="Profit Target ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} />
           </Field>
@@ -1546,7 +1547,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
 
       {/* Drawdown Protocol — fixed bottom-right popup */}
       {(todayPnl < 0 || alerts.length > 0) && (
-        <div style={{
+        <div className="drawdown-popup" style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 300, width: 320,
           background: "linear-gradient(135deg, rgba(30,0,0,0.95), rgba(60,10,10,0.95))",
           border: "1px solid var(--red)", borderRadius: 6,
@@ -1580,15 +1581,15 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
       </div>
 
       {/* Today's Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <TCard style={{ padding: "18px 20px", textAlign: "center", boxShadow: todayPnl < 0 ? "0 0 20px rgba(255,71,87,0.15)" : undefined }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: todayPnl >= 0 ? "var(--green)" : "var(--red)" }}>{todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(0)}</div>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: todayPnl >= 0 ? "var(--green)" : "var(--red)" }}>{todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(0)}</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Today's P&L</div>
         </TCard>
         <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" />
         <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" />
         <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: weekPnl >= 0 ? "var(--green)" : "var(--red)" }}>{weekPnl >= 0 ? "+" : ""}${weekPnl.toFixed(0)}</div>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: weekPnl >= 0 ? "var(--green)" : "var(--red)" }}>{weekPnl >= 0 ? "+" : ""}${weekPnl.toFixed(0)}</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Week P&L</div>
         </TCard>
       </div>
@@ -1619,7 +1620,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
           WEEK PROGRESS
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, alignItems: "end", height: 120 }}>
+        <div className="grid-week" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, alignItems: "end", height: 120 }}>
           {weekDays.map((d) => {
             const h = maxPnl ? (Math.abs(d.pnl) / maxPnl) * 80 : 0;
             return (

@@ -61,103 +61,103 @@ const DARK_THEME = {
 const LEVELS = [
   {
     id: 1,
-    name: "The Apprentice",
-    subtitle: "Learn the Rules",
-    icon: "🌱",
-    tier: "BRONZE",
+    name: "Foundation",
+    subtitle: "Build the Process",
+    icon: "📐",
+    tier: "STAGE 1",
     accent: "#56b886",
     accentLight: "#d0f5e0",
     bg: "linear-gradient(135deg, #e8fdf1 0%, #d0f5e0 100%)",
     cardBg: "#f0faf5",
     xpRequired: 0,
-    description: "You found the model. Now build the habits that make it work.",
+    description: "Define the model, build the habits, and develop the discipline to execute.",
     achievements: [
-      { id: "a1", name: "First Steps", desc: "Define your trading model in writing", xp: 50, type: "process" },
-      { id: "a2", name: "Journal Keeper", desc: "Journal 10 consecutive sessions", xp: 75, type: "process" },
-      { id: "a3", name: "Session Lock", desc: "NY session only for 2 full weeks", xp: 100, type: "discipline" },
-      { id: "a4", name: "Checklist Mode", desc: "Pre-trade thesis on every trade (20 trades)", xp: 100, type: "process" },
-      { id: "a5", name: "Rule Book", desc: "Define A+ criteria and commit to paper", xp: 50, type: "process" },
+      { id: "a1", name: "Model Defined", desc: "Document your trading model and rules in writing", xp: 50, type: "process" },
+      { id: "a2", name: "10-Day Journal Streak", desc: "Journal every session for 10 consecutive days", xp: 75, type: "process" },
+      { id: "a3", name: "Session Discipline", desc: "Trade NY session only for 2 full weeks", xp: 100, type: "discipline" },
+      { id: "a4", name: "Pre-Trade Process", desc: "Complete pre-trade checklist on 20 consecutive trades", xp: 100, type: "process" },
+      { id: "a5", name: "A+ Criteria Locked", desc: "Define and commit your A+ trade criteria to paper", xp: 50, type: "process" },
     ],
   },
   {
     id: 2,
-    name: "The Grinder",
-    subtitle: "Breakeven → Funded",
-    icon: "⚔️",
-    tier: "SILVER",
+    name: "Evaluation",
+    subtitle: "Pass Evals & Get Funded",
+    icon: "📊",
+    tier: "STAGE 2",
     accent: "#e8a838",
     accentLight: "#fdf0d0",
     bg: "linear-gradient(135deg, #fdf5e6 0%, #fce8c3 100%)",
     cardBg: "#fdf8f0",
     xpRequired: 375,
-    description: "Pass evals. Get funded. Prove the edge is real under pressure.",
+    description: "Prove the edge under evaluation pressure. Get funded and receive your first payout.",
     achievements: [
-      { id: "b1", name: "Eval Slayer", desc: "Pass your first funded evaluation", xp: 150, type: "milestone" },
-      { id: "b2", name: "A+ Hunter", desc: "Only A+ trades for a full week", xp: 100, type: "discipline" },
-      { id: "b3", name: "Two & Done", desc: "2-trade max respected for 10 sessions", xp: 100, type: "discipline" },
-      { id: "b4", name: "First Blood", desc: "Receive your first funded payout", xp: 200, type: "payout", amount: "1st Payout" },
-      { id: "b5", name: "No Revenge", desc: "Stop after a loss 10 times (no revenge)", xp: 100, type: "discipline" },
-      { id: "b6", name: "Hands Off", desc: "Hold to TP without touching SL — 5 times", xp: 125, type: "discipline" },
+      { id: "b1", name: "Evaluation Passed", desc: "Pass your first prop firm evaluation", xp: 150, type: "milestone" },
+      { id: "b2", name: "A+ Only Week", desc: "Take only A+ setups for a full trading week", xp: 100, type: "discipline" },
+      { id: "b3", name: "2-Trade Discipline", desc: "Respect 2-trade daily max for 10 consecutive sessions", xp: 100, type: "discipline" },
+      { id: "b4", name: "First Payout", desc: "Receive your first funded account payout", xp: 200, type: "payout", amount: "1st Payout" },
+      { id: "b5", name: "No Revenge Trading", desc: "Walk away after a loss — 10 times without revenge trading", xp: 100, type: "discipline" },
+      { id: "b6", name: "Execution Trust", desc: "Hold to take-profit without moving stop — 5 times", xp: 125, type: "discipline" },
     ],
   },
   {
     id: 3,
-    name: "Funded Warrior",
+    name: "Funded",
     subtitle: "Consistent Payouts",
-    icon: "🛡️",
-    tier: "GOLD",
+    icon: "📈",
+    tier: "STAGE 3",
     accent: "#4a8fe7",
     accentLight: "#d0e4fd",
     bg: "linear-gradient(135deg, #e6f0fd 0%, #c8ddfa 100%)",
     cardBg: "#f0f6fd",
     xpRequired: 1150,
-    description: "Multiple accounts running. The payout machine is humming.",
+    description: "Multiple accounts running. Consistent payouts proving the edge is repeatable.",
     achievements: [
-      { id: "c1", name: "Multi-Account", desc: "3+ funded accounts running", xp: 150, type: "milestone" },
-      { id: "c2", name: "Payout Streak", desc: "3 consecutive payout cycles", xp: 200, type: "payout" },
+      { id: "c1", name: "3 Active Accounts", desc: "Manage 3+ funded accounts simultaneously", xp: 150, type: "milestone" },
+      { id: "c2", name: "Payout Consistency", desc: "Receive payouts 3 consecutive cycles", xp: 200, type: "payout" },
       { id: "c3", name: "$1K Month", desc: "Monthly payouts exceed $1,000", xp: 150, type: "payout", amount: "$1K/mo" },
-      { id: "c4", name: "$5K Total", desc: "Lifetime payouts reach $5,000", xp: 200, type: "payout", amount: "$5K" },
-      { id: "c5", name: "Five Alive", desc: "5+ funded accounts simultaneously", xp: 175, type: "milestone" },
+      { id: "c4", name: "$5K Lifetime", desc: "Lifetime payouts reach $5,000", xp: 200, type: "payout", amount: "$5K" },
+      { id: "c5", name: "5 Active Accounts", desc: "Manage 5+ funded accounts simultaneously", xp: 175, type: "milestone" },
       { id: "c6", name: "$5K Month", desc: "Monthly payouts exceed $5,000", xp: 250, type: "payout", amount: "$5K/mo" },
     ],
   },
   {
     id: 4,
-    name: "The Architect",
+    name: "Scaling",
     subtitle: "Personal Capital Online",
-    icon: "🏗️",
-    tier: "PLATINUM",
+    icon: "🏦",
+    tier: "STAGE 4",
     accent: "#9b6fe0",
     accentLight: "#ead8fd",
     bg: "linear-gradient(135deg, #f3ecfd 0%, #e2d4f8 100%)",
     cardBg: "#f8f4fd",
     xpRequired: 2275,
-    description: "Payouts fuel personal accounts. Dual-engine activated.",
+    description: "Funded payouts fuel personal accounts. Building real capital from proven results.",
     achievements: [
-      { id: "d1", name: "Seed Capital", desc: "Fund personal account from payouts ($2,500+)", xp: 200, type: "payout", amount: "$2.5K seed" },
+      { id: "d1", name: "Personal Account Funded", desc: "Seed personal account from payouts ($2,500+)", xp: 200, type: "payout", amount: "$2.5K seed" },
       { id: "d2", name: "$10K Month", desc: "Combined income hits $10K/month", xp: 300, type: "payout", amount: "$10K/mo" },
-      { id: "d3", name: "Personal Edge", desc: "Personal account profitable 3 months straight", xp: 250, type: "milestone" },
-      { id: "d4", name: "$25K Total", desc: "Lifetime trading income reaches $25K", xp: 250, type: "payout", amount: "$25K" },
+      { id: "d3", name: "3-Month Personal Streak", desc: "Personal account profitable 3 consecutive months", xp: 250, type: "milestone" },
+      { id: "d4", name: "$25K Lifetime", desc: "Lifetime trading income reaches $25K", xp: 250, type: "payout", amount: "$25K" },
       { id: "d5", name: "$20K Month", desc: "Combined monthly income hits $20K", xp: 300, type: "payout", amount: "$20K/mo" },
     ],
   },
   {
     id: 5,
-    name: "The Master",
-    subtitle: "Full Independence",
-    icon: "👑",
-    tier: "DIAMOND",
+    name: "Independent",
+    subtitle: "Full-Time Trader",
+    icon: "💼",
+    tier: "STAGE 5",
     accent: "#e05a6d",
     accentLight: "#fdd8dd",
     bg: "linear-gradient(135deg, #fde8ec 0%, #f8cdd4 100%)",
     cardBg: "#fdf2f4",
     xpRequired: 3575,
-    description: "Personal capital is primary. You trade for yourself. Freedom unlocked.",
+    description: "Personal capital is primary. Trading is the career. Full financial independence.",
     achievements: [
-      { id: "e1", name: "Six Figures", desc: "Personal account reaches $100K+", xp: 400, type: "milestone", amount: "$100K" },
+      { id: "e1", name: "$100K Portfolio", desc: "Personal trading account reaches $100K+", xp: 400, type: "milestone", amount: "$100K" },
       { id: "e2", name: "$25K Month", desc: "Monthly income exceeds $25,000", xp: 350, type: "payout", amount: "$25K/mo" },
-      { id: "e3", name: "The Model Works", desc: "12 consecutive profitable months", xp: 400, type: "milestone" },
-      { id: "e4", name: "Freedom", desc: "Trading fully replaces all other income", xp: 500, type: "milestone" },
+      { id: "e3", name: "12-Month Consistency", desc: "12 consecutive profitable months", xp: 400, type: "milestone" },
+      { id: "e4", name: "Financially Independent", desc: "Trading fully replaces all other income", xp: 500, type: "milestone" },
     ],
   },
 ];
@@ -221,10 +221,11 @@ function XPBar({ current, max, color = "#4a8fe7", height = 10 }) {
   );
 }
 
-function Card({ children, style = {}, onClick, hoverable = false }) {
+function Card({ children, style = {}, onClick, hoverable = false, className = "" }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
+      className={className}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -641,6 +642,26 @@ export default function TraderRoadmapXP() {
     button, input, textarea, select { font-family: inherit; }
     textarea:focus, input:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 10px var(--accent-glow) !important; }
     ::selection { background: var(--accent-dim); color: var(--text-primary); }
+    @media (max-width: 640px) {
+      .grid-4 { grid-template-columns: 1fr 1fr !important; }
+      .grid-5 { grid-template-columns: repeat(3, 1fr) !important; }
+      .grid-week { grid-template-columns: repeat(5, 1fr) !important; gap: 4px !important; }
+      .card-pad { padding: 16px !important; }
+      .form-grid { grid-template-columns: 1fr !important; }
+      .modal-card { max-width: 100% !important; padding: 20px !important; margin: 10px !important; }
+      .stat-val { font-size: 18px !important; }
+      .nav-tabs { gap: 4px !important; padding: 8px 12px !important; overflow-x: auto !important; }
+      .nav-tab { padding: 6px 12px !important; font-size: 11px !important; white-space: nowrap !important; }
+      .main-content { padding: 12px 10px 60px !important; }
+      .cal-grid { gap: 3px !important; }
+      .cal-day { min-height: 52px !important; padding: 4px !important; font-size: 10px !important; }
+      .cal-day-num { font-size: 11px !important; }
+      .cal-pnl { font-size: 9px !important; }
+      .cal-count { font-size: 8px !important; }
+      .section-title { font-size: 11px !important; }
+      .drawdown-popup { width: 280px !important; right: 12px !important; bottom: 12px !important; padding: 16px !important; }
+      .header-bar { padding: 10px 12px !important; }
+    }
   `;
 
   // ── LOADING ───
@@ -661,7 +682,7 @@ export default function TraderRoadmapXP() {
     return (
       <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <style>{globalStyles}</style>
-        <div style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
+        <div className="modal-card" style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 48, marginBottom: 16, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
             <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: 4, textTransform: "uppercase" }}>TRADER ROADMAP XP</h1>
@@ -737,7 +758,7 @@ export default function TraderRoadmapXP() {
         }}
       >
         <style>{globalStyles}</style>
-        <div style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
+        <div className="modal-card" style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
           <div style={{ fontSize: 64, marginBottom: 24, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
           <h1
             style={{
@@ -842,7 +863,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
           >
-            <Card style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
@@ -968,7 +989,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
           >
-            <Card style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
@@ -1065,7 +1086,7 @@ export default function TraderRoadmapXP() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
         >
-          <Card style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+          <Card className="modal-card" style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit Profile</div>
               <div
@@ -1115,7 +1136,7 @@ export default function TraderRoadmapXP() {
       )}
 
       {/* ── Top Bar ── */}
-      <div style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)", borderTop: "1px solid var(--border-glow)", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
+      <div className="header-bar" style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)", borderTop: "1px solid var(--border-glow)", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1187,7 +1208,7 @@ export default function TraderRoadmapXP() {
       </div>
 
       {/* ── Nav Tabs ── */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
+      <div className="nav-tabs" style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
         {[
           { key: "roadmap", label: "ROADMAP", reset: true },
           { key: "checklist", label: "CHECKLIST" },
@@ -1197,6 +1218,7 @@ export default function TraderRoadmapXP() {
         ].map((tab) => (
           <button
             key={tab.key}
+            className="nav-tab"
             onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
             style={{
               fontFamily: "'JetBrains Mono', monospace",
@@ -1220,7 +1242,7 @@ export default function TraderRoadmapXP() {
       </div>
 
       {/* ── Content ── */}
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
+      <div className="main-content" style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
 
         {/* HOME — default view */}
         {view === "map" && (
