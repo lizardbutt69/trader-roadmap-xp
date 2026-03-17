@@ -94,7 +94,32 @@ create policy "Users can update own accounts"
 create policy "Users can delete own accounts"
   on accounts for delete using (auth.uid() = user_id);
 
+-- Daily Moods table
+create table if not exists daily_moods (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  mood_date date not null,
+  mood text not null,
+  created_at timestamptz default now(),
+  unique(user_id, mood_date)
+);
+
+alter table daily_moods enable row level security;
+
+create policy "Users can view own moods"
+  on daily_moods for select using (auth.uid() = user_id);
+
+create policy "Users can insert own moods"
+  on daily_moods for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own moods"
+  on daily_moods for update using (auth.uid() = user_id);
+
+create policy "Users can delete own moods"
+  on daily_moods for delete using (auth.uid() = user_id);
+
 -- Indexes
 create index if not exists idx_trades_user_dt on trades(user_id, dt);
 create index if not exists idx_trade_plans_user_date on trade_plans(user_id, plan_date);
 create index if not exists idx_accounts_user on accounts(user_id);
+create index if not exists idx_daily_moods_user_date on daily_moods(user_id, mood_date);

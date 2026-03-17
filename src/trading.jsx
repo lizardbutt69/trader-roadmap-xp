@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Chart, registerables } from "chart.js";
+import { jsPDF } from "jspdf";
 Chart.register(...registerables);
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -28,7 +29,33 @@ const XP_LEVELS = [
   { name: "Elite Trader", icon: "🏆", min: 1000, max: Infinity },
 ];
 
+const MOODS = [
+  { value: "Focused", icon: "🎯", color: "var(--green)" },
+  { value: "Confident", icon: "💪", color: "var(--accent-secondary)" },
+  { value: "Calm", icon: "🧘", color: "var(--purple)" },
+  { value: "Anxious", icon: "😰", color: "var(--gold)" },
+  { value: "Tired", icon: "😴", color: "var(--text-tertiary)" },
+  { value: "Frustrated", icon: "😤", color: "var(--red)" },
+  { value: "Neutral", icon: "😐", color: "var(--text-secondary)" },
+];
+
+const DRAWDOWN_WARNING = 0.7;
+const DRAWDOWN_DANGER = 0.85;
+
 // ─── HELPERS ────────────────────────────────────────────────────────────────
+
+function calcStreaks(trades) {
+  const dayMap = buildDayMap(trades);
+  const keys = Object.keys(dayMap).sort();
+  const sorted = [...trades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
+  let greenStreak = 0, bestGreen = 0, cur = 0;
+  keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; bestGreen = Math.max(bestGreen, cur); } else cur = 0; });
+  for (let i = keys.length - 1; i >= 0; i--) { if (dayMap[keys[i]].pnl > 0) greenStreak++; else break; }
+  let aplusStreak = 0, bestAplus = 0, curA = 0;
+  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; bestAplus = Math.max(bestAplus, curA); } else curA = 0; });
+  for (let i = sorted.length - 1; i >= 0; i--) { if (sorted[i].aplus === "Yes") aplusStreak++; else break; }
+  return { greenStreak, bestGreen, aplusStreak, bestAplus };
+}
 
 function nowLocal() {
   const d = new Date();
@@ -501,16 +528,27 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
 
     if (chartInstance.current) chartInstance.current.destroy();
     const isDark = getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim().startsWith('#0');
-    const lineColor = cum >= 0 ? (isDark ? "#00e8c4" : "#00b896") : (isDark ? "#ff4757" : "#e53e3e");
-    const fillColor = cum >= 0 ? "rgba(0,232,196,0.08)" : "rgba(255,71,87,0.08)";
+    const green = isDark ? "#00e8c4" : "#00b896";
+    const red = isDark ? "#ff4757" : "#e53e3e";
+    const greenFill = isDark ? "rgba(0,232,196,0.08)" : "rgba(0,184,150,0.08)";
+    const redFill = isDark ? "rgba(255,71,87,0.08)" : "rgba(229,62,62,0.08)";
+
+    // Create gradient fill that switches color at zero line
+    const ctx = chartRef.current.getContext("2d");
+    const segmentColor = (c) => c.p0.parsed.y >= 0 && c.p1.parsed.y >= 0 ? green : c.p0.parsed.y < 0 && c.p1.parsed.y < 0 ? red : c.p1.parsed.y >= 0 ? green : red;
+    const segmentFill = (c) => c.p0.parsed.y >= 0 && c.p1.parsed.y >= 0 ? greenFill : c.p0.parsed.y < 0 && c.p1.parsed.y < 0 ? redFill : c.p1.parsed.y >= 0 ? greenFill : redFill;
+    const pointColors = data.map((v) => v >= 0 ? green : red);
+
     chartInstance.current = new Chart(chartRef.current, {
       type: "line",
       data: {
         labels,
         datasets: [{
-          data, borderColor: lineColor, backgroundColor: fillColor,
+          data,
+          segment: { borderColor: segmentColor, backgroundColor: segmentFill },
+          borderColor: green, backgroundColor: greenFill,
           borderWidth: 2, pointRadius: data.length > 30 ? 0 : 3,
-          pointBackgroundColor: lineColor, fill: true, tension: 0.3,
+          pointBackgroundColor: pointColors, fill: true, tension: 0.3,
         }],
       },
       options: {
@@ -959,6 +997,9 @@ function BadgesSection({ trades, dayMap }) {
     { icon: "🚀", name: "Best Day Ever", desc: "Single day P&L > $500", unlocked: bestDay >= 500 },
     { icon: "📝", name: "Journaler", desc: "Log 20+ trades", unlocked: trades.length >= 20 },
     { icon: "🏆", name: "Elite", desc: "Reach 1000 XP", unlocked: xp >= 1000 },
+    { icon: "📅", name: "Green Month", desc: "Finish a month profitable", unlocked: (() => { const months = {}; keys.forEach((k) => { const m = k.slice(0, 7); if (!months[m]) months[m] = 0; months[m] += dayMap[k].pnl; }); const cur = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`; return Object.entries(months).some(([m, p]) => m !== cur && p > 0); })() },
+    { icon: "🏃", name: "Marathon", desc: "Log 50+ trades", unlocked: trades.length >= 50 },
+    { icon: "🛡️", name: "Ironclad", desc: "5 green days in a row", unlocked: maxGreen >= 5 },
   ];
 
   return (
@@ -997,11 +1038,21 @@ function WeeklyChallengesSection({ trades }) {
   const withNotes = weekTrades.filter((t) => t.notes && t.notes.length > 5).length;
   const weekPnl = weekTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
 
+  const tradingDays = Object.keys(weekDayMap).length;
+  const redDays = Object.values(weekDayMap).filter((d) => d.pnl < 0).length;
+  const noRedDays = tradingDays > 0 ? tradingDays - redDays : 0;
+  const weekDayCounts = {};
+  weekTrades.forEach((t) => { if (t.dt && t.taken && t.taken !== "Missed") { const k = dateKey(t.dt); weekDayCounts[k] = (weekDayCounts[k] || 0) + 1; } });
+  const daysTraded = Object.keys(weekDayCounts).length;
+  const daysUnder2 = Object.values(weekDayCounts).filter((c) => c <= 2).length;
+
   const challenges = [
     { name: "Take 3 A+ trades this week", cur: Math.min(weekAplus, 3), goal: 3 },
     { name: "Have 3 green days this week", cur: Math.min(greenDays, 3), goal: 3 },
     { name: "Log 5 trades with notes", cur: Math.min(withNotes, 5), goal: 5 },
     { name: "Achieve a profitable week", cur: weekPnl > 0 ? 1 : 0, goal: 1 },
+    { name: "No red days this week", cur: noRedDays, goal: Math.max(tradingDays, 1) },
+    { name: "Stay under 2 trades/day all week", cur: daysUnder2, goal: Math.max(daysTraded, 1) },
   ];
 
   return (
@@ -1051,14 +1102,7 @@ export function TradingStatsView({ trades }) {
   const isMax = level.max === Infinity;
   const pct = isMax ? 100 : Math.min(100, ((xp - level.min) / (level.max - level.min)) * 100);
 
-  const keys = Object.keys(dayMap).sort();
-  const sorted = [...trades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
-  let greenStreak = 0, bestGreen = 0, cur = 0;
-  keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; bestGreen = Math.max(bestGreen, cur); } else cur = 0; });
-  for (let i = keys.length - 1; i >= 0; i--) { if (dayMap[keys[i]].pnl > 0) greenStreak++; else break; }
-  let aplusStreak = 0, bestAplus = 0, curA = 0;
-  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; bestAplus = Math.max(bestAplus, curA); } else curA = 0; });
-  for (let i = sorted.length - 1; i >= 0; i--) { if (sorted[i].aplus === "Yes") aplusStreak++; else break; }
+  const { greenStreak, bestGreen, aplusStreak, bestAplus } = calcStreaks(trades);
 
   return (
     <div>
@@ -1112,7 +1156,7 @@ const ACCOUNT_STATUSES = [
   { value: "inactive", label: "Inactive", color: "var(--text-tertiary)" },
 ];
 
-const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "" };
+const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", notes: "" };
 
 export function AccountsView({ supabase, user }) {
   const [accounts, setAccounts] = useState([]);
@@ -1138,6 +1182,7 @@ export function AccountsView({ supabase, user }) {
       current_pnl: form.current_pnl ? parseFloat(form.current_pnl) : null,
       max_drawdown: form.max_drawdown ? parseFloat(form.max_drawdown) : null,
       daily_loss_limit: form.daily_loss_limit ? parseFloat(form.daily_loss_limit) : null,
+      notes: form.notes || null,
     };
     let err;
     if (editing) {
@@ -1165,6 +1210,7 @@ export function AccountsView({ supabase, user }) {
       current_pnl: acc.current_pnl != null ? String(acc.current_pnl) : "",
       max_drawdown: acc.max_drawdown != null ? String(acc.max_drawdown) : "",
       daily_loss_limit: acc.daily_loss_limit != null ? String(acc.daily_loss_limit) : "",
+      notes: acc.notes || "",
     });
   };
 
@@ -1241,6 +1287,9 @@ export function AccountsView({ supabase, user }) {
                   </div>
                 )}
               </div>
+              {acc.notes && (
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
+              )}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
                 <button onClick={() => openEdit(acc)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
                 <button onClick={() => deleteAccount(acc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>✕ Delete</button>
@@ -1289,12 +1338,376 @@ export function AccountsView({ supabase, user }) {
             <input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} />
           </Field>
         </div>
+        <div style={{ marginBottom: 20 }}>
+          <Field label="Notes">
+            <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }} placeholder="Withdrawal dates, rules, notes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </Field>
+        </div>
         <div style={{ display: "flex", gap: 12 }}>
           {editing && (
             <button onClick={resetForm} style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
           )}
           <button onClick={saveAccount} style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "0 0 15px var(--accent-glow)", letterSpacing: "0.05em" }}>
             {editing ? "SAVE CHANGES" : "+ ADD ACCOUNT"}
+          </button>
+        </div>
+      </TCard>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD VIEW — Home page with live stats, mood, drawdown, export
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ProgressBar({ pct, color, height = 8 }) {
+  return (
+    <div style={{ background: "var(--bg-tertiary)", borderRadius: 4, height, overflow: "hidden", border: "1px solid var(--border-primary)" }}>
+      <div style={{ height: "100%", borderRadius: 4, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, transition: "width 0.5s" }} />
+    </div>
+  );
+}
+
+export function DashboardView({ supabase, user, trades, syncToSheets }) {
+  const [accounts, setAccounts] = useState([]);
+  const [mood, setMood] = useState(null);
+  const [moodLoaded, setMoodLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("accounts").select("*").eq("user_id", user.id).order("created_at").then(({ data }) => { if (data) setAccounts(data); });
+    const today = new Date().toISOString().slice(0, 10);
+    supabase.from("daily_moods").select("mood").eq("user_id", user.id).eq("mood_date", today).maybeSingle().then(({ data }) => {
+      if (data) setMood(data.mood);
+      setMoodLoaded(true);
+    });
+  }, [user]);
+
+  const selectMood = async (m) => {
+    setMood(m);
+    const today = new Date().toISOString().slice(0, 10);
+    await supabase.from("daily_moods").upsert({ user_id: user.id, mood_date: today, mood: m }, { onConflict: "user_id,mood_date" });
+    syncToSheets({ type: "mood", mood: m, dt: new Date().toISOString(), dtFormatted: fmtDate(new Date()) });
+  };
+
+  // Today
+  const tk = todayKey();
+  const todayTrades = trades.filter((t) => t.dt && dateKey(t.dt) === tk);
+  const todayPnl = todayTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const todayTaken = todayTrades.filter((t) => t.taken && t.taken !== "Missed").length;
+
+  // Week
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay() + 1); weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 5);
+  const weekTrades = trades.filter((t) => { if (!t.dt) return false; const d = new Date(t.dt); return d >= weekStart && d < weekEnd; });
+  const weekPnl = weekTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const weekDays = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
+    const k = dateKey(d);
+    const dayTrades = trades.filter((t) => t.dt && dateKey(t.dt) === k);
+    const pnl = dayTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    weekDays.push({ label: ["Mon", "Tue", "Wed", "Thu", "Fri"][i], pnl, count: dayTrades.length, isToday: dateKey(d) === tk });
+  }
+
+  // Streaks
+  const { greenStreak } = calcStreaks(trades);
+
+  // Drawdown alerts
+  const activeAccounts = accounts.filter((a) => ["active", "funded_active"].includes(a.status));
+  const alerts = [];
+  activeAccounts.forEach((acc) => {
+    if (acc.max_drawdown && acc.current_pnl != null) {
+      const pnl = Number(acc.current_pnl);
+      const dd = Number(acc.max_drawdown);
+      const used = Math.abs(Math.min(0, pnl));
+      const pct = used / dd;
+      if (pct >= DRAWDOWN_DANGER) alerts.push({ acc, level: "danger", pct, msg: `${acc.account_name || acc.firm} at ${Math.round(pct * 100)}% drawdown` });
+      else if (pct >= DRAWDOWN_WARNING) alerts.push({ acc, level: "warning", pct, msg: `${acc.account_name || acc.firm} at ${Math.round(pct * 100)}% drawdown` });
+    }
+  });
+
+  // Max bar height for week chart
+  const maxPnl = Math.max(1, ...weekDays.map((d) => Math.abs(d.pnl)));
+
+  // PDF export
+  const [exportPeriod, setExportPeriod] = useState("month");
+  const exportPDF = () => {
+    const n = new Date();
+    let start, end, label;
+    if (exportPeriod === "week") {
+      start = new Date(n); start.setDate(n.getDate() - n.getDay() + 1); start.setHours(0, 0, 0, 0);
+      end = new Date(start); end.setDate(start.getDate() + 5);
+      label = `Week of ${start.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
+    } else {
+      start = new Date(n.getFullYear(), n.getMonth(), 1);
+      end = new Date(n.getFullYear(), n.getMonth() + 1, 0, 23, 59, 59);
+      label = n.toLocaleDateString([], { month: "long", year: "numeric" });
+    }
+    const periodTrades = trades.filter((t) => { if (!t.dt) return false; const d = new Date(t.dt); return d >= start && d <= end; });
+    const takenT = periodTrades.filter((t) => t.taken && t.taken !== "Missed");
+    const wins = takenT.filter((t) => parseFloat(t.profit) > 0).length;
+    const losses = takenT.filter((t) => parseFloat(t.profit) < 0).length;
+    const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const avgWin = wins ? takenT.filter((t) => parseFloat(t.profit) > 0).reduce((s, t) => s + parseFloat(t.profit), 0) / wins : 0;
+    const avgLoss = losses ? takenT.filter((t) => parseFloat(t.profit) < 0).reduce((s, t) => s + parseFloat(t.profit), 0) / losses : 0;
+    const aplusCount = periodTrades.filter((t) => t.aplus === "Yes").length;
+    const wr = takenT.length ? Math.round((wins / takenT.length) * 100) : 0;
+
+    const doc = new jsPDF();
+    doc.setFont("courier", "bold");
+    doc.setFontSize(18);
+    doc.text("TRADER ROADMAP XP", 105, 20, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(`PERFORMANCE REPORT — ${label.toUpperCase()}`, 105, 30, { align: "center" });
+    doc.setDrawColor(0, 200, 160);
+    doc.line(20, 35, 190, 35);
+
+    doc.setFont("courier", "bold");
+    doc.setFontSize(11);
+    let y = 48;
+    const row = (lbl, val) => { doc.setFont("courier", "normal"); doc.text(lbl, 25, y); doc.setFont("courier", "bold"); doc.text(String(val), 120, y); y += 8; };
+    row("Total Trades:", String(periodTrades.length));
+    row("Trades Taken:", String(takenT.length));
+    row("Win Rate:", `${wr}%`);
+    row("Net P&L:", `$${totalPnl.toFixed(2)}`);
+    row("Avg Win:", `$${avgWin.toFixed(2)}`);
+    row("Avg Loss:", `$${avgLoss.toFixed(2)}`);
+    row("A+ Setups:", String(aplusCount));
+    row("Wins / Losses:", `${wins} / ${losses}`);
+
+    y += 8;
+    doc.line(20, y, 190, y);
+    y += 12;
+
+    if (accounts.length) {
+      doc.setFont("courier", "bold");
+      doc.setFontSize(12);
+      doc.text("ACCOUNT STATUS", 25, y); y += 10;
+      doc.setFontSize(10);
+      accounts.forEach((acc) => {
+        doc.setFont("courier", "bold");
+        doc.text(`${acc.account_name || acc.firm}`, 25, y);
+        doc.setFont("courier", "normal");
+        doc.text(`Type: ${acc.account_type}  |  Status: ${acc.status}  |  P&L: $${acc.current_pnl || 0}`, 25, y + 6);
+        y += 16;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+      y += 4;
+      doc.line(20, y, 190, y);
+      y += 12;
+    }
+
+    doc.setFont("courier", "bold");
+    doc.setFontSize(12);
+    doc.text("TRADE LOG", 25, y); y += 10;
+    doc.setFontSize(8);
+    doc.setFont("courier", "bold");
+    doc.text("DATE", 25, y); doc.text("ASSET", 55, y); doc.text("DIR", 80, y); doc.text("A+", 97, y); doc.text("TAKEN", 110, y); doc.text("P&L", 145, y); doc.text("BIAS", 170, y);
+    y += 6;
+    doc.setFont("courier", "normal");
+    const sorted = [...periodTrades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
+    sorted.forEach((t) => {
+      if (y > 280) { doc.addPage(); y = 20; }
+      const d = t.dt ? new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—";
+      doc.text(d, 25, y);
+      doc.text(t.asset || "—", 55, y);
+      doc.text(t.direction || "—", 80, y);
+      doc.text(t.aplus || "—", 97, y);
+      doc.text(t.taken || "—", 110, y);
+      const p = parseFloat(t.profit);
+      doc.text(isNaN(p) ? "—" : `$${p.toFixed(0)}`, 145, y);
+      doc.text(t.bias || "—", 170, y);
+      y += 5;
+    });
+
+    const fname = exportPeriod === "week" ? `report-week-${start.toISOString().slice(0, 10)}.pdf` : `report-${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}.pdf`;
+    doc.save(fname);
+  };
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+
+      {/* Drawdown Alerts — inline banners */}
+      {alerts.map((a, i) => (
+        <div key={i} style={{
+          padding: "14px 20px", marginBottom: 12, borderRadius: 4,
+          background: a.level === "danger" ? "rgba(255,71,87,0.1)" : "rgba(255,165,2,0.1)",
+          border: `1px solid ${a.level === "danger" ? "var(--red)" : "var(--gold)"}`,
+          display: "flex", alignItems: "center", gap: 12,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700,
+          color: a.level === "danger" ? "var(--red)" : "var(--gold)",
+          textTransform: "uppercase", letterSpacing: "0.08em",
+        }}>
+          {a.level === "danger" ? "⚠ DANGER" : "⚡ WARNING"}: {a.msg}
+        </div>
+      ))}
+
+      {/* Drawdown Protocol — fixed bottom-right popup */}
+      {(todayPnl < 0 || alerts.length > 0) && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 300, width: 320,
+          background: "linear-gradient(135deg, rgba(30,0,0,0.95), rgba(60,10,10,0.95))",
+          border: "1px solid var(--red)", borderRadius: 6,
+          boxShadow: "0 0 30px rgba(255,71,87,0.25), 0 0 60px rgba(255,71,87,0.1), inset 0 1px 0 rgba(255,71,87,0.1)",
+          padding: "20px 22px",
+          backdropFilter: "blur(12px)",
+          animation: "fadeSlideIn 0.4s ease",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--red)", boxShadow: "0 0 8px var(--red)", animation: "hudPulse 2s infinite" }} />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "var(--red)", textTransform: "uppercase", letterSpacing: "0.12em" }}>DRAWDOWN PROTOCOL</span>
+          </div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 2, color: "#e0a0a0" }}>
+            <div style={{ color: "#ff8a8a", fontWeight: 700 }}>1. A+ SETUPS ONLY</div>
+            <div style={{ color: "#ff8a8a", fontWeight: 700 }}>2. STAY PATIENT — WAIT FOR IT</div>
+            <div style={{ color: "#ff8a8a", fontWeight: 700 }}>3. REDUCE RISK — PROTECT CAPITAL</div>
+          </div>
+          <div style={{ marginTop: 14, padding: "10px 0 0", borderTop: "1px solid rgba(255,71,87,0.2)" }}>
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#c07070", margin: 0, fontStyle: "italic", lineHeight: 1.6 }}>
+              The best trade in drawdown is the one you don't take. Let the edge come to you.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Mantra */}
+      <div style={{ textAlign: "center", marginBottom: 24, padding: "16px 0" }}>
+        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.8, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: 0, fontStyle: "italic" }}>
+          The setup is the edge. The discomfort is the cost. Pay it and sit still.
+        </p>
+      </div>
+
+      {/* Today's Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", boxShadow: todayPnl < 0 ? "0 0 20px rgba(255,71,87,0.15)" : undefined }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: todayPnl >= 0 ? "var(--green)" : "var(--red)" }}>{todayPnl >= 0 ? "+" : ""}${todayPnl.toFixed(0)}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Today's P&L</div>
+        </TCard>
+        <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" />
+        <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" />
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: weekPnl >= 0 ? "var(--green)" : "var(--red)" }}>{weekPnl >= 0 ? "+" : ""}${weekPnl.toFixed(0)}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Week P&L</div>
+        </TCard>
+      </div>
+
+      {/* Mood Tracker */}
+      <TCard style={{ padding: 24, marginBottom: 24 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+          {mood ? "TODAY'S MOOD" : "HOW ARE YOU FEELING TODAY?"}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {MOODS.map((m) => (
+            <button key={m.value} onClick={() => selectMood(m.value)} style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: mood === m.value ? 700 : 500,
+              padding: "10px 16px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+              background: mood === m.value ? `${m.color}15` : "var(--bg-tertiary)",
+              border: mood === m.value ? `1px solid ${m.color}` : "1px solid var(--border-primary)",
+              color: mood === m.value ? m.color : "var(--text-secondary)",
+              boxShadow: mood === m.value ? `0 0 12px ${m.color}20` : "none",
+            }}>
+              {m.icon} {m.value}
+            </button>
+          ))}
+        </div>
+      </TCard>
+
+      {/* Week Progress */}
+      <TCard style={{ padding: 24, marginBottom: 24 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+          WEEK PROGRESS
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, alignItems: "end", height: 120 }}>
+          {weekDays.map((d) => {
+            const h = maxPnl ? (Math.abs(d.pnl) / maxPnl) * 80 : 0;
+            return (
+              <div key={d.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: d.pnl >= 0 ? "var(--green)" : "var(--red)", marginBottom: 6 }}>
+                  {d.count > 0 ? `${d.pnl >= 0 ? "+" : ""}$${d.pnl.toFixed(0)}` : "—"}
+                </div>
+                <div style={{
+                  width: "100%", maxWidth: 48, height: Math.max(4, h), borderRadius: 3,
+                  background: d.count === 0 ? "var(--bg-tertiary)" : d.pnl >= 0 ? "var(--green)" : "var(--red)",
+                  opacity: d.count === 0 ? 0.3 : 0.8, transition: "height 0.3s",
+                  border: d.isToday ? "2px solid var(--accent)" : "none",
+                }} />
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: d.isToday ? "var(--accent)" : "var(--text-tertiary)", marginTop: 6, fontWeight: d.isToday ? 700 : 500 }}>{d.label}</div>
+              </div>
+            );
+          })}
+        </div>
+      </TCard>
+
+      {/* Account Health */}
+      {activeAccounts.length > 0 && (
+        <TCard style={{ padding: 24, marginBottom: 24 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+            ACCOUNT HEALTH
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {activeAccounts.map((acc) => {
+              const pnl = Number(acc.current_pnl) || 0;
+              const target = Number(acc.profit_target) || 1;
+              const dd = Number(acc.max_drawdown) || 1;
+              const profitPct = Math.max(0, (pnl / target) * 100);
+              const ddUsed = Math.abs(Math.min(0, pnl));
+              const ddPct = (ddUsed / dd) * 100;
+              const ddColor = ddPct >= DRAWDOWN_DANGER * 100 ? "var(--red)" : ddPct >= DRAWDOWN_WARNING * 100 ? "var(--gold)" : "var(--text-tertiary)";
+              return (
+                <div key={acc.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)" }}>{pnl >= 0 ? "+" : ""}${pnl.toFixed(0)}</span>
+                  </div>
+                  {acc.profit_target && (
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase" }}>Profit Target</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)" }}>{Math.round(profitPct)}%</span>
+                      </div>
+                      <ProgressBar pct={profitPct} color="var(--green)" />
+                    </div>
+                  )}
+                  {acc.max_drawdown && (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase" }}>Drawdown Used</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: ddColor }}>{Math.round(ddPct)}%</span>
+                      </div>
+                      <ProgressBar pct={ddPct} color={ddColor} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </TCard>
+      )}
+
+      {/* Export Report */}
+      <TCard style={{ padding: 24 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+          EXPORT REPORT
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 0, border: "1px solid var(--border-primary)", borderRadius: 4, overflow: "hidden" }}>
+            {[{ v: "week", l: "This Week" }, { v: "month", l: "This Month" }].map((p) => (
+              <button key={p.v} onClick={() => setExportPeriod(p.v)} style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: exportPeriod === p.v ? 700 : 500,
+                padding: "10px 18px", border: "none", cursor: "pointer",
+                background: exportPeriod === p.v ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
+                color: exportPeriod === p.v ? "var(--accent)" : "var(--text-tertiary)",
+              }}>{p.l}</button>
+            ))}
+          </div>
+          <button onClick={exportPDF} style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, padding: "10px 24px",
+            background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4,
+            cursor: "pointer", boxShadow: "0 0 15px var(--accent-glow)", letterSpacing: "0.05em", textTransform: "uppercase",
+          }}>
+            GENERATE PDF
           </button>
         </div>
       </TCard>

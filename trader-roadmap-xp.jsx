@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -1224,30 +1224,7 @@ export default function TraderRoadmapXP() {
 
         {/* HOME — default view */}
         {view === "map" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
-            <div style={{
-              border: "1px solid var(--border-glow)",
-              background: "var(--bg-secondary)",
-              boxShadow: "var(--card-glow)",
-              borderRadius: 4,
-              padding: "32px 40px",
-              maxWidth: 480,
-              textAlign: "center",
-            }}>
-              <p style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 14,
-                lineHeight: 1.8,
-                color: "var(--text-secondary)",
-                letterSpacing: "0.02em",
-                margin: 0,
-              }}>
-                The setup is the edge.<br />
-                The discomfort is the cost.<br />
-                Pay it and sit still.
-              </p>
-            </div>
-          </div>
+          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} />
         )}
 
         {/* MAP VIEW — Trail Style */}
