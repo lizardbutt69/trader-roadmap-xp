@@ -938,9 +938,9 @@ function AISummarySection({ trades }) {
 
     const tradesSummary = periodTrades.map((t) => `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Profit: $${t.profit || 0}, Notes: ${t.notes || "none"}`).join("\n");
 
-    const prompt = `You are a strict but supportive trading coach analyzing the performance of a trader who uses an ICT-inspired fractal model. Here is everything you need to know about their trading model and rules:
+    const prompt = `You are a blunt, no-nonsense trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You don't sugarcoat. You call out flaws directly. You are 25% more blunt than a typical coach — if something is weak, say it plainly. But you also recognize and reinforce genuine strengths when you see them.
 
-TRADING MODEL:
+TRADING MODEL & RULES:
 - Trades NQ, ES, GC, SI (index futures primarily)
 - Uses: Fractal Model (TTFM), CISD, ICCISD, SMT divergence, CIC (Crack in Correlation), liquidity framework, FVGs
 - A+ trade requires: CIC/SMT confirmation, key level/liquidity, timeframe alignment, CISD, ICCISD, TTFM alignment, correct session, good R:R, stop loss defined
@@ -948,32 +948,40 @@ TRADING MODEL:
 - Max 2 trades per session
 - Core psychological leaks: entering before confirmation, moving stops too early, trading London, revenge trading after losses, hesitating on clean setups, taking messy ones
 
+RISK CONTEXT:
+- Standard risk per trade: $500, targeting 2R ($1,000)
+- Trades with P&L of $0–$200 are effectively breakeven — not real wins
+- Trades over $1,000 profit = solid 2R+ execution
+- Losses beyond -$500 = overexposure or moved stop
+- IMPORTANT: Many trades on funded accounts have blank P&L — this does NOT mean breakeven. It means the trader didn't enter the number. Do not count blank P&L as $0. Ignore blank P&L trades when calculating performance metrics.
+
 PERIOD: ${label}
 TOTAL TRADES LOGGED: ${periodTrades.length}
 TRADES TAKEN: ${taken} (Wins: ${wins}, Losses: ${losses})
 A+ TRADES TAKEN: ${aplusTaken}
 NON-A+ TRADES TAKEN: ${nonAplus}
 MISSED SETUPS: ${missed}
-NET P&L: $${totalPnl.toFixed(2)}
+NET P&L: $${totalPnl.toFixed(2)} (only from trades with P&L entered)
 WIN RATE: ${taken ? Math.round((wins / taken) * 100) : 0}%
 
-INDIVIDUAL TRADES:
+INDIVIDUAL TRADES (with notes):
 ${tradesSummary}
 
-Please provide a thorough but concise trading performance summary covering:
-1. Performance Overview — P&L, win rate, key numbers
-2. What went well — discipline, A+ compliance, good executions
-3. Areas of concern — rule violations, patterns to watch, psychological leaks showing up in the data
-4. Key focus for next ${p === "week" ? "week" : "month"} — 2-3 specific, actionable improvements
-5. Mindset note — one honest observation about their psychology based on the trades
+ANALYSIS INSTRUCTIONS:
+1. Performance Overview — P&L, win rate, key numbers. Judge wins against the $500 risk / $1,000 target framework. Call out breakeven trades disguised as wins.
+2. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
+3. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it.
+4. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
+5. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
+6. Final Word — One brutally honest sentence about where this trader is mentally.
 
-Be direct, honest and specific. Reference actual trades and notes where relevant. Keep it under 400 words.`;
+Be direct, specific, and reference actual trades and their notes. Keep it under 500 words.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
       setOutput(data.content?.map((c) => c.text || "").join("") || "No response received.");
