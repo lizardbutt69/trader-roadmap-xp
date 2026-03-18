@@ -430,7 +430,6 @@ export default function TraderRoadmapXP() {
   const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
-  const [showWelcome, setShowWelcome] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [proofNote, setProofNote] = useState("");
   const [proofLink, setProofLink] = useState("");
@@ -508,19 +507,8 @@ export default function TraderRoadmapXP() {
 
   useEffect(() => { loadTrades(); }, [loadTrades]);
 
-  // Welcome back on login (not signup)
   const prevUser = useRef(null);
   useEffect(() => {
-    if (user && prevUser.current === null && !authLoading) {
-      // User just logged in — show welcome if they have completions
-      const timer = setTimeout(() => {
-        if (completed.size > 0) {
-          setShowWelcome(true);
-          setTimeout(() => setShowWelcome(false), 3000);
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
     prevUser.current = user;
   }, [user, completed.size, authLoading]);
 
@@ -1095,20 +1083,6 @@ export default function TraderRoadmapXP() {
           </div>
         );
       })()}
-
-      {/* ── Welcome Back Banner ── */}
-      {showWelcome && (
-        <div style={{
-          position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 300,
-          background: "var(--accent)", color: "var(--bg-primary)",
-          padding: "14px 28px", borderRadius: 6, fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace",
-          boxShadow: "0 8px 30px var(--accent-glow)", animation: "fadeSlideIn 0.4s ease",
-          display: "flex", alignItems: "center", gap: 12,
-        }}>
-          <span style={{ fontSize: 24 }}>👋</span>
-          Welcome back, {displayName}!
-        </div>
-      )}
 
       {/* ── Tilt Alert Modal ── */}
       {showTilt && (
