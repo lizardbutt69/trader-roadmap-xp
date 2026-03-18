@@ -1413,7 +1413,7 @@ export default function TraderRoadmapXP() {
       <div className="nav-tabs" style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
         <button
           className="nav-tab"
-          onClick={() => { setShowIntro(true); setIntroFade(false); }}
+          onClick={() => { setView("map"); setSelectedLevel(null); }}
           title="Home"
           style={{
             fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: "8px 12px",

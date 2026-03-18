@@ -268,6 +268,23 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
   // Plan state
   const [plan, setPlan] = useState({ bias: "", max_trades: "2", key_levels: "", session_plan: "", notes: "" });
   const [planSaved, setPlanSaved] = useState(false);
+  const [mood, setMood] = useState(null);
+
+  // Load today's mood
+  useEffect(() => {
+    if (!user) return;
+    const today = new Date().toISOString().slice(0, 10);
+    supabase.from("daily_moods").select("mood").eq("user_id", user.id).eq("mood_date", today).maybeSingle().then(({ data }) => {
+      if (data) setMood(data.mood);
+    });
+  }, [user]);
+
+  const selectMood = async (m) => {
+    setMood(m);
+    const today = new Date().toISOString().slice(0, 10);
+    await supabase.from("daily_moods").upsert({ user_id: user.id, mood_date: today, mood: m }, { onConflict: "user_id,mood_date" });
+    if (syncToSheets) syncToSheets({ type: "mood", mood: m, dt: new Date().toISOString(), dtFormatted: fmtDate(new Date()) });
+  };
 
   // Form state
   const [formDt, setFormDt] = useState(nowLocal());
@@ -384,9 +401,31 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
       {/* Pre-Trade Plan */}
       <TCard style={{ padding: 28, marginBottom: 24 }}>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>PRE-TRADE PLAN</div>
-        <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginBottom: 20 }}>
+        <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginBottom: 16 }}>
           {today.toLocaleDateString([], { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
         </div>
+
+        {/* Mood */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+            {mood ? "TODAY'S MOOD" : "HOW ARE YOU FEELING?"}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {MOODS.map((m) => (
+              <button key={m.value} onClick={() => selectMood(m.value)} style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: mood === m.value ? 700 : 500,
+                padding: "7px 12px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+                background: mood === m.value ? `${m.color}15` : "var(--bg-tertiary)",
+                border: mood === m.value ? `1px solid ${m.color}` : "1px solid var(--border-primary)",
+                color: mood === m.value ? m.color : "var(--text-secondary)",
+                boxShadow: mood === m.value ? `0 0 10px ${m.color}20` : "none",
+              }}>
+                {m.icon} {m.value}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
           <Field label="Daily Bias">
             <select style={selectStyle} value={plan.bias} onChange={(e) => setPlan({ ...plan, bias: e.target.value })}>
@@ -1386,25 +1425,11 @@ function ProgressBar({ pct, color, height = 8 }) {
 
 export function DashboardView({ supabase, user, trades, syncToSheets }) {
   const [accounts, setAccounts] = useState([]);
-  const [mood, setMood] = useState(null);
-  const [moodLoaded, setMoodLoaded] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("accounts").select("*").eq("user_id", user.id).order("created_at").then(({ data }) => { if (data) setAccounts(data); });
-    const today = new Date().toISOString().slice(0, 10);
-    supabase.from("daily_moods").select("mood").eq("user_id", user.id).eq("mood_date", today).maybeSingle().then(({ data }) => {
-      if (data) setMood(data.mood);
-      setMoodLoaded(true);
-    });
   }, [user]);
-
-  const selectMood = async (m) => {
-    setMood(m);
-    const today = new Date().toISOString().slice(0, 10);
-    await supabase.from("daily_moods").upsert({ user_id: user.id, mood_date: today, mood: m }, { onConflict: "user_id,mood_date" });
-    syncToSheets({ type: "mood", mood: m, dt: new Date().toISOString(), dtFormatted: fmtDate(new Date()) });
-  };
 
   // Today
   const tk = todayKey();
@@ -1515,27 +1540,6 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
         </TCard>
       </div>
 
-      {/* Mood Tracker */}
-      <TCard style={{ padding: 24, marginBottom: 24 }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-          {mood ? "TODAY'S MOOD" : "HOW ARE YOU FEELING TODAY?"}
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {MOODS.map((m) => (
-            <button key={m.value} onClick={() => selectMood(m.value)} style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: mood === m.value ? 700 : 500,
-              padding: "10px 16px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
-              background: mood === m.value ? `${m.color}15` : "var(--bg-tertiary)",
-              border: mood === m.value ? `1px solid ${m.color}` : "1px solid var(--border-primary)",
-              color: mood === m.value ? m.color : "var(--text-secondary)",
-              boxShadow: mood === m.value ? `0 0 12px ${m.color}20` : "none",
-            }}>
-              {m.icon} {m.value}
-            </button>
-          ))}
-        </div>
-      </TCard>
-
       {/* Week Progress */}
       <TCard style={{ padding: 24, marginBottom: 24 }}>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
@@ -1608,6 +1612,107 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
         </TCard>
       )}
 
+      {/* News Command Center */}
+      <NewsView />
+
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEWS VIEW — Forex Factory calendar + Live news streams
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LIVE_CHANNELS = [
+  { key: "bloomberg", label: "Bloomberg", src: "https://www.youtube.com/embed/iEpJwprxDdk?si=j3ag1XXE9FLfDCfi&autoplay=1&mute=1" },
+  { key: "aljazeera", label: "Al Jazeera", src: "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1" },
+  { key: "euronews", label: "EuroNews", src: "https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1" },
+  { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
+];
+
+export function NewsView() {
+  const [channel, setChannel] = useState("bloomberg");
+  const calendarRef = useRef(null);
+
+  const activeSrc = LIVE_CHANNELS.find((c) => c.key === channel)?.src || LIVE_CHANNELS[0].src;
+
+  // Load TradingView Economic Calendar widget
+  useEffect(() => {
+    if (!calendarRef.current) return;
+    calendarRef.current.innerHTML = "";
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      colorTheme: "dark",
+      isTransparent: true,
+      width: "100%",
+      height: "500",
+      locale: "en",
+      importanceFilter: "0,1",
+      countryFilter: "us",
+    });
+    calendarRef.current.appendChild(script);
+  }, []);
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+
+      {/* Live News Stream */}
+      <TCard style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{
+          padding: "12px 20px", borderBottom: "1px solid var(--border-primary)",
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#e53e3e", animation: "hudPulse 2s ease-in-out infinite" }} />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              LIVE NEWS
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {LIVE_CHANNELS.map((ch) => (
+              <button
+                key={ch.key}
+                onClick={() => setChannel(ch.key)}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: channel === ch.key ? 700 : 500,
+                  padding: "6px 12px", border: "none", borderRadius: 3, cursor: "pointer",
+                  background: channel === ch.key ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
+                  color: channel === ch.key ? "var(--accent)" : "var(--text-tertiary)",
+                  textTransform: "uppercase", letterSpacing: "0.05em", transition: "all 0.2s",
+                }}
+              >
+                {ch.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ position: "relative", paddingBottom: "56.25%", height: 0 }}>
+          <iframe
+            key={channel}
+            src={activeSrc}
+            title="Live News"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+          />
+        </div>
+      </TCard>
+
+      {/* Economic Calendar — TradingView */}
+      <TCard style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{
+          padding: "16px 20px", borderBottom: "1px solid var(--border-primary)",
+        }}>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            ECONOMIC CALENDAR
+          </span>
+        </div>
+        <div ref={calendarRef} style={{ minHeight: 500 }} />
+      </TCard>
     </div>
   );
 }
