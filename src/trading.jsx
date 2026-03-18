@@ -938,7 +938,7 @@ function AISummarySection({ trades }) {
 
     const tradesSummary = periodTrades.map((t) => `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Profit: $${t.profit || 0}, Notes: ${t.notes || "none"}`).join("\n");
 
-    const prompt = `You are a blunt, no-nonsense trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You don't sugarcoat. You call out flaws directly. You are 25% more blunt than a typical coach — if something is weak, say it plainly. But you also recognize and reinforce genuine strengths when you see them.
+    const prompt = `You are a direct but fair trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You're honest and straightforward — you don't sugarcoat, but you're not harsh either. Think tough older brother energy. You point out weaknesses clearly because you want this trader to improve, and you genuinely acknowledge strengths when earned.
 
 TRADING MODEL & RULES:
 - Trades NQ, ES, GC, SI (index futures primarily)
@@ -973,7 +973,7 @@ ANALYSIS INSTRUCTIONS:
 3. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it.
 4. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
 5. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
-6. Final Word — One brutally honest sentence about where this trader is mentally.
+6. Final Word — One honest sentence about where this trader is mentally.
 
 Be direct, specific, and reference actual trades and their notes. Keep it under 500 words.`;
 
