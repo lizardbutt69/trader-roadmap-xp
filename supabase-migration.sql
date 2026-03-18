@@ -118,6 +118,9 @@ create policy "Users can update own moods"
 create policy "Users can delete own moods"
   on daily_moods for delete using (auth.uid() = user_id);
 
+-- Add after_thoughts column to trades (run if upgrading existing DB)
+alter table trades add column if not exists after_thoughts text;
+
 -- Indexes
 create index if not exists idx_trades_user_dt on trades(user_id, dt);
 create index if not exists idx_trade_plans_user_date on trade_plans(user_id, plan_date);

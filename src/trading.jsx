@@ -297,6 +297,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
   const [formChart, setFormChart] = useState("");
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [formAfterThoughts, setFormAfterThoughts] = useState("");
 
   // Google Sheets settings
   const [showGsSettings, setShowGsSettings] = useState(false);
@@ -369,13 +370,14 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
       chart: formChart,
       after_chart: formAfter,
       notes: formNotes,
+      after_thoughts: formAfterThoughts,
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (!error) {
       if (syncToSheets) syncToSheets({ ...tradeData, after: tradeData.after_chart, dtFormatted: fmtDate(formDt), preMarketJournal: plan.session_plan || "" });
       setFormAsset(""); setFormDirection(""); setFormAplus("");
       setFormTaken(""); setFormProfit(""); setFormChart("");
-      setFormAfter(""); setFormNotes(""); setFormDt(nowLocal());
+      setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormDt(nowLocal());
       loadTrades();
     }
   };
@@ -521,6 +523,9 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
           <Field label="Trade Notes" full>
             <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="Entry reason, observations, mistakes..." value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
           </Field>
+          <Field label="After Trade Thoughts" full>
+            <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
+          </Field>
         </div>
         <button onClick={logTrade} style={{
           fontFamily: "'JetBrains Mono', monospace", width: "100%", padding: 13, fontSize: 13, fontWeight: 700, border: "1px solid var(--accent)", borderRadius: 4, cursor: "pointer",
@@ -619,7 +624,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
       aplus: trade.aplus || "", taken: trade.taken || "",
       bias: trade.bias || "", profit: trade.profit != null ? String(trade.profit) : "",
       chart: trade.chart || "", after_chart: trade.after_chart || "",
-      notes: trade.notes || "",
+      notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
     });
   };
 
@@ -631,6 +636,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
       aplus: editForm.aplus, taken: editForm.taken, bias: editForm.bias,
       profit: editForm.profit ? parseFloat(editForm.profit) : null,
       chart: editForm.chart, after_chart: editForm.after_chart, notes: editForm.notes,
+      after_thoughts: editForm.after_thoughts,
     }).eq("id", editing);
     setEditing(null);
     loadTrades();
@@ -878,6 +884,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
               <Field label="Trade Notes" full>
                 <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
               </Field>
+              <Field label="After Trade Thoughts" full>
+                <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently?" value={editForm.after_thoughts} onChange={(e) => setEditForm({ ...editForm, after_thoughts: e.target.value })} />
+              </Field>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
               <button onClick={() => setEditing(null)} style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1, fontSize: 13, fontWeight: 600, padding: 13, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
@@ -936,7 +945,7 @@ function AISummarySection({ trades }) {
     const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
     const missed = periodTrades.filter((t) => t.taken === "Missed").length;
 
-    const tradesSummary = periodTrades.map((t) => `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Profit: $${t.profit || 0}, Notes: ${t.notes || "none"}`).join("\n");
+    const tradesSummary = periodTrades.map((t) => `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Profit: ${t.profit != null ? "$" + t.profit : "blank"}, Notes: ${t.notes || "none"}, After Trade Thoughts: ${t.after_thoughts || "none"}`).join("\n");
 
     const prompt = `You are a direct but fair trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You're honest and straightforward — you don't sugarcoat, but you're not harsh either. Think tough older brother energy. You point out weaknesses clearly because you want this trader to improve, and you genuinely acknowledge strengths when earned.
 
