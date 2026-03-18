@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Chart, registerables } from "chart.js";
-import { jsPDF } from "jspdf";
 Chart.register(...registerables);
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -539,6 +538,10 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
     const segmentFill = (c) => c.p0.parsed.y >= 0 && c.p1.parsed.y >= 0 ? greenFill : c.p0.parsed.y < 0 && c.p1.parsed.y < 0 ? redFill : c.p1.parsed.y >= 0 ? greenFill : redFill;
     const pointColors = data.map((v) => v >= 0 ? green : red);
 
+    const cs = getComputedStyle(document.documentElement);
+    const tickColor = cs.getPropertyValue("--text-tertiary").trim() || "#4a5568";
+    const gridColor = cs.getPropertyValue("--hud-grid").trim() || "rgba(0,0,0,0.02)";
+
     chartInstance.current = new Chart(chartRef.current, {
       type: "line",
       data: {
@@ -555,8 +558,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
         responsive: true,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => ` $${c.raw.toFixed(2)}` } } },
         scales: {
-          x: { ticks: { color: "var(--text-tertiary)", maxTicksLimit: 8, font: { size: 11, family: "'JetBrains Mono', monospace" } }, grid: { color: "var(--hud-grid)" } },
-          y: { ticks: { color: "var(--text-tertiary)", callback: (v) => "$" + v, font: { size: 11, family: "'JetBrains Mono', monospace" } }, grid: { color: "var(--hud-grid)" } },
+          x: { ticks: { color: tickColor, maxTicksLimit: 8, font: { size: 11, family: "'JetBrains Mono', monospace" } }, grid: { color: gridColor } },
+          y: { ticks: { color: tickColor, callback: (v) => "$" + v, font: { size: 11, family: "'JetBrains Mono', monospace" } }, grid: { color: gridColor } },
         },
       },
     });
@@ -950,7 +953,19 @@ Be direct, honest and specific. Reference actual trades and notes where relevant
       </div>
       {showKeyInput && (
         <div style={{ marginBottom: 16 }}>
-          <input type="password" style={inputStyle} placeholder="Anthropic API Key" value={apiKey} onChange={(e) => saveKey(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input type="password" style={{ ...inputStyle, flex: 1 }} placeholder="Anthropic API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+            <button
+              onClick={() => { saveKey(apiKey); setShowKeyInput(false); }}
+              style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, padding: "10px 18px",
+                background: apiKey ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
+                border: `1px solid ${apiKey ? "var(--accent)" : "var(--border-primary)"}`,
+                color: apiKey ? "var(--accent)" : "var(--text-tertiary)",
+                borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
+              }}
+            >SAVE</button>
+          </div>
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>Your key is stored locally and never sent to our servers.</div>
         </div>
       )}
@@ -1432,100 +1447,6 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
   // Max bar height for week chart
   const maxPnl = Math.max(1, ...weekDays.map((d) => Math.abs(d.pnl)));
 
-  // PDF export
-  const [exportPeriod, setExportPeriod] = useState("month");
-  const exportPDF = () => {
-    const n = new Date();
-    let start, end, label;
-    if (exportPeriod === "week") {
-      start = new Date(n); start.setDate(n.getDate() - n.getDay() + 1); start.setHours(0, 0, 0, 0);
-      end = new Date(start); end.setDate(start.getDate() + 5);
-      label = `Week of ${start.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
-    } else {
-      start = new Date(n.getFullYear(), n.getMonth(), 1);
-      end = new Date(n.getFullYear(), n.getMonth() + 1, 0, 23, 59, 59);
-      label = n.toLocaleDateString([], { month: "long", year: "numeric" });
-    }
-    const periodTrades = trades.filter((t) => { if (!t.dt) return false; const d = new Date(t.dt); return d >= start && d <= end; });
-    const takenT = periodTrades.filter((t) => t.taken && t.taken !== "Missed");
-    const wins = takenT.filter((t) => parseFloat(t.profit) > 0).length;
-    const losses = takenT.filter((t) => parseFloat(t.profit) < 0).length;
-    const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
-    const avgWin = wins ? takenT.filter((t) => parseFloat(t.profit) > 0).reduce((s, t) => s + parseFloat(t.profit), 0) / wins : 0;
-    const avgLoss = losses ? takenT.filter((t) => parseFloat(t.profit) < 0).reduce((s, t) => s + parseFloat(t.profit), 0) / losses : 0;
-    const aplusCount = periodTrades.filter((t) => t.aplus === "Yes").length;
-    const wr = takenT.length ? Math.round((wins / takenT.length) * 100) : 0;
-
-    const doc = new jsPDF();
-    doc.setFont("courier", "bold");
-    doc.setFontSize(18);
-    doc.text("TRADER ROADMAP XP", 105, 20, { align: "center" });
-    doc.setFontSize(12);
-    doc.text(`PERFORMANCE REPORT — ${label.toUpperCase()}`, 105, 30, { align: "center" });
-    doc.setDrawColor(0, 200, 160);
-    doc.line(20, 35, 190, 35);
-
-    doc.setFont("courier", "bold");
-    doc.setFontSize(11);
-    let y = 48;
-    const row = (lbl, val) => { doc.setFont("courier", "normal"); doc.text(lbl, 25, y); doc.setFont("courier", "bold"); doc.text(String(val), 120, y); y += 8; };
-    row("Total Trades:", String(periodTrades.length));
-    row("Trades Taken:", String(takenT.length));
-    row("Win Rate:", `${wr}%`);
-    row("Net P&L:", `$${totalPnl.toFixed(2)}`);
-    row("Avg Win:", `$${avgWin.toFixed(2)}`);
-    row("Avg Loss:", `$${avgLoss.toFixed(2)}`);
-    row("A+ Setups:", String(aplusCount));
-    row("Wins / Losses:", `${wins} / ${losses}`);
-
-    y += 8;
-    doc.line(20, y, 190, y);
-    y += 12;
-
-    if (accounts.length) {
-      doc.setFont("courier", "bold");
-      doc.setFontSize(12);
-      doc.text("ACCOUNT STATUS", 25, y); y += 10;
-      doc.setFontSize(10);
-      accounts.forEach((acc) => {
-        doc.setFont("courier", "bold");
-        doc.text(`${acc.account_name || acc.firm}`, 25, y);
-        doc.setFont("courier", "normal");
-        doc.text(`Type: ${acc.account_type}  |  Status: ${acc.status}  |  P&L: $${acc.current_pnl || 0}`, 25, y + 6);
-        y += 16;
-        if (y > 270) { doc.addPage(); y = 20; }
-      });
-      y += 4;
-      doc.line(20, y, 190, y);
-      y += 12;
-    }
-
-    doc.setFont("courier", "bold");
-    doc.setFontSize(12);
-    doc.text("TRADE LOG", 25, y); y += 10;
-    doc.setFontSize(8);
-    doc.setFont("courier", "bold");
-    doc.text("DATE", 25, y); doc.text("ASSET", 55, y); doc.text("DIR", 80, y); doc.text("A+", 97, y); doc.text("TAKEN", 110, y); doc.text("P&L", 145, y); doc.text("BIAS", 170, y);
-    y += 6;
-    doc.setFont("courier", "normal");
-    const sorted = [...periodTrades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
-    sorted.forEach((t) => {
-      if (y > 280) { doc.addPage(); y = 20; }
-      const d = t.dt ? new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—";
-      doc.text(d, 25, y);
-      doc.text(t.asset || "—", 55, y);
-      doc.text(t.direction || "—", 80, y);
-      doc.text(t.aplus || "—", 97, y);
-      doc.text(t.taken || "—", 110, y);
-      const p = parseFloat(t.profit);
-      doc.text(isNaN(p) ? "—" : `$${p.toFixed(0)}`, 145, y);
-      doc.text(t.bias || "—", 170, y);
-      y += 5;
-    });
-
-    const fname = exportPeriod === "week" ? `report-week-${start.toISOString().slice(0, 10)}.pdf` : `report-${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}.pdf`;
-    doc.save(fname);
-  };
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
@@ -1687,31 +1608,6 @@ export function DashboardView({ supabase, user, trades, syncToSheets }) {
         </TCard>
       )}
 
-      {/* Export Report */}
-      <TCard style={{ padding: 24 }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-          EXPORT REPORT
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ display: "flex", gap: 0, border: "1px solid var(--border-primary)", borderRadius: 4, overflow: "hidden" }}>
-            {[{ v: "week", l: "This Week" }, { v: "month", l: "This Month" }].map((p) => (
-              <button key={p.v} onClick={() => setExportPeriod(p.v)} style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: exportPeriod === p.v ? 700 : 500,
-                padding: "10px 18px", border: "none", cursor: "pointer",
-                background: exportPeriod === p.v ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
-                color: exportPeriod === p.v ? "var(--accent)" : "var(--text-tertiary)",
-              }}>{p.l}</button>
-            ))}
-          </div>
-          <button onClick={exportPDF} style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, padding: "10px 24px",
-            background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4,
-            cursor: "pointer", boxShadow: "0 0 15px var(--accent-glow)", letterSpacing: "0.05em", textTransform: "uppercase",
-          }}>
-            GENERATE PDF
-          </button>
-        </div>
-      </TCard>
     </div>
   );
 }

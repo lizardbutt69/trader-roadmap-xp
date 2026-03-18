@@ -12,6 +12,7 @@ const LIGHT_THEME = {
   "--border-primary": "#d8dce3",
   "--border-secondary": "#e2e6eb",
   "--border-glow": "rgba(0,180,150,0.1)",
+  "--border-glow-shadow": "none",
   "--text-primary": "#0f1117",
   "--text-secondary": "#5a6577",
   "--text-tertiary": "#8a95a5",
@@ -35,9 +36,10 @@ const DARK_THEME = {
   "--bg-secondary": "#0f1117",
   "--bg-tertiary": "#141820",
   "--bg-input": "#141820",
-  "--border-primary": "#1a2332",
-  "--border-secondary": "#1e2a3a",
+  "--border-primary": "rgba(0,232,196,0.18)",
+  "--border-secondary": "rgba(0,232,196,0.10)",
   "--border-glow": "rgba(0,232,196,0.15)",
+  "--border-glow-shadow": "0 0 8px rgba(0,232,196,0.12), 0 0 2px rgba(0,232,196,0.06)",
   "--text-primary": "#e0e6ed",
   "--text-secondary": "#7a8a9e",
   "--text-tertiary": "#4a5568",
@@ -48,7 +50,7 @@ const DARK_THEME = {
   "--accent-glow-strong": "rgba(0,232,196,0.2)",
   "--accent-secondary": "#3b82f6",
   "--card-shadow": "0 0 20px rgba(0,0,0,0.4), 0 0 2px rgba(0,232,196,0.05)",
-  "--card-glow": "0 0 15px rgba(0,232,196,0.06), inset 0 1px 0 rgba(0,232,196,0.05)",
+  "--card-glow": "0 0 15px rgba(0,232,196,0.06), 0 0 8px rgba(0,232,196,0.1), inset 0 1px 0 rgba(0,232,196,0.05)",
   "--green": "#00e8c4",
   "--red": "#ff4757",
   "--gold": "#ffa502",
@@ -438,6 +440,7 @@ export default function TraderRoadmapXP() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: "", avatar_url: "" });
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showTilt, setShowTilt] = useState(false);
   const [editName, setEditName] = useState("");
   const avatarInputRef = useRef(null);
 
@@ -664,14 +667,44 @@ export default function TraderRoadmapXP() {
     }
   `;
 
+  // ── TRADESHARP LOGO (SVG) ───
+  const TradeSharpLogo = ({ size = 64 }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer hexagon */}
+      <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke="#00e8c4" strokeWidth="1.5" fill="none" opacity="0.6" />
+      {/* Inner hexagon */}
+      <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke="#00e8c4" strokeWidth="1" fill="rgba(0,232,196,0.04)" />
+      {/* Crosshair horizontal */}
+      <line x1="20" y1="32" x2="44" y2="32" stroke="#00e8c4" strokeWidth="1.5" opacity="0.8" />
+      {/* Crosshair vertical */}
+      <line x1="32" y1="20" x2="32" y2="44" stroke="#00e8c4" strokeWidth="1.5" opacity="0.8" />
+      {/* Center diamond */}
+      <path d="M32 26L38 32L32 38L26 32Z" fill="#00e8c4" opacity="0.9" />
+      {/* Corner ticks */}
+      <line x1="20" y1="20" x2="24" y2="20" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="20" y1="20" x2="20" y2="24" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="44" y1="20" x2="40" y2="20" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="44" y1="20" x2="44" y2="24" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="20" y1="44" x2="24" y2="44" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="20" y1="44" x2="20" y2="40" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="44" y1="44" x2="40" y2="44" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      <line x1="44" y1="44" x2="44" y2="40" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
+      {/* Pulse ring */}
+      <circle cx="32" cy="32" r="28" stroke="#00e8c4" strokeWidth="0.5" opacity="0.2">
+        <animate attributeName="r" values="28;30;28" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.2;0.05;0.2" dur="3s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+  );
+
   // ── LOADING ───
   if (authLoading) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: "#050508", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{globalStyles}</style>
         <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>
-          <div style={{ fontSize: 40, marginBottom: 16, animation: "hudPulse 2s ease-in-out infinite" }}>⚔️</div>
-          <div style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.1em", textTransform: "uppercase" }}>INITIALIZING...</div>
+          <div style={{ marginBottom: 16 }}><TradeSharpLogo size={48} /></div>
+          <div style={{ fontSize: 13, color: "#3a4a5c", letterSpacing: "0.15em", textTransform: "uppercase" }}>ESTABLISHING SECURE CONNECTION...</div>
         </div>
       </div>
     );
@@ -680,63 +713,148 @@ export default function TraderRoadmapXP() {
   // ── AUTH SCREEN ───
   if (!user) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <style>{globalStyles}</style>
-        <div className="modal-card" style={{ maxWidth: 380, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 48, marginBottom: 16, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
-            <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: 4, textTransform: "uppercase" }}>TRADER ROADMAP XP</h1>
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>{authMode === "signup" ? "CREATE YOUR ACCOUNT" : "AUTHENTICATE TO CONTINUE"}</p>
+      <div style={{
+        minHeight: "100vh",
+        background: "#050508",
+        backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(0,232,196,0.03) 0%, transparent 60%)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+      }}>
+        <style>{globalStyles}{`
+          @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+          }
+          .auth-scanline {
+            position: fixed; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(0,232,196,0.06), transparent);
+            animation: scanline 8s linear infinite;
+            pointer-events: none;
+          }
+          .auth-input:focus {
+            border-color: #00e8c4 !important;
+            box-shadow: 0 0 12px rgba(0,232,196,0.15) !important;
+          }
+          .auth-btn:hover {
+            background: rgba(0,232,196,0.08) !important;
+            box-shadow: 0 0 30px rgba(0,232,196,0.15) !important;
+          }
+        `}</style>
+        <div className="auth-scanline" />
+        <div style={{ maxWidth: 400, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
+          {/* Logo + Title */}
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
+            <div style={{ display: "inline-block", marginBottom: 20 }}><TradeSharpLogo size={72} /></div>
+            <h1 style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700,
+              color: "#e0e6ed", marginBottom: 6, letterSpacing: 6, textTransform: "uppercase",
+            }}>TRADESHARP</h1>
+            <div style={{
+              fontSize: 10, color: "#3a4a5c", letterSpacing: "0.2em", textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace", marginTop: 8,
+            }}>CLASSIFIED ACCESS // LEVEL 5 CLEARANCE REQUIRED</div>
           </div>
-          <Card style={{ padding: 28 }}>
+
+          {/* Auth Card */}
+          <div style={{
+            background: "rgba(10,12,18,0.9)", borderRadius: 6,
+            border: "1px solid rgba(0,232,196,0.12)",
+            padding: 32, backdropFilter: "blur(20px)",
+            boxShadow: "0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,232,196,0.05)",
+          }}>
+            <div style={{
+              fontSize: 10, color: "#00e8c4", letterSpacing: "0.15em", textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace", marginBottom: 24, opacity: 0.7,
+              borderBottom: "1px solid rgba(0,232,196,0.08)", paddingBottom: 12,
+            }}>
+              {authMode === "signup" ? "// NEW OPERATIVE REGISTRATION" : "// IDENTITY VERIFICATION"}
+            </div>
             <form onSubmit={handleAuth}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Email</label>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                  color: "#3a4a5c", display: "block", marginBottom: 8,
+                  textTransform: "uppercase", letterSpacing: "0.15em",
+                }}>Callsign</label>
                 <input
+                  className="auth-input"
                   type="email"
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
                   required
-                  style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
+                  placeholder="operative@tradesharp.io"
+                  style={{
+                    width: "100%", padding: "12px 14px", fontSize: 14,
+                    border: "1px solid rgba(0,232,196,0.12)", borderRadius: 4,
+                    outline: "none", background: "rgba(0,232,196,0.02)",
+                    color: "#e0e6ed", fontFamily: "'JetBrains Mono', monospace",
+                    transition: "all 0.2s ease",
+                  }}
                 />
               </div>
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Password</label>
+              <div style={{ marginBottom: 24 }}>
+                <label style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+                  color: "#3a4a5c", display: "block", marginBottom: 8,
+                  textTransform: "uppercase", letterSpacing: "0.15em",
+                }}>Access Code</label>
                 <input
+                  className="auth-input"
                   type="password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   required
                   minLength={6}
-                  style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%", padding: "12px 14px", fontSize: 14,
+                    border: "1px solid rgba(0,232,196,0.12)", borderRadius: 4,
+                    outline: "none", background: "rgba(0,232,196,0.02)",
+                    color: "#e0e6ed", fontFamily: "'JetBrains Mono', monospace",
+                    transition: "all 0.2s ease",
+                  }}
                 />
               </div>
               {authError && (
-                <div style={{ fontSize: 13, color: "var(--red)", marginBottom: 14, padding: "8px 12px", background: "var(--bg-tertiary)", borderRadius: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-                  {authError}
+                <div style={{
+                  fontSize: 12, color: "#e53e3e", marginBottom: 16, padding: "10px 14px",
+                  background: "rgba(229,62,62,0.06)", borderRadius: 4, border: "1px solid rgba(229,62,62,0.15)",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  ACCESS DENIED — {authError}
                 </div>
               )}
               <button
+                className="auth-btn"
                 type="submit"
                 style={{
-                  width: "100%", fontSize: 14, fontWeight: 700, padding: "12px 20px",
-                  background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)",
-                  borderRadius: 4, cursor: "pointer", boxShadow: "0 0 20px var(--accent-glow)",
-                  fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em", textTransform: "uppercase",
+                  width: "100%", fontSize: 13, fontWeight: 700, padding: "14px 20px",
+                  background: "transparent", border: "1px solid rgba(0,232,196,0.4)", color: "#00e8c4",
+                  borderRadius: 4, cursor: "pointer",
+                  boxShadow: "0 0 20px rgba(0,232,196,0.06)",
+                  fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase",
+                  transition: "all 0.2s ease",
                 }}
               >
-                {authMode === "signup" ? "Create Account" : "Sign In"}
+                {authMode === "signup" ? "Register Operative" : "Authenticate"}
               </button>
             </form>
-            <div style={{ textAlign: "center", marginTop: 16 }}>
+            <div style={{ textAlign: "center", marginTop: 20 }}>
               <button
                 onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                style={{ fontSize: 12, color: "var(--accent-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 500 }}
+                style={{ fontSize: 11, color: "#3a4a5c", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.05em" }}
               >
-                {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                {authMode === "login" ? "Request new clearance" : "Already cleared? Authenticate"}
               </button>
             </div>
-          </Card>
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            textAlign: "center", marginTop: 24, fontSize: 9, color: "#2a3444",
+            fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.15em", textTransform: "uppercase",
+          }}>
+            TRADESHARP SYSTEMS // ENCRYPTED CONNECTION // {new Date().getFullYear()}
+          </div>
         </div>
       </div>
     );
@@ -759,7 +877,7 @@ export default function TraderRoadmapXP() {
       >
         <style>{globalStyles}</style>
         <div className="modal-card" style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
-          <div style={{ fontSize: 64, marginBottom: 24, animation: "hudPulse 2.5s ease-in-out infinite" }}>⚔️</div>
+          <div style={{ marginBottom: 24 }}><TradeSharpLogo size={72} /></div>
           <h1
             style={{
               fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
@@ -770,7 +888,7 @@ export default function TraderRoadmapXP() {
               textTransform: "uppercase",
             }}
           >
-            TRADER ROADMAP XP
+            TRADESHARP
           </h1>
           <p
             style={{
@@ -1080,6 +1198,75 @@ export default function TraderRoadmapXP() {
         </div>
       )}
 
+      {/* ── Tilt Alert Modal ── */}
+      {showTilt && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(10px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+          onClick={(e) => e.target === e.currentTarget && setShowTilt(false)}
+        >
+          <div style={{
+            maxWidth: 420, width: "100%", background: "#1a0a0a", borderRadius: 8,
+            border: "1px solid rgba(229,62,62,0.4)", padding: 36, textAlign: "center",
+            boxShadow: "0 0 60px rgba(229,62,62,0.15), 0 0 20px rgba(229,62,62,0.1)",
+            animation: "fadeSlideIn 0.3s ease",
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 20 }}>
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#e53e3e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M24 4L44 40H4L24 4Z" fill="rgba(229,62,62,0.08)" />
+                <line x1="24" y1="18" x2="24" y2="28" />
+                <circle cx="24" cy="33" r="1" fill="#e53e3e" />
+              </svg>
+            </div>
+            <h2 style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700,
+              color: "#e53e3e", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16,
+            }}>TILT DETECTED</h2>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#ff6b6b",
+              letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 20,
+              padding: "8px 16px", background: "rgba(229,62,62,0.06)", borderRadius: 4,
+              border: "1px solid rgba(229,62,62,0.15)",
+            }}>PROTOCOL ACTIVATED</div>
+            <p style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              lineHeight: 1.8, marginBottom: 12,
+            }}>
+              You are emotional. You are not thinking clearly.
+            </p>
+            <p style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              lineHeight: 1.8, marginBottom: 12,
+            }}>
+              <strong style={{ color: "#e53e3e" }}>Close the charts. Step away from the screen.</strong>
+            </p>
+            <p style={{
+              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              lineHeight: 1.8, marginBottom: 28,
+            }}>
+              No trade is worth your account. No revenge trade has ever ended well. Protect your capital — come back tomorrow with a clear head.
+            </p>
+            <div style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#666",
+              letterSpacing: "0.1em", marginBottom: 24,
+            }}>
+              "Discipline is choosing between what you want now and what you want most."
+            </div>
+            <button
+              onClick={() => setShowTilt(false)}
+              style={{
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700,
+                padding: "14px 32px", background: "transparent",
+                border: "1px solid rgba(229,62,62,0.4)", color: "#e53e3e",
+                borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em",
+                textTransform: "uppercase", transition: "all 0.2s",
+              }}
+            >
+              I Understand
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Profile Editor Modal ── */}
       {showProfileEditor && (
         <div
@@ -1175,18 +1362,33 @@ export default function TraderRoadmapXP() {
                 title="Toggle dark mode"
                 style={{
                   fontSize: 18, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                  borderRadius: 4, padding: "6px 10px", cursor: "pointer",
+                  borderRadius: 4, padding: "0 10px", cursor: "pointer", height: 34,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
                 {dark ? "☀️" : "🌙"}
               </button>
               <button
+                onClick={() => setShowTilt(true)}
+                title="Tilt alert — step away"
+                style={{
+                  fontSize: 16, background: "rgba(229,62,62,0.1)", border: "1px solid rgba(229,62,62,0.3)",
+                  borderRadius: 4, padding: "0 10px", cursor: "pointer", height: 34,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "all 0.2s",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#e53e3e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="9" r="7.5" /><line x1="9" y1="5.5" x2="9" y2="9.5" /><circle cx="9" cy="12" r="0.5" fill="#e53e3e" />
+                </svg>
+              </button>
+              <button
                 onClick={handleSignOut}
                 title="Sign out"
                 style={{
                   fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                  borderRadius: 4, padding: "6px 10px", cursor: "pointer", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
+                  borderRadius: 4, padding: "0 10px", cursor: "pointer", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em", height: 34,
+                  display: "flex", alignItems: "center", justifyContent: "center",
                 }}
               >
                 Sign out
@@ -1209,6 +1411,21 @@ export default function TraderRoadmapXP() {
 
       {/* ── Nav Tabs ── */}
       <div className="nav-tabs" style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
+        <button
+          className="nav-tab"
+          onClick={() => { setShowIntro(true); setIntroFade(false); }}
+          title="Home"
+          style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: "8px 12px",
+            background: "transparent", border: "1px solid transparent",
+            color: "var(--text-tertiary)", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+            display: "flex", alignItems: "center",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 8L8 2L14 8" /><path d="M4 7V13H12V7" /><path d="M6.5 13V9.5H9.5V13" />
+          </svg>
+        </button>
         {[
           { key: "roadmap", label: "ROADMAP", reset: true },
           { key: "checklist", label: "CHECKLIST" },
@@ -1459,7 +1676,7 @@ export default function TraderRoadmapXP() {
       {/* Footer */}
       <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 11, color: "var(--text-tertiary)", letterSpacing: 4, textTransform: "uppercase" }}>
-          TRADER ROADMAP XP · THE FRACTAL MODEL
+          TRADESHARP · THE FRACTAL MODEL
         </span>
       </div>
     </div>
