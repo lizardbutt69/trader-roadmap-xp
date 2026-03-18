@@ -641,12 +641,13 @@ export default function TraderRoadmapXP() {
       .grid-4 { grid-template-columns: 1fr 1fr !important; }
       .grid-5 { grid-template-columns: repeat(3, 1fr) !important; }
       .grid-week { grid-template-columns: repeat(5, 1fr) !important; gap: 4px !important; }
-      .card-pad { padding: 16px !important; }
+      .card-pad { padding: 14px !important; }
       .form-grid { grid-template-columns: 1fr !important; }
       .modal-card { max-width: 100% !important; padding: 20px !important; margin: 10px !important; }
       .stat-val { font-size: 18px !important; }
-      .nav-tabs { gap: 4px !important; padding: 8px 12px !important; overflow-x: auto !important; }
-      .nav-tab { padding: 6px 12px !important; font-size: 11px !important; white-space: nowrap !important; }
+      .nav-tabs { gap: 3px !important; padding: 8px 10px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      .nav-tabs::-webkit-scrollbar { display: none; }
+      .nav-tab { padding: 6px 10px !important; font-size: 10px !important; white-space: nowrap !important; }
       .main-content { padding: 12px 10px 60px !important; }
       .cal-grid { gap: 3px !important; }
       .cal-day { min-height: 52px !important; padding: 4px !important; font-size: 10px !important; }
@@ -654,8 +655,18 @@ export default function TraderRoadmapXP() {
       .cal-pnl { font-size: 9px !important; }
       .cal-count { font-size: 8px !important; }
       .section-title { font-size: 11px !important; }
-      .drawdown-popup { width: 280px !important; right: 12px !important; bottom: 12px !important; padding: 16px !important; }
+      .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 12px !important; padding: 16px !important; }
       .header-bar { padding: 10px 12px !important; }
+      .header-bar .header-right { gap: 8px !important; }
+      .header-bar .xp-display { display: none !important; }
+      .mood-grid { gap: 5px !important; }
+      .mood-grid button { padding: 6px 10px !important; font-size: 10px !important; }
+      .news-channels { gap: 3px !important; }
+      .news-channels button { padding: 5px 8px !important; font-size: 9px !important; }
+      .tilt-modal { padding: 24px !important; }
+      .tilt-modal h2 { font-size: 16px !important; }
+      .trade-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .trade-table table { min-width: 600px; }
     }
   `;
 
@@ -1110,7 +1121,7 @@ export default function TraderRoadmapXP() {
             border: "1px solid rgba(229,62,62,0.4)", padding: 36, textAlign: "center",
             boxShadow: "0 0 60px rgba(229,62,62,0.15), 0 0 20px rgba(229,62,62,0.1)",
             animation: "fadeSlideIn 0.3s ease",
-          }}>
+          }} className="tilt-modal">
             <div style={{ fontSize: 48, marginBottom: 20 }}>
               <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#e53e3e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M24 4L44 40H4L24 4Z" fill="rgba(229,62,62,0.08)" />
@@ -1249,8 +1260,8 @@ export default function TraderRoadmapXP() {
                 </div>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ textAlign: "right" }}>
+            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div className="xp-display" style={{ textAlign: "right" }}>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--gold)", textShadow: "0 0 10px var(--accent-glow)" }}>
                   {currentXP.toLocaleString()} XP
                 </div>

@@ -410,7 +410,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
             {mood ? "TODAY'S MOOD" : "HOW ARE YOU FEELING?"}
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="mood-grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {MOODS.map((m) => (
               <button key={m.value} onClick={() => selectMood(m.value)} style={{
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: mood === m.value ? 700 : 500,
@@ -764,7 +764,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
         {!trades.length ? (
           <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged yet.</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div className="trade-table" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-tertiary)" }}>
@@ -1644,7 +1644,7 @@ export function NewsView() {
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
     script.async = true;
     script.innerHTML = JSON.stringify({
-      colorTheme: "dark",
+      colorTheme: getComputedStyle(document.documentElement).getPropertyValue("--bg-primary").trim() === "#0a0a0f" ? "dark" : "light",
       isTransparent: true,
       width: "100%",
       height: "500",
@@ -1670,7 +1670,7 @@ export function NewsView() {
               LIVE NEWS
             </span>
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div className="news-channels" style={{ display: "flex", gap: 4 }}>
             {LIVE_CHANNELS.map((ch) => (
               <button
                 key={ch.key}
