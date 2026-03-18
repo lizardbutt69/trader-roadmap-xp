@@ -430,13 +430,11 @@ export default function TraderRoadmapXP() {
   const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState("map");
-  const [showIntro, setShowIntro] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [proofNote, setProofNote] = useState("");
   const [proofLink, setProofLink] = useState("");
   const [viewingProof, setViewingProof] = useState(null);
-  const [introFade, setIntroFade] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({ display_name: "", avatar_url: "" });
   const [showProfileEditor, setShowProfileEditor] = useState(false);
@@ -483,7 +481,6 @@ export default function TraderRoadmapXP() {
         });
       });
       setCompleted(map);
-      if (data.length > 0) setShowIntro(false);
     }
   }, [user]);
 
@@ -540,7 +537,6 @@ export default function TraderRoadmapXP() {
     await supabase.auth.signOut();
     setCompleted(new Map());
     setProfile({ display_name: "", avatar_url: "" });
-    setShowIntro(true);
   };
 
   const saveProfile = async () => {
@@ -623,10 +619,6 @@ export default function TraderRoadmapXP() {
     setViewingProof(null);
   };
 
-  const dismissIntro = () => {
-    setIntroFade(true);
-    setTimeout(() => setShowIntro(false), 500);
-  };
 
   const globalStyles = `
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
@@ -854,97 +846,6 @@ export default function TraderRoadmapXP() {
             fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.15em", textTransform: "uppercase",
           }}>
             TRADESHARP SYSTEMS // ENCRYPTED CONNECTION // {new Date().getFullYear()}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── INTRO SCREEN ───
-  if (showIntro) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "var(--bg-primary)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-          opacity: introFade ? 0 : 1,
-          transition: "opacity 0.5s ease",
-        }}
-      >
-        <style>{globalStyles}</style>
-        <div className="modal-card" style={{ textAlign: "center", maxWidth: 440, animation: "fadeSlideIn 0.6s ease" }}>
-          <div style={{ marginBottom: 24 }}><TradeSharpLogo size={72} /></div>
-          <h1
-            style={{
-              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-              fontSize: 22,
-              color: "var(--text-primary)",
-              marginBottom: 10,
-              letterSpacing: 4,
-              textTransform: "uppercase",
-            }}
-          >
-            TRADESHARP
-          </h1>
-          <p
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: 15,
-              color: "var(--text-secondary)",
-              lineHeight: 1.7,
-              marginBottom: 8,
-            }}
-          >
-            From breakeven grinder to independent trader.
-          </p>
-          <p
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: 13,
-              color: "var(--text-tertiary)",
-              lineHeight: 1.6,
-              marginBottom: 36,
-            }}
-          >
-            Complete quests. Earn XP. Level up through 5 tiers.
-            <br />
-            The model works — now prove it.
-          </p>
-
-          <button
-            onClick={dismissIntro}
-            style={{
-              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-              fontSize: 14,
-              color: "var(--accent)",
-              background: "transparent",
-              border: "1px solid var(--accent)",
-              padding: "14px 42px",
-              borderRadius: 4,
-              cursor: "pointer",
-              boxShadow: "0 0 20px var(--accent-glow)",
-              animation: "glowPulse 2.5s ease-in-out infinite",
-              transition: "transform 0.2s",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-            }}
-          >
-            ▶ START QUEST
-          </button>
-
-          <div style={{ marginTop: 40, display: "flex", justifyContent: "center", gap: 16 }}>
-            {LEVELS.map((l) => (
-              <div key={l.id} style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 26, marginBottom: 4 }}>{l.icon}</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", letterSpacing: "0.1em", fontWeight: 700, textTransform: "uppercase" }}>
-                  {l.tier}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -1422,9 +1323,11 @@ export default function TraderRoadmapXP() {
             display: "flex", alignItems: "center",
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 8L8 2L14 8" /><path d="M4 7V13H12V7" /><path d="M6.5 13V9.5H9.5V13" />
-          </svg>
+          <div style={{
+            width: 10, height: 10, borderRadius: "50%",
+            background: "var(--green)",
+            boxShadow: "0 0 8px var(--green), 0 0 16px var(--green)",
+          }} />
         </button>
         {[
           { key: "roadmap", label: "ROADMAP", reset: true },
