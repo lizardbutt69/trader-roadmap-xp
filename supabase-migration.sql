@@ -121,8 +121,38 @@ create policy "Users can delete own moods"
 -- Add after_thoughts column to trades (run if upgrading existing DB)
 alter table trades add column if not exists after_thoughts text;
 
+-- Watchlist table (trade ideas)
+create table if not exists watchlist (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  asset text not null,
+  direction text not null,
+  timeframe text,
+  key_level text,
+  reasoning text,
+  chart_link text,
+  confidence integer default 2,
+  status text not null default 'watching',
+  created_at timestamptz default now()
+);
+
+alter table watchlist enable row level security;
+
+create policy "Users can view own watchlist"
+  on watchlist for select using (auth.uid() = user_id);
+
+create policy "Users can insert own watchlist"
+  on watchlist for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own watchlist"
+  on watchlist for update using (auth.uid() = user_id);
+
+create policy "Users can delete own watchlist"
+  on watchlist for delete using (auth.uid() = user_id);
+
 -- Indexes
 create index if not exists idx_trades_user_dt on trades(user_id, dt);
 create index if not exists idx_trade_plans_user_date on trade_plans(user_id, plan_date);
 create index if not exists idx_accounts_user on accounts(user_id);
 create index if not exists idx_daily_moods_user_date on daily_moods(user_id, mood_date);
+create index if not exists idx_watchlist_user on watchlist(user_id);

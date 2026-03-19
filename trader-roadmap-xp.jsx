@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -1318,6 +1318,7 @@ export default function TraderRoadmapXP() {
           { key: "roadmap", label: "ROADMAP", reset: true },
           { key: "checklist", label: "CHECKLIST" },
           { key: "journal", label: "JOURNAL" },
+          { key: "watchlist", label: "WATCHLIST" },
           { key: "accounts", label: "ACCOUNTS" },
           { key: "stats", label: "STATS" },
         ].map((tab) => (
@@ -1553,6 +1554,11 @@ export default function TraderRoadmapXP() {
         {/* STATS VIEW — Trade performance data */}
         {view === "stats" && (
           <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} />
+        )}
+
+        {/* WATCHLIST VIEW */}
+        {view === "watchlist" && (
+          <WatchlistView supabase={supabase} user={user} />
         )}
 
         {/* ACCOUNTS VIEW */}

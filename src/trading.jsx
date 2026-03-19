@@ -17,7 +17,7 @@ const CHECKLIST_ITEMS = [
   { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "Take 10 seconds. Be honest with yourself.", timer: true },
 ];
 
-const ASSETS = ["$NQ", "$ES", "$GC", "$SI"];
+const ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const XP_LEVELS = [
@@ -374,7 +374,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (!error) {
-      if (syncToSheets) syncToSheets({ ...tradeData, after: tradeData.after_chart, dtFormatted: fmtDate(formDt), preMarketJournal: plan.session_plan || "" });
+      if (syncToSheets) syncToSheets({ ...tradeData, after: tradeData.after_chart, dtFormatted: fmtDate(formDt), preMarketJournal: plan.session_plan || "", mood: mood || "" });
       setFormAsset(""); setFormDirection(""); setFormAplus("");
       setFormTaken(""); setFormProfit(""); setFormChart("");
       setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormDt(nowLocal());
@@ -409,7 +409,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
 
         {/* Mood */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
             {mood ? "TODAY'S MOOD" : "HOW ARE YOU FEELING?"}
           </div>
           <div className="mood-grid" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1645,6 +1645,7 @@ const LIVE_CHANNELS = [
   { key: "aljazeera", label: "Al Jazeera", src: "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1" },
   { key: "euronews", label: "EuroNews", src: "https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1" },
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
+  { key: "cnbc", label: "CNBC", src: "https://www.youtube.com/embed/9NyxcX3rhQs?autoplay=1&mute=1" },
 ];
 
 export function NewsView() {
@@ -1730,6 +1731,316 @@ export function NewsView() {
         </div>
         <div ref={calendarRef} style={{ minHeight: 500 }} />
       </TCard>
+    </div>
+  );
+}
+
+// ─── WATCHLIST VIEW ─────────────────────────────────────────────────────────
+
+const WATCHLIST_ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
+const WATCHLIST_TFS = ["Weekly", "Daily", "4HR", "1HR", "30m", "15m", "5m", "3m"];
+const WATCHLIST_STATUSES = [
+  { value: "watching", label: "Watching", color: "var(--accent-secondary)" },
+  { value: "triggered", label: "Triggered", color: "var(--gold)" },
+  { value: "taken", label: "Taken", color: "var(--green)" },
+  { value: "invalidated", label: "Invalidated", color: "var(--red)" },
+];
+
+export function WatchlistView({ supabase, user }) {
+  const [ideas, setIdeas] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [filter, setFilter] = useState("active");
+  const [form, setForm] = useState({
+    asset: "$NQ", direction: "Long", timeframe: "1HR", key_level: "",
+    reasoning: "", chart_link: "", confidence: 2, status: "watching",
+  });
+
+  const loadIdeas = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("watchlist").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    if (data) setIdeas(data);
+  }, [user, supabase]);
+
+  useEffect(() => { loadIdeas(); }, [loadIdeas]);
+
+  const resetForm = () => {
+    setForm({ asset: "$NQ", direction: "Long", timeframe: "1HR", key_level: "", reasoning: "", chart_link: "", confidence: 2, status: "watching" });
+    setShowForm(false);
+    setEditingId(null);
+  };
+
+  const saveIdea = async () => {
+    if (!form.reasoning.trim()) return;
+    const payload = { ...form, user_id: user.id };
+    if (editingId) {
+      await supabase.from("watchlist").update(payload).eq("id", editingId);
+    } else {
+      await supabase.from("watchlist").insert(payload);
+    }
+    resetForm();
+    loadIdeas();
+  };
+
+  const deleteIdea = async (id) => {
+    await supabase.from("watchlist").delete().eq("id", id);
+    loadIdeas();
+  };
+
+  const startEdit = (idea) => {
+    setForm({
+      asset: idea.asset, direction: idea.direction, timeframe: idea.timeframe,
+      key_level: idea.key_level || "", reasoning: idea.reasoning || "",
+      chart_link: idea.chart_link || "", confidence: idea.confidence || 2, status: idea.status,
+    });
+    setEditingId(idea.id);
+    setShowForm(true);
+  };
+
+  const updateStatus = async (id, status) => {
+    await supabase.from("watchlist").update({ status }).eq("id", id);
+    loadIdeas();
+  };
+
+  const filtered = ideas.filter((i) => {
+    if (filter === "active") return i.status === "watching" || i.status === "triggered";
+    if (filter === "taken") return i.status === "taken";
+    if (filter === "invalidated") return i.status === "invalidated";
+    return true;
+  });
+
+  const inputStyle = {
+    fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 12px",
+    background: "var(--bg-input)", border: "1px solid var(--border-primary)",
+    color: "var(--text-primary)", borderRadius: 4, outline: "none", width: "100%", boxSizing: "border-box",
+  };
+
+  const statusColor = (s) => WATCHLIST_STATUSES.find((ws) => ws.value === s)?.color || "var(--text-tertiary)";
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+            WATCHLIST
+          </h2>
+          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", margin: "4px 0 0", letterSpacing: "0.05em" }}>
+            {ideas.filter((i) => i.status === "watching" || i.status === "triggered").length} active ideas
+          </p>
+        </div>
+        <button
+          onClick={() => { resetForm(); setShowForm(!showForm); }}
+          style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, padding: "10px 20px",
+            background: showForm ? "var(--bg-tertiary)" : "var(--accent)", color: showForm ? "var(--text-secondary)" : "#000",
+            border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+          }}
+        >
+          {showForm ? "CANCEL" : "+ NEW IDEA"}
+        </button>
+      </div>
+
+      {/* Add/Edit Form */}
+      {showForm && (
+        <TCard style={{ marginBottom: 20, padding: 20 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            {editingId ? "EDIT IDEA" : "NEW TRADE IDEA"}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Asset</label>
+              <input style={inputStyle} placeholder="$NQ, $BTC, etc." value={form.asset} onChange={(e) => setForm({ ...form, asset: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Direction</label>
+              <select style={inputStyle} value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
+                <option value="Long">Long</option>
+                <option value="Short">Short</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Timeframe</label>
+              <select style={inputStyle} value={form.timeframe} onChange={(e) => setForm({ ...form, timeframe: e.target.value })}>
+                {WATCHLIST_TFS.map((tf) => <option key={tf} value={tf}>{tf}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Confidence</label>
+              <div style={{ display: "flex", gap: 4, paddingTop: 8 }}>
+                {[1, 2, 3].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setForm({ ...form, confidence: n })}
+                    style={{
+                      width: 32, height: 32, borderRadius: 4, border: "1px solid var(--border-primary)",
+                      background: form.confidence >= n ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
+                      color: form.confidence >= n ? "var(--accent)" : "var(--text-tertiary)",
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700,
+                      cursor: "pointer", transition: "all 0.2s",
+                    }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Key Level / Zone</label>
+            <input style={inputStyle} placeholder="e.g. 19,850 - 19,900 (4HR FVG)" value={form.key_level} onChange={(e) => setForm({ ...form, key_level: e.target.value })} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Reasoning</label>
+            <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="Why are you watching this? SMT forming, PSP, key level reaction..." value={form.reasoning} onChange={(e) => setForm({ ...form, reasoning: e.target.value })} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Chart Link</label>
+            <input style={inputStyle} placeholder="TradingView screenshot link" value={form.chart_link} onChange={(e) => setForm({ ...form, chart_link: e.target.value })} />
+          </div>
+          <button onClick={saveIdea} style={{
+            fontFamily: "'JetBrains Mono', monospace", width: "100%", padding: 13, fontSize: 13, fontWeight: 700,
+            border: "1px solid var(--accent)", borderRadius: 4, cursor: "pointer",
+            background: "var(--accent-glow-strong)", color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.1em",
+          }}>
+            {editingId ? "UPDATE IDEA" : "SAVE IDEA"}
+          </button>
+        </TCard>
+      )}
+
+      {/* Filter Tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
+        {[
+          { key: "active", label: "Active" },
+          { key: "taken", label: "Taken" },
+          { key: "invalidated", label: "Invalidated" },
+          { key: "all", label: "All" },
+        ].map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            style={{
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: filter === f.key ? 700 : 500,
+              padding: "6px 14px", border: "none", borderRadius: 3, cursor: "pointer",
+              background: filter === f.key ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
+              color: filter === f.key ? "var(--accent)" : "var(--text-tertiary)",
+              textTransform: "uppercase", letterSpacing: "0.05em", transition: "all 0.2s",
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Ideas List */}
+      {filtered.length === 0 && (
+        <TCard style={{ padding: 40, textAlign: "center" }}>
+          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>
+            {filter === "active" ? "No active trade ideas. Add one above." : "No ideas in this category."}
+          </p>
+        </TCard>
+      )}
+
+      {filtered.map((idea) => (
+        <TCard key={idea.id} style={{ marginBottom: 12, padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px" }}>
+            {/* Top row */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                  {idea.asset}
+                </span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, padding: "3px 8px",
+                  borderRadius: 3, textTransform: "uppercase",
+                  background: idea.direction === "Long" ? "rgba(0,184,150,0.15)" : "rgba(229,62,62,0.15)",
+                  color: idea.direction === "Long" ? "var(--green)" : "var(--red)",
+                }}>
+                  {idea.direction}
+                </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)" }}>
+                  {idea.timeframe}
+                </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--gold)" }}>
+                  {"★".repeat(idea.confidence || 1)}{"☆".repeat(3 - (idea.confidence || 1))}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                {idea.status === "watching" && (
+                  <button onClick={() => updateStatus(idea.id, "triggered")} style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, padding: "4px 8px",
+                    border: "1px solid var(--gold)", borderRadius: 3, cursor: "pointer",
+                    background: "transparent", color: "var(--gold)", textTransform: "uppercase",
+                  }}>TRIGGER</button>
+                )}
+                {(idea.status === "watching" || idea.status === "triggered") && (
+                  <>
+                    <button onClick={() => updateStatus(idea.id, "taken")} style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, padding: "4px 8px",
+                      border: "1px solid var(--green)", borderRadius: 3, cursor: "pointer",
+                      background: "transparent", color: "var(--green)", textTransform: "uppercase",
+                    }}>TAKEN</button>
+                    <button onClick={() => updateStatus(idea.id, "invalidated")} style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, padding: "4px 8px",
+                      border: "1px solid var(--red)", borderRadius: 3, cursor: "pointer",
+                      background: "transparent", color: "var(--red)", textTransform: "uppercase",
+                    }}>INVALID</button>
+                  </>
+                )}
+                {(idea.status === "taken" || idea.status === "invalidated") && (
+                  <button onClick={() => updateStatus(idea.id, "watching")} style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 600, padding: "4px 8px",
+                    border: "1px solid var(--accent-secondary)", borderRadius: 3, cursor: "pointer",
+                    background: "transparent", color: "var(--accent-secondary)", textTransform: "uppercase",
+                  }}>REACTIVATE</button>
+                )}
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, padding: "4px 8px",
+                  borderRadius: 3, textTransform: "uppercase",
+                  background: `${statusColor(idea.status)}20`,
+                  color: statusColor(idea.status),
+                }}>
+                  {idea.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Key level */}
+            {idea.key_level && (
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-secondary)", marginBottom: 6 }}>
+                <span style={{ color: "var(--text-tertiary)", fontSize: 10 }}>LEVEL: </span>{idea.key_level}
+              </div>
+            )}
+
+            {/* Reasoning */}
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 8 }}>
+              {idea.reasoning}
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border-secondary)" }}>
+              <div style={{ display: "flex", gap: 10 }}>
+                {idea.chart_link && (
+                  <a href={idea.chart_link} target="_blank" rel="noopener noreferrer" style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--accent)", textDecoration: "none",
+                  }}>VIEW CHART</a>
+                )}
+                <button onClick={() => startEdit(idea)} style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)",
+                  background: "none", border: "none", cursor: "pointer", padding: 0,
+                }}>EDIT</button>
+                <button onClick={() => deleteIdea(idea.id)} style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--red)",
+                  background: "none", border: "none", cursor: "pointer", padding: 0, opacity: 0.6,
+                }}>DELETE</button>
+              </div>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)" }}>
+                {idea.created_at ? new Date(idea.created_at).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}
+              </span>
+            </div>
+          </div>
+        </TCard>
+      ))}
     </div>
   );
 }
