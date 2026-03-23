@@ -1270,7 +1270,7 @@ const ACCOUNT_STATUSES = [
   { value: "inactive", label: "Inactive", color: "var(--text-tertiary)" },
 ];
 
-const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", notes: "" };
+const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", payout_pct: "", notes: "" };
 
 export function AccountsView({ supabase, user }) {
   const [accounts, setAccounts] = useState([]);
@@ -1296,6 +1296,7 @@ export function AccountsView({ supabase, user }) {
       current_pnl: form.current_pnl ? parseFloat(form.current_pnl) : null,
       max_drawdown: form.max_drawdown ? parseFloat(form.max_drawdown) : null,
       daily_loss_limit: form.daily_loss_limit ? parseFloat(form.daily_loss_limit) : null,
+      payout_pct: form.payout_pct ? parseFloat(form.payout_pct) : null,
       notes: form.notes || null,
     };
     let err;
@@ -1324,6 +1325,7 @@ export function AccountsView({ supabase, user }) {
       current_pnl: acc.current_pnl != null ? String(acc.current_pnl) : "",
       max_drawdown: acc.max_drawdown != null ? String(acc.max_drawdown) : "",
       daily_loss_limit: acc.daily_loss_limit != null ? String(acc.daily_loss_limit) : "",
+      payout_pct: acc.payout_pct != null ? String(acc.payout_pct) : "",
       notes: acc.notes || "",
     });
   };
@@ -1332,7 +1334,15 @@ export function AccountsView({ supabase, user }) {
   const fundedCount = accounts.filter((a) => a.account_type === "funded" || a.status === "funded_active").length;
   const evalCount = accounts.filter((a) => a.account_type === "eval" && !["passed", "breached", "failed"].includes(a.status)).length;
   const passedCount = accounts.filter((a) => a.status === "passed").length;
-  const failedCount = accounts.filter((a) => ["breached", "failed"].includes(a.status)).length;
+  const totalPnl = accounts.reduce((sum, acc) => sum + (acc.current_pnl != null ? Number(acc.current_pnl) : 0), 0);
+
+  // Payout eligible: sum of (positive P&L * payout_pct) across all accounts
+  const totalEligiblePayout = accounts.reduce((sum, acc) => {
+    const pnl = acc.current_pnl != null ? Number(acc.current_pnl) : 0;
+    const pct = acc.payout_pct != null ? Number(acc.payout_pct) : 0;
+    if (pnl > 0 && pct > 0) return sum + (pnl * pct / 100);
+    return sum;
+  }, 0);
 
   const getStatusMeta = (s) => ACCOUNT_STATUSES.find((st) => st.value === s) || ACCOUNT_STATUSES[0];
 
@@ -1345,11 +1355,18 @@ export function AccountsView({ supabase, user }) {
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       {/* Summary */}
-      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
         <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
         <StatBox value={passedCount} label="Passed" color="var(--green)" />
-        <StatBox value={failedCount} label="Failed" color={failedCount > 0 ? "var(--red)" : "var(--text-tertiary)"} />
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: totalPnl >= 0 ? "var(--green)" : "var(--red)" }}>{totalPnl >= 0 ? "+" : "-"}${Math.abs(totalPnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Current P&L</div>
+        </TCard>
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: totalEligiblePayout > 0 ? "var(--green)" : "var(--text-tertiary)" }}>${totalEligiblePayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Eligible Payout</div>
+        </TCard>
       </div>
 
       {/* Account Cards */}
@@ -1400,6 +1417,23 @@ export function AccountsView({ supabase, user }) {
                     <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.daily_loss_limit)}</div>
                   </div>
                 )}
+                {acc.payout_pct != null && (
+                  <div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Payout %</div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{Number(acc.payout_pct)}%</div>
+                  </div>
+                )}
+                {(() => {
+                  const accPnl = acc.current_pnl != null ? Number(acc.current_pnl) : 0;
+                  const accPct = acc.payout_pct != null ? Number(acc.payout_pct) : 0;
+                  const eligible = accPnl > 0 && accPct > 0 ? accPnl * accPct / 100 : 0;
+                  return eligible > 0 ? (
+                    <div>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Eligible Payout</div>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "var(--green)", fontSize: 15 }}>{fmtMoney(eligible)}</div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
               {acc.notes && (
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
@@ -1438,7 +1472,7 @@ export function AccountsView({ supabase, user }) {
             </select>
           </Field>
         </div>
-        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
+        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
           <Field label="Profit Target ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} />
           </Field>
@@ -1450,6 +1484,9 @@ export function AccountsView({ supabase, user }) {
           </Field>
           <Field label="Daily Loss Limit ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} />
+          </Field>
+          <Field label="Payout Eligible (%)">
+            <input type="number" style={inputStyle} placeholder="e.g. 80" min="0" max="100" value={form.payout_pct} onChange={(e) => setForm({ ...form, payout_pct: e.target.value })} />
           </Field>
         </div>
         <div style={{ marginBottom: 20 }}>
