@@ -1272,10 +1272,29 @@ const ACCOUNT_STATUSES = [
 
 const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", payout_pct: "", notes: "" };
 
+const PAYOUT_METHODS = [
+  { value: "ach", label: "ACH" },
+  { value: "wire", label: "Wire" },
+  { value: "crypto", label: "Crypto" },
+  { value: "paypal", label: "PayPal" },
+  { value: "other", label: "Other" },
+];
+const PAYOUT_STATUSES = [
+  { value: "received", label: "Received", color: "var(--green)" },
+  { value: "pending", label: "Pending", color: "var(--gold)" },
+  { value: "failed", label: "Failed", color: "var(--red)" },
+];
+const emptyPayoutForm = { account_id: "", amount: "", payout_date: "", method: "", status: "received", notes: "" };
+
 export function AccountsView({ supabase, user }) {
   const [accounts, setAccounts] = useState([]);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ ...emptyForm });
+
+  // Payout log state
+  const [payouts, setPayouts] = useState([]);
+  const [payoutForm, setPayoutForm] = useState({ ...emptyPayoutForm });
+  const [editingPayout, setEditingPayout] = useState(null);
 
   const loadAccounts = useCallback(async () => {
     if (!user) return;
@@ -1283,9 +1302,56 @@ export function AccountsView({ supabase, user }) {
     if (data) setAccounts(data);
   }, [user]);
 
-  useEffect(() => { loadAccounts(); }, [loadAccounts]);
+  const loadPayouts = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("payouts").select("*").eq("user_id", user.id).order("payout_date", { ascending: false });
+    if (data) setPayouts(data);
+  }, [user]);
+
+  useEffect(() => { loadAccounts(); loadPayouts(); }, [loadAccounts, loadPayouts]);
 
   const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); };
+  const resetPayoutForm = () => { setPayoutForm({ ...emptyPayoutForm }); setEditingPayout(null); };
+
+  const savePayout = async () => {
+    if (!payoutForm.amount || !payoutForm.payout_date) { alert("Please enter an amount and date."); return; }
+    const payload = {
+      user_id: user.id,
+      account_id: payoutForm.account_id || null,
+      amount: parseFloat(payoutForm.amount),
+      payout_date: payoutForm.payout_date,
+      method: payoutForm.method || null,
+      status: payoutForm.status || "received",
+      notes: payoutForm.notes || null,
+    };
+    let err;
+    if (editingPayout) {
+      ({ error: err } = await supabase.from("payouts").update(payload).eq("id", editingPayout));
+    } else {
+      ({ error: err } = await supabase.from("payouts").insert(payload));
+    }
+    if (err) { alert("Error saving payout: " + err.message); return; }
+    resetPayoutForm(); loadPayouts();
+  };
+
+  const deletePayout = async (id) => {
+    if (!window.confirm("Delete this payout?")) return;
+    await supabase.from("payouts").delete().eq("id", id);
+    if (editingPayout === id) resetPayoutForm();
+    loadPayouts();
+  };
+
+  const openEditPayout = (p) => {
+    setEditingPayout(p.id);
+    setPayoutForm({
+      account_id: p.account_id || "",
+      amount: p.amount != null ? String(p.amount) : "",
+      payout_date: p.payout_date || "",
+      method: p.method || "",
+      status: p.status || "received",
+      notes: p.notes || "",
+    });
+  };
 
   const saveAccount = async () => {
     if (!form.firm) { alert("Please enter a firm name."); return; }
@@ -1344,7 +1410,14 @@ export function AccountsView({ supabase, user }) {
     return sum;
   }, 0);
 
+  // Payout totals (current year)
+  const currentYear = new Date().getFullYear();
+  const ytdPayouts = payouts.filter((p) => p.payout_date && new Date(p.payout_date).getFullYear() === currentYear);
+  const totalPaidOut = ytdPayouts.filter((p) => p.status === "received").reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const totalPending = ytdPayouts.filter((p) => p.status === "pending").reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
   const getStatusMeta = (s) => ACCOUNT_STATUSES.find((st) => st.value === s) || ACCOUNT_STATUSES[0];
+  const getAccountName = (id) => { const a = accounts.find((acc) => acc.id === id); return a ? (a.account_name || a.firm) : "—"; };
 
   const fmtMoney = (v) => {
     if (v == null || v === "") return null;
@@ -1355,7 +1428,7 @@ export function AccountsView({ supabase, user }) {
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       {/* Summary */}
-      <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
         <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
         <StatBox value={passedCount} label="Passed" color="var(--green)" />
@@ -1366,6 +1439,16 @@ export function AccountsView({ supabase, user }) {
         <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
           <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: totalEligiblePayout > 0 ? "var(--green)" : "var(--text-tertiary)" }}>${totalEligiblePayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Eligible Payout</div>
+        </TCard>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: totalPaidOut > 0 ? "var(--green)" : "var(--text-tertiary)" }}>${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>YTD Paid Out</div>
+        </TCard>
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+          <div className="stat-val" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 700, color: totalPending > 0 ? "var(--gold)" : "var(--text-tertiary)" }}>${totalPending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Pending</div>
         </TCard>
       </div>
 
@@ -1503,6 +1586,96 @@ export function AccountsView({ supabase, user }) {
           </button>
         </div>
       </TCard>
+
+      {/* ─── PAYOUT LOG ─────────────────────────────────────────────────── */}
+      <div style={{ marginTop: 32 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+          Payout Log
+        </div>
+
+        {/* Payout entries */}
+        {!payouts.length && (
+          <TCard style={{ padding: 36, textAlign: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>💰</div>
+            <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>No payouts logged yet. Record your first payout below.</div>
+          </TCard>
+        )}
+        {payouts.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+            {payouts.map((p) => {
+              const pStatus = PAYOUT_STATUSES.find((s) => s.value === p.status) || PAYOUT_STATUSES[0];
+              const pMethod = PAYOUT_METHODS.find((m) => m.value === p.method);
+              return (
+                <TCard key={p.id} style={{ padding: "18px 24px", borderLeft: `4px solid ${pStatus.color}` }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: "var(--green)" }}>${Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                      <Badge label={pStatus.label} color={pStatus.color} />
+                      {pMethod && <Badge label={pMethod.label} color="var(--text-tertiary)" />}
+                    </div>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>{p.payout_date}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-secondary)", fontFamily: "'JetBrains Mono', monospace" }}>
+                      <span>{getAccountName(p.account_id)}</span>
+                      {p.notes && <span style={{ color: "var(--text-tertiary)" }}>— {p.notes}</span>}
+                    </div>
+                    <div style={{ display: "flex", gap: 14 }}>
+                      <button onClick={() => openEditPayout(p)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
+                      <button onClick={() => deletePayout(p.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", fontWeight: 600 }}>✕</button>
+                    </div>
+                  </div>
+                </TCard>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Payout Form */}
+        <TCard style={{ padding: 28 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            {editingPayout ? "EDIT PAYOUT" : "LOG PAYOUT"}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <Field label="Amount ($)">
+              <input type="number" style={inputStyle} placeholder="e.g. 1000" value={payoutForm.amount} onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })} />
+            </Field>
+            <Field label="Date">
+              <input type="date" style={inputStyle} value={payoutForm.payout_date} onChange={(e) => setPayoutForm({ ...payoutForm, payout_date: e.target.value })} />
+            </Field>
+            <Field label="Account">
+              <select style={selectStyle} value={payoutForm.account_id} onChange={(e) => setPayoutForm({ ...payoutForm, account_id: e.target.value })}>
+                <option value="">Select account...</option>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name || a.firm}</option>)}
+              </select>
+            </Field>
+            <Field label="Method">
+              <select style={selectStyle} value={payoutForm.method} onChange={(e) => setPayoutForm({ ...payoutForm, method: e.target.value })}>
+                <option value="">Select...</option>
+                {PAYOUT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Status">
+              <select style={selectStyle} value={payoutForm.status} onChange={(e) => setPayoutForm({ ...payoutForm, status: e.target.value })}>
+                {PAYOUT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <Field label="Notes">
+              <input style={inputStyle} placeholder="Reference #, fees, etc." value={payoutForm.notes} onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })} />
+            </Field>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {editingPayout && (
+              <button onClick={resetPayoutForm} style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
+            )}
+            <button onClick={savePayout} style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "0 0 15px var(--accent-glow)", letterSpacing: "0.05em" }}>
+              {editingPayout ? "SAVE CHANGES" : "+ LOG PAYOUT"}
+            </button>
+          </div>
+        </TCard>
+      </div>
     </div>
   );
 }
