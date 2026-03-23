@@ -75,13 +75,19 @@ function todayKey() {
   return dateKey(new Date());
 }
 
-function buildDayMap(trades) {
+function getPnlForMode(t, mode) {
+  if (mode === "funded") return parseFloat(t.profit_funded) || 0;
+  if (mode === "both") return (parseFloat(t.profit) || 0) + (parseFloat(t.profit_funded) || 0);
+  return parseFloat(t.profit) || 0; // "personal" default
+}
+
+function buildDayMap(trades, mode = "personal") {
   const m = {};
   trades.forEach((t) => {
     if (!t.dt) return;
     const k = dateKey(t.dt);
     if (!m[k]) m[k] = { pnl: 0, count: 0, trades: [], aplusTrades: 0 };
-    m[k].pnl += parseFloat(t.profit) || 0;
+    m[k].pnl += getPnlForMode(t, mode);
     if (t.taken) m[k].count++;
     m[k].trades.push(t);
     if (t.aplus === "Yes") m[k].aplusTrades++;
@@ -294,6 +300,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
   const [formTaken, setFormTaken] = useState("");
   const [formBias, setFormBias] = useState("");
   const [formProfit, setFormProfit] = useState("");
+  const [formProfitFunded, setFormProfitFunded] = useState("");
   const [formChart, setFormChart] = useState("");
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -367,6 +374,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
       taken: formTaken,
       bias: formBias,
       profit: formProfit ? parseFloat(formProfit) : null,
+      profit_funded: formProfitFunded ? parseFloat(formProfitFunded) : null,
       chart: formChart,
       after_chart: formAfter,
       notes: formNotes,
@@ -376,7 +384,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
     if (!error) {
       if (syncToSheets) syncToSheets({ ...tradeData, after: tradeData.after_chart, dtFormatted: fmtDate(formDt), preMarketJournal: plan.session_plan || "", mood: mood || "" });
       setFormAsset(""); setFormDirection(""); setFormAplus("");
-      setFormTaken(""); setFormProfit(""); setFormChart("");
+      setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormChart("");
       setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormDt(nowLocal());
       loadTrades();
     }
@@ -511,8 +519,11 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
               <option>Bearish</option>
             </select>
           </Field>
-          <Field label="Profit ($)">
+          <Field label="Personal P&L ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+          </Field>
+          <Field label="Funded P&L ($)">
+            <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
           </Field>
           <Field label="TradingView Link">
             <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
@@ -549,11 +560,12 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
   const [dayPopup, setDayPopup] = useState(null);
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [pnlMode, setPnlMode] = useState("personal");
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
-  const dayMap = buildDayMap(trades);
+  const dayMap = buildDayMap(trades, pnlMode);
 
   // Equity curve
   useEffect(() => {
@@ -623,6 +635,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
       asset: trade.asset || "", direction: trade.direction || "",
       aplus: trade.aplus || "", taken: trade.taken || "",
       bias: trade.bias || "", profit: trade.profit != null ? String(trade.profit) : "",
+      profit_funded: trade.profit_funded != null ? String(trade.profit_funded) : "",
       chart: trade.chart || "", after_chart: trade.after_chart || "",
       notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
     });
@@ -635,6 +648,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
       asset: editForm.asset, direction: editForm.direction,
       aplus: editForm.aplus, taken: editForm.taken, bias: editForm.bias,
       profit: editForm.profit ? parseFloat(editForm.profit) : null,
+      profit_funded: editForm.profit_funded ? parseFloat(editForm.profit_funded) : null,
       chart: editForm.chart, after_chart: editForm.after_chart, notes: editForm.notes,
       after_thoughts: editForm.after_thoughts,
     }).eq("id", editing);
@@ -651,9 +665,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
   const total = monthTrades.length;
   const taken = monthTrades.filter((t) => t.taken && t.taken !== "Missed").length;
   const aplus = monthTrades.filter((t) => t.aplus === "Yes").length;
-  const wins = monthTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
+  const wins = monthTrades.filter((t) => t.taken && t.taken !== "Missed" && getPnlForMode(t, pnlMode) > 0).length;
   const wr = taken ? Math.round((wins / taken) * 100) : 0;
-  const pnl = monthTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const pnl = monthTrades.reduce((s, t) => s + getPnlForMode(t, pnlMode), 0);
 
   // Calendar
   const calPrev = () => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); };
@@ -686,8 +700,27 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
 
       {/* P&L Calendar */}
       <TCard style={{ marginBottom: 24, overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)" }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>P&L CALENDAR</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>P&L CALENDAR</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[["personal", "Personal"], ["funded", "Funded"], ["both", "Both"]].map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => setPnlMode(mode)}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, padding: "4px 10px",
+                    borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
+                    border: pnlMode === mode ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+                    background: pnlMode === mode ? "transparent" : "var(--bg-tertiary)",
+                    color: pnlMode === mode ? "var(--accent)" : "var(--text-tertiary)",
+                    boxShadow: pnlMode === mode ? "0 0 8px var(--accent-glow)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <button onClick={calPrev} style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, padding: "6px 14px", cursor: "pointer", fontSize: 14 }}>◀</button>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", minWidth: 150, textAlign: "center" }}>{MONTHS[calMonth]} {calYear}</span>
@@ -748,13 +781,15 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
           </div>
           {dayPopup.data.trades.map((t, i) => {
             const p = parseFloat(t.profit);
+            const pf = parseFloat(t.profit_funded);
             return (
               <div key={i} style={{ background: "var(--bg-tertiary)", borderRadius: 4, padding: "12px 16px", marginBottom: 10, fontSize: 13, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
                 <strong style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.asset || "—"}</strong>
                 <span>{t.direction || "—"}</span>
                 <span>A+: {t.aplus || "—"}</span>
                 <span>Taken: {t.taken || "—"}</span>
-                <span>P&L: {t.profit != null ? <span style={{ fontFamily: "'JetBrains Mono', monospace", color: p >= 0 ? "var(--green)" : "var(--red)" }}>{p >= 0 ? "+" : ""}${p.toFixed(0)}</span> : "—"}</span>
+                <span>Personal: {t.profit != null ? <span style={{ fontFamily: "'JetBrains Mono', monospace", color: p >= 0 ? "var(--green)" : "var(--red)" }}>{p >= 0 ? "+" : ""}${p.toFixed(0)}</span> : <span style={{ color: "var(--text-tertiary)" }}>—</span>}</span>
+                <span>Funded: {t.profit_funded != null ? <span style={{ fontFamily: "'JetBrains Mono', monospace", color: pf >= 0 ? "var(--green)" : "var(--red)" }}>{pf >= 0 ? "+" : ""}${pf.toFixed(0)}</span> : <span style={{ color: "var(--text-tertiary)" }}>—</span>}</span>
                 {t.notes && <span style={{ color: "var(--text-tertiary)", fontStyle: "italic" }}>{t.notes}</span>}
               </div>
             );
@@ -774,7 +809,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-tertiary)" }}>
-                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "P&L", "Chart", "After", "Notes", ""].map((h) => (
+                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "Personal", "Funded", "Chart", "After", "Notes", ""].map((h) => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-tertiary)", fontSize: 10, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: "0.1em", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
@@ -782,6 +817,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
               <tbody>
                 {trades.map((t) => {
                   const p = parseFloat(t.profit);
+                  const pf = parseFloat(t.profit_funded);
                   const cellStyle = { padding: "10px 12px", borderTop: "1px solid var(--border-primary)", whiteSpace: "nowrap", fontSize: 12 };
                   return (
                     <tr key={t.id} style={{ transition: "background 0.15s" }}>
@@ -801,6 +837,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
                       </td>
                       <td style={cellStyle}>
                         {t.profit != null ? <span style={{ color: p >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{p >= 0 ? "+" : ""}{p.toFixed(0)}</span> : "—"}
+                      </td>
+                      <td style={cellStyle}>
+                        {t.profit_funded != null ? <span style={{ color: pf >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{pf >= 0 ? "+" : ""}{pf.toFixed(0)}</span> : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
                       </td>
                       <td style={cellStyle}>
                         {t.chart ? <a href={t.chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
@@ -872,8 +911,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
                   <option>Bearish</option>
                 </select>
               </Field>
-              <Field label="Profit ($)">
+              <Field label="Personal P&L ($)">
                 <input type="number" style={inputStyle} value={editForm.profit} onChange={(e) => setEditForm({ ...editForm, profit: e.target.value })} />
+              </Field>
+              <Field label="Funded P&L ($)">
+                <input type="number" style={inputStyle} placeholder="Leave blank if not taken on funded" value={editForm.profit_funded} onChange={(e) => setEditForm({ ...editForm, profit_funded: e.target.value })} />
               </Field>
               <Field label="TradingView Link">
                 <input type="url" style={inputStyle} value={editForm.chart} onChange={(e) => setEditForm({ ...editForm, chart: e.target.value })} />

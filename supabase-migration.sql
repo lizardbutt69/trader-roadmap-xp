@@ -121,6 +121,9 @@ create policy "Users can delete own moods"
 -- Add after_thoughts column to trades (run if upgrading existing DB)
 alter table trades add column if not exists after_thoughts text;
 
+-- Add profit_funded column to trades (personal P&L stays in "profit", funded P&L goes here)
+alter table trades add column if not exists profit_funded numeric;
+
 -- Watchlist table (trade ideas)
 create table if not exists watchlist (
   id uuid default gen_random_uuid() primary key,
