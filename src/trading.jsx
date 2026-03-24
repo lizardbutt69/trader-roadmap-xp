@@ -1900,6 +1900,90 @@ const LIVE_CHANNELS = [
   { key: "cnbc", label: "CNBC", src: "https://www.youtube.com/embed/9NyxcX3rhQs?autoplay=1&mute=1" },
 ];
 
+function FinancialJuiceFeed() {
+  const [tweets, setTweets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchTweets = async () => {
+    try {
+      const res = await fetch("/api/tweets");
+      const data = await res.json();
+      if (data.data) {
+        setTweets(data.data);
+        setError(null);
+      } else {
+        setError("No tweets returned");
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTweets();
+    const interval = setInterval(fetchTweets, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTime = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
+      " · " + d.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
+
+  return (
+    <TCard style={{ marginTop: 20 }}>
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border-primary)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1d9bf0", animation: "hudPulse 2s ease-in-out infinite" }} />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            @FinancialJuice
+          </span>
+        </div>
+        <button
+          onClick={fetchTweets}
+          style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
+            padding: "4px 10px", border: "1px solid var(--border-primary)", borderRadius: 4,
+            background: "transparent", color: "var(--text-tertiary)", cursor: "pointer",
+            textTransform: "uppercase", letterSpacing: "0.05em",
+          }}
+        >
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ color: "var(--text-tertiary)", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading...</div>
+      ) : error ? (
+        <div style={{ color: "#e53e3e", fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}>{error}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 400, overflowY: "auto" }}>
+          {tweets.map((tweet, i) => (
+            <div key={tweet.id} style={{
+              padding: "10px 0",
+              borderBottom: i < tweets.length - 1 ? "1px solid var(--border-primary)" : "none",
+            }}>
+              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: 4 }}>
+                {tweet.text}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatTime(tweet.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </TCard>
+  );
+}
+
 export function NewsView() {
   const [channel, setChannel] = useState("bloomberg");
   const calendarRef = useRef(null);
@@ -1983,6 +2067,8 @@ export function NewsView() {
         </div>
         <div ref={calendarRef} style={{ minHeight: 500 }} />
       </TCard>
+
+      <FinancialJuiceFeed />
     </div>
   );
 }
