@@ -701,152 +701,314 @@ export default function TraderRoadmapXP() {
     );
   }
 
-  // ── AUTH SCREEN ───
+  // ── LANDING PAGE ───
   if (!user) {
+    const accent = "#00e8c4";
+    const accentDim = "rgba(0,232,196,0.12)";
+    const accentGlow = "rgba(0,232,196,0.06)";
+    const sectionStyle = { maxWidth: 1100, margin: "0 auto", padding: "0 24px" };
+    const mono = "'JetBrains Mono', monospace";
+
+    const features = [
+      { icon: "📋", title: "A+ Trade Checklist", desc: "10-point pre-trade confirmation system with a built-in 10-second honesty timer. Never take a B-grade setup again." },
+      { icon: "📊", title: "Trade Journal", desc: "Log every trade with entry details, P&L tracking for personal and funded accounts, TradingView links, and post-trade reflections." },
+      { icon: "📅", title: "P&L Calendar", desc: "Visual monthly calendar showing daily profit and loss at a glance. Click any day to drill into individual trades." },
+      { icon: "📈", title: "Equity Curve", desc: "Track your cumulative performance over time with a dynamic equity curve that highlights green and red zones." },
+      { icon: "🤖", title: "AI Trading Coach", desc: "Get brutally honest AI-powered performance reviews. Identifies patterns, psychological leaks, and rule violations." },
+      { icon: "🏆", title: "XP & Progression", desc: "RPG-style leveling system with badges, streaks, weekly challenges, and a 5-stage roadmap from breakeven to independence." },
+      { icon: "💰", title: "Account Tracker", desc: "Monitor funded accounts, evaluations, and personal capital. Track drawdowns with real-time warning thresholds." },
+      { icon: "🔗", title: "Google Sheets Sync", desc: "Auto-sync every trade and plan to your Google Sheet for backup, custom analysis, or sharing with mentors." },
+    ];
+
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: "#050508",
-        backgroundImage: "radial-gradient(ellipse at 50% 0%, rgba(0,232,196,0.03) 0%, transparent 60%)",
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
-      }}>
+      <div style={{ minHeight: "100vh", background: "#050508", fontFamily: "'Inter', sans-serif", overflowX: "hidden" }}>
         <style>{globalStyles}{`
-          @keyframes scanline {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100vh); }
-          }
-          .auth-scanline {
+          .landing-scanline {
             position: fixed; top: 0; left: 0; right: 0; height: 2px;
             background: linear-gradient(90deg, transparent, rgba(0,232,196,0.06), transparent);
             animation: scanline 8s linear infinite;
-            pointer-events: none;
+            pointer-events: none; z-index: 100;
           }
           .auth-input:focus {
             border-color: #00e8c4 !important;
             box-shadow: 0 0 12px rgba(0,232,196,0.15) !important;
           }
-          .auth-btn:hover {
+          .landing-btn:hover {
             background: rgba(0,232,196,0.08) !important;
             box-shadow: 0 0 30px rgba(0,232,196,0.15) !important;
+            transform: translateY(-1px);
+          }
+          .landing-btn { transition: all 0.2s ease !important; }
+          .feature-card {
+            transition: all 0.25s ease;
+            cursor: default;
+          }
+          .feature-card:hover {
+            border-color: rgba(0,232,196,0.3) !important;
+            box-shadow: 0 0 30px rgba(0,232,196,0.08) !important;
+            transform: translateY(-2px);
+          }
+          .landing-nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+            background: rgba(5,5,8,0.85); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,232,196,0.08);
+          }
+          .landing-section { scroll-margin-top: 80px; }
+          @keyframes heroFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+          @keyframes gridPulse {
+            0%, 100% { opacity: 0.03; }
+            50% { opacity: 0.06; }
+          }
+          @media (max-width: 768px) {
+            .features-grid { grid-template-columns: 1fr !important; }
+            .hero-content { flex-direction: column !important; text-align: center !important; }
+            .hero-text h1 { font-size: 32px !important; }
+            .hero-text .hero-sub { font-size: 16px !important; }
+            .landing-nav-links { display: none !important; }
+            .cta-row { flex-direction: column !important; }
           }
         `}</style>
-        <div className="auth-scanline" />
-        <div style={{ maxWidth: 400, width: "100%", animation: "fadeSlideIn 0.5s ease", fontFamily: "'Inter', sans-serif" }}>
-          {/* Logo + Title */}
-          <div style={{ textAlign: "center", marginBottom: 40 }}>
-            <div style={{ display: "inline-block", marginBottom: 20 }}><TradeSharpLogo size={72} /></div>
-            <h1 style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700,
-              color: "#e0e6ed", marginBottom: 6, letterSpacing: 6, textTransform: "uppercase",
-            }}>TRADESHARP</h1>
-            <div style={{
-              fontSize: 10, color: "#3a4a5c", letterSpacing: "0.2em", textTransform: "uppercase",
-              fontFamily: "'JetBrains Mono', monospace", marginTop: 8,
-            }}>CLASSIFIED ACCESS // LEVEL 5 CLEARANCE REQUIRED</div>
-          </div>
 
-          {/* Auth Card */}
-          <div style={{
-            background: "rgba(10,12,18,0.9)", borderRadius: 6,
-            border: "1px solid rgba(0,232,196,0.12)",
-            padding: 32, backdropFilter: "blur(20px)",
-            boxShadow: "0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,232,196,0.05)",
-          }}>
-            <div style={{
-              fontSize: 10, color: "#00e8c4", letterSpacing: "0.15em", textTransform: "uppercase",
-              fontFamily: "'JetBrains Mono', monospace", marginBottom: 24, opacity: 0.7,
-              borderBottom: "1px solid rgba(0,232,196,0.08)", paddingBottom: 12,
-            }}>
-              {authMode === "signup" ? "// NEW OPERATIVE REGISTRATION" : "// IDENTITY VERIFICATION"}
+        <div className="landing-scanline" />
+
+        {/* ── Nav ── */}
+        <nav className="landing-nav">
+          <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <TradeSharpLogo size={32} />
+              <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", letterSpacing: 3, textTransform: "uppercase" }}>TRADESHARP</span>
             </div>
-            <form onSubmit={handleAuth}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-                  color: "#3a4a5c", display: "block", marginBottom: 8,
-                  textTransform: "uppercase", letterSpacing: "0.15em",
-                }}>Callsign</label>
-                <input
-                  className="auth-input"
-                  type="email"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  required
-                  placeholder="operative@tradesharp.io"
-                  style={{
-                    width: "100%", padding: "12px 14px", fontSize: 14,
-                    border: "1px solid rgba(0,232,196,0.12)", borderRadius: 4,
-                    outline: "none", background: "rgba(0,232,196,0.02)",
-                    color: "#e0e6ed", fontFamily: "'JetBrains Mono', monospace",
-                    transition: "all 0.2s ease",
-                  }}
-                />
+            <div className="landing-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
+              <a href="#features" style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
+                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#4a5568"}>Features</a>
+              <a href="#auth-section" style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
+                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#4a5568"}>Get Started</a>
+              <button onClick={() => document.getElementById("auth-section")?.scrollIntoView({ behavior: "smooth" })}
+                style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, padding: "8px 18px", background: "transparent", border: `1px solid ${accentDim}`, color: accent, borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s" }}
+              >Sign In</button>
+            </div>
+          </div>
+        </nav>
+
+        {/* ── Hero ── */}
+        <section style={{ paddingTop: 140, paddingBottom: 100, position: "relative" }}>
+          {/* Background grid pattern */}
+          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 1px 1px, rgba(0,232,196,0.04) 1px, transparent 0)`, backgroundSize: "40px 40px", animation: "gridPulse 6s ease-in-out infinite", pointerEvents: "none" }} />
+          {/* Radial glow */}
+          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", height: "100%", background: "radial-gradient(ellipse at 50% 20%, rgba(0,232,196,0.06) 0%, transparent 60%)", pointerEvents: "none" }} />
+
+          <div className="hero-content" style={{ ...sectionStyle, display: "flex", alignItems: "center", gap: 60, position: "relative" }}>
+            <div className="hero-text" style={{ flex: 1 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 20, opacity: 0.8 }}>
+                TRADING PERFORMANCE SYSTEM
               </div>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
-                  color: "#3a4a5c", display: "block", marginBottom: 8,
-                  textTransform: "uppercase", letterSpacing: "0.15em",
-                }}>Access Code</label>
-                <input
-                  className="auth-input"
-                  type="password"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  placeholder="••••••••"
+              <h1 style={{ fontFamily: mono, fontSize: 44, fontWeight: 700, color: "#e0e6ed", lineHeight: 1.15, marginBottom: 20, letterSpacing: "-0.5px" }}>
+                Trade with<br />
+                <span style={{ color: accent }}>Precision.</span><br />
+                Journal with<br />
+                <span style={{ color: accent }}>Purpose.</span>
+              </h1>
+              <p className="hero-sub" style={{ fontSize: 18, color: "#5a6577", lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
+                The all-in-one trading journal built for futures traders who take their edge seriously. A+ checklist, AI-powered reviews, P&L tracking, and RPG-style progression.
+              </p>
+              <div className="cta-row" style={{ display: "flex", gap: 14 }}>
+                <button
+                  className="landing-btn"
+                  onClick={() => document.getElementById("auth-section")?.scrollIntoView({ behavior: "smooth" })}
                   style={{
-                    width: "100%", padding: "12px 14px", fontSize: 14,
-                    border: "1px solid rgba(0,232,196,0.12)", borderRadius: 4,
-                    outline: "none", background: "rgba(0,232,196,0.02)",
-                    color: "#e0e6ed", fontFamily: "'JetBrains Mono', monospace",
-                    transition: "all 0.2s ease",
+                    fontFamily: mono, fontSize: 13, fontWeight: 700, padding: "14px 32px",
+                    background: "transparent", border: `1.5px solid ${accent}`, color: accent,
+                    borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
+                    boxShadow: `0 0 20px ${accentGlow}`,
                   }}
-                />
+                >GET STARTED FREE</button>
+                <button
+                  className="landing-btn"
+                  onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
+                  style={{
+                    fontFamily: mono, fontSize: 13, fontWeight: 600, padding: "14px 32px",
+                    background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#5a6577",
+                    borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
+                  }}
+                >SEE FEATURES</button>
               </div>
-              {authError && (
-                <div style={{
-                  fontSize: 12, color: "#e53e3e", marginBottom: 16, padding: "10px 14px",
-                  background: "rgba(229,62,62,0.06)", borderRadius: 4, border: "1px solid rgba(229,62,62,0.15)",
-                  fontFamily: "'JetBrains Mono', monospace",
+            </div>
+            <div style={{ flex: "0 0 auto", animation: "heroFloat 4s ease-in-out infinite" }}>
+              <TradeSharpLogo size={200} />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Stats Banner ── */}
+        <section style={{ borderTop: `1px solid ${accentDim}`, borderBottom: `1px solid ${accentDim}`, padding: "40px 0", background: "rgba(0,232,196,0.015)" }}>
+          <div style={{ ...sectionStyle, display: "flex", justifyContent: "center", gap: 60, flexWrap: "wrap" }}>
+            {[
+              ["10-Point", "A+ Checklist"],
+              ["AI-Powered", "Trade Reviews"],
+              ["Real-Time", "P&L Calendar"],
+              ["5-Stage", "Progression Map"],
+            ].map(([val, label], i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: accent, marginBottom: 4 }}>{val}</div>
+                <div style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Features ── */}
+        <section id="features" className="landing-section" style={{ padding: "100px 0" }}>
+          <div style={sectionStyle}>
+            <div style={{ textAlign: "center", marginBottom: 60 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>FEATURES</div>
+              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e0e6ed", letterSpacing: "-0.3px", marginBottom: 12 }}>Everything You Need to Level Up</h2>
+              <p style={{ fontSize: 16, color: "#4a5568", maxWidth: 540, margin: "0 auto" }}>Built by a trader, for traders. Every feature exists because the process demanded it.</p>
+            </div>
+            <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+              {features.map((f, i) => (
+                <div key={i} className="feature-card" style={{
+                  background: "rgba(15,17,23,0.8)", borderRadius: 8, padding: 28,
+                  border: `1px solid ${accentDim}`,
+                  boxShadow: "0 0 20px rgba(0,0,0,0.3)",
                 }}>
-                  ACCESS DENIED — {authError}
+                  <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
+                  <h3 style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", marginBottom: 8, letterSpacing: "0.03em" }}>{f.title}</h3>
+                  <p style={{ fontSize: 14, color: "#5a6577", lineHeight: 1.7 }}>{f.desc}</p>
                 </div>
-              )}
-              <button
-                className="auth-btn"
-                type="submit"
-                style={{
-                  width: "100%", fontSize: 13, fontWeight: 700, padding: "14px 20px",
-                  background: "transparent", border: "1px solid rgba(0,232,196,0.4)", color: "#00e8c4",
-                  borderRadius: 4, cursor: "pointer",
-                  boxShadow: "0 0 20px rgba(0,232,196,0.06)",
-                  fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {authMode === "signup" ? "Register Operative" : "Authenticate"}
-              </button>
-            </form>
-            <div style={{ textAlign: "center", marginTop: 20 }}>
-              <button
-                onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                style={{ fontSize: 11, color: "#3a4a5c", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.05em" }}
-              >
-                {authMode === "login" ? "Request new clearance" : "Already cleared? Authenticate"}
-              </button>
+              ))}
             </div>
           </div>
+        </section>
 
-          {/* Footer */}
-          <div style={{
-            textAlign: "center", marginTop: 24, fontSize: 9, color: "#2a3444",
-            fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.15em", textTransform: "uppercase",
-          }}>
-            TRADESHARP SYSTEMS // ENCRYPTED CONNECTION // {new Date().getFullYear()}
+        {/* ── How It Works ── */}
+        <section style={{ padding: "80px 0", borderTop: `1px solid ${accentDim}` }}>
+          <div style={sectionStyle}>
+            <div style={{ textAlign: "center", marginBottom: 50 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>HOW IT WORKS</div>
+              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e0e6ed", letterSpacing: "-0.3px" }}>Your Daily Trading Workflow</h2>
+            </div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+              {[
+                ["01", "Plan", "Set your bias, key levels, and session plan before the market opens."],
+                ["02", "Confirm", "Run every setup through the 10-point A+ checklist. No shortcuts."],
+                ["03", "Log", "Record the trade with P&L, charts, and honest notes about what happened."],
+                ["04", "Review", "Let the AI coach analyze your patterns, then level up your progression."],
+              ].map(([num, title, desc], i) => (
+                <div key={i} style={{ flex: "1 1 220px", maxWidth: 240, textAlign: "center" }}>
+                  <div style={{ fontFamily: mono, fontSize: 36, fontWeight: 700, color: accentDim, marginBottom: 12 }}>{num}</div>
+                  <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
+                  <p style={{ fontSize: 13, color: "#4a5568", lineHeight: 1.7 }}>{desc}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
+
+        {/* ── Auth / Get Started ── */}
+        <section id="auth-section" className="landing-section" style={{ padding: "100px 0", borderTop: `1px solid ${accentDim}` }}>
+          <div style={{ ...sectionStyle, maxWidth: 440 }}>
+            <div style={{ textAlign: "center", marginBottom: 36 }}>
+              <div style={{ display: "inline-block", marginBottom: 16 }}><TradeSharpLogo size={56} /></div>
+              <h2 style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: "#e0e6ed", letterSpacing: "0.05em", marginBottom: 8 }}>
+                {authMode === "signup" ? "Create Your Account" : "Welcome Back"}
+              </h2>
+              <p style={{ fontSize: 14, color: "#4a5568" }}>
+                {authMode === "signup" ? "Start journaling your trades in under 60 seconds." : "Sign in to pick up where you left off."}
+              </p>
+            </div>
+
+            <div style={{
+              background: "rgba(10,12,18,0.9)", borderRadius: 8,
+              border: `1px solid ${accentDim}`,
+              padding: 32, backdropFilter: "blur(20px)",
+              boxShadow: `0 0 40px rgba(0,0,0,0.5), 0 0 20px ${accentGlow}`,
+            }}>
+              <form onSubmit={handleAuth}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#4a5568", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Email</label>
+                  <input
+                    className="auth-input"
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    required
+                    placeholder="you@example.com"
+                    style={{
+                      width: "100%", padding: "12px 14px", fontSize: 14,
+                      border: `1px solid ${accentDim}`, borderRadius: 4,
+                      outline: "none", background: "rgba(0,232,196,0.02)",
+                      color: "#e0e6ed", fontFamily: mono, transition: "all 0.2s ease",
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#4a5568", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Password</label>
+                  <input
+                    className="auth-input"
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="••••••••"
+                    style={{
+                      width: "100%", padding: "12px 14px", fontSize: 14,
+                      border: `1px solid ${accentDim}`, borderRadius: 4,
+                      outline: "none", background: "rgba(0,232,196,0.02)",
+                      color: "#e0e6ed", fontFamily: mono, transition: "all 0.2s ease",
+                    }}
+                  />
+                </div>
+                {authError && (
+                  <div style={{
+                    fontSize: 12, color: "#e53e3e", marginBottom: 16, padding: "10px 14px",
+                    background: "rgba(229,62,62,0.06)", borderRadius: 4, border: "1px solid rgba(229,62,62,0.15)",
+                    fontFamily: mono,
+                  }}>
+                    {authError}
+                  </div>
+                )}
+                <button
+                  className="landing-btn"
+                  type="submit"
+                  style={{
+                    width: "100%", fontSize: 13, fontWeight: 700, padding: "14px 20px",
+                    background: "transparent", border: `1.5px solid ${accent}`, color: accent,
+                    borderRadius: 4, cursor: "pointer",
+                    boxShadow: `0 0 20px ${accentGlow}`,
+                    fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase",
+                  }}
+                >
+                  {authMode === "signup" ? "Create Account" : "Sign In"}
+                </button>
+              </form>
+              <div style={{ textAlign: "center", marginTop: 20 }}>
+                <button
+                  onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
+                  style={{ fontSize: 12, color: "#4a5568", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: mono }}
+                >
+                  {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Footer ── */}
+        <footer style={{ borderTop: `1px solid ${accentDim}`, padding: "40px 0" }}>
+          <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <TradeSharpLogo size={24} />
+              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: "#3a4a5c", letterSpacing: 2, textTransform: "uppercase" }}>TRADESHARP</span>
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 10, color: "#2a3444", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Built for traders, by a trader // {new Date().getFullYear()}
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
