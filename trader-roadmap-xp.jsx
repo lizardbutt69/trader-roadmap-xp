@@ -1705,7 +1705,7 @@ export default function TraderRoadmapXP() {
 
         {/* CHECKLIST VIEW */}
         {view === "checklist" && (
-          <ChecklistView />
+          <ChecklistView supabase={supabase} user={user} />
         )}
 
         {/* JOURNAL VIEW */}

@@ -4,7 +4,7 @@ Chart.register(...registerables);
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
-const CHECKLIST_ITEMS = [
+const DEFAULT_CHECKLIST_ITEMS = [
   { label: "1 or 2 Stage Crack in Correlation (CIC)", sub: "SMT and/or PSP confirmed" },
   { label: "Key Level / Liquidity", sub: "Price at significant level or liquidity pool" },
   { label: "Timeframe Alignment", sub: "Higher TF in agreement with entry TF" },
@@ -14,8 +14,9 @@ const CHECKLIST_ITEMS = [
   { label: "Session / Time of Day", sub: "London, NY open or high-probability session" },
   { label: "Risk/Reward Ratio", sub: "Minimum 1:2 R:R confirmed" },
   { label: "Stop Loss Defined", sub: "Clear invalidation level set" },
-  { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "Take 10 seconds. Be honest with yourself.", timer: true },
 ];
+
+const TIMER_ITEM = { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "Take 10 seconds. Be honest with yourself.", timer: true };
 
 const ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -174,14 +175,42 @@ const selectStyle = { ...inputStyle, cursor: "pointer" };
 // CHECKLIST TAB — Only the A+ checklist
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function ChecklistView() {
-  const [checked, setChecked] = useState(new Array(10).fill(false));
+export function ChecklistView({ supabase, user }) {
+  const [customItems, setCustomItems] = useState(null); // null = loading
+  const [checked, setChecked] = useState([]);
   const [timerActive, setTimerActive] = useState(false);
   const [timerSecs, setTimerSecs] = useState(10);
   const timerRef = useRef(null);
 
+  // Edit mode
+  const [editing, setEditing] = useState(false);
+  const [editItems, setEditItems] = useState([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [newSub, setNewSub] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
+
+  // Load custom items from Supabase (fall back to defaults)
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("checklist_items")
+        .select("items")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const items = data?.items || DEFAULT_CHECKLIST_ITEMS;
+      setCustomItems(items);
+      setChecked(new Array(items.length + 1).fill(false)); // +1 for timer item
+    })();
+  }, [user]);
+
+  // Build full list: custom items + timer always last
+  const allItems = customItems ? [...customItems, TIMER_ITEM] : [...DEFAULT_CHECKLIST_ITEMS, TIMER_ITEM];
+  const totalCount = allItems.length;
+
   const toggleCheck = (i) => {
-    if (CHECKLIST_ITEMS[i].timer) { startTimer(i); return; }
+    if (allItems[i].timer) { startTimer(i); return; }
     setChecked((prev) => { const n = [...prev]; n[i] = !n[i]; return n; });
   };
 
@@ -203,7 +232,7 @@ export function ChecklistView() {
   };
 
   const resetChecklist = () => {
-    setChecked(new Array(10).fill(false));
+    setChecked(new Array(totalCount).fill(false));
     if (timerRef.current) clearInterval(timerRef.current);
     setTimerActive(false);
     setTimerSecs(10);
@@ -211,22 +240,218 @@ export function ChecklistView() {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-  const count = checked.filter(Boolean).length;
-  const allChecked = count === 10;
+  // ── Edit mode handlers ──
+  const openEdit = () => {
+    setEditItems((customItems || DEFAULT_CHECKLIST_ITEMS).map((item) => ({ ...item })));
+    setEditing(true);
+    setNewLabel("");
+    setNewSub("");
+  };
 
+  const cancelEdit = () => {
+    setEditing(false);
+    setEditItems([]);
+    setNewLabel("");
+    setNewSub("");
+  };
+
+  const addItem = () => {
+    const label = newLabel.trim();
+    if (!label) return;
+    if (editItems.length >= 20) { alert("Maximum 20 custom items."); return; }
+    setEditItems([...editItems, { label, sub: newSub.trim() }]);
+    setNewLabel("");
+    setNewSub("");
+  };
+
+  const removeItem = (i) => {
+    setEditItems(editItems.filter((_, idx) => idx !== i));
+  };
+
+  const moveItem = (from, to) => {
+    if (to < 0 || to >= editItems.length) return;
+    const items = [...editItems];
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    setEditItems(items);
+  };
+
+  const handleDragStart = (i) => setDragIdx(i);
+  const handleDragOver = (e, i) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === i) return;
+    moveItem(dragIdx, i);
+    setDragIdx(i);
+  };
+  const handleDragEnd = () => setDragIdx(null);
+
+  const saveItems = async () => {
+    if (!user) return;
+    setSaving(true);
+    await supabase.from("checklist_items").upsert(
+      { user_id: user.id, items: editItems },
+      { onConflict: "user_id" }
+    );
+    setCustomItems(editItems);
+    setChecked(new Array(editItems.length + 1).fill(false));
+    setEditing(false);
+    setSaving(false);
+  };
+
+  const resetToDefaults = () => {
+    setEditItems(DEFAULT_CHECKLIST_ITEMS.map((item) => ({ ...item })));
+  };
+
+  const count = checked.filter(Boolean).length;
+  const allChecked = checked.length === totalCount && count === totalCount;
+
+  if (customItems === null) {
+    return (
+      <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+        <TCard style={{ padding: 28, textAlign: "center" }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "var(--text-tertiary)" }}>Loading checklist...</div>
+        </TCard>
+      </div>
+    );
+  }
+
+  // ── Edit Mode UI ──
+  if (editing) {
+    return (
+      <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+        <TCard style={{ padding: 28 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>CUSTOMIZE CHECKLIST</div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)" }}>{editItems.length} / 20 items</div>
+          </div>
+
+          {/* Existing items — draggable */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {editItems.map((item, i) => (
+              <div
+                key={i}
+                draggable
+                onDragStart={() => handleDragStart(i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  background: dragIdx === i ? "var(--accent-glow)" : "var(--bg-tertiary)",
+                  border: `1.5px solid ${dragIdx === i ? "var(--accent-dim)" : "var(--border-primary)"}`,
+                  borderRadius: 6, padding: "12px 16px",
+                  cursor: "grab", transition: "all 0.15s", userSelect: "none",
+                }}
+              >
+                {/* Drag handle */}
+                <div style={{ color: "var(--text-tertiary)", fontSize: 16, cursor: "grab", flexShrink: 0 }}>⠿</div>
+                {/* Reorder buttons */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => moveItem(i, i - 1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", fontSize: 10, color: i === 0 ? "var(--border-primary)" : "var(--text-tertiary)", padding: 0, lineHeight: 1 }}>▲</button>
+                  <button onClick={() => moveItem(i, i + 1)} disabled={i === editItems.length - 1} style={{ background: "none", border: "none", cursor: i === editItems.length - 1 ? "default" : "pointer", fontSize: 10, color: i === editItems.length - 1 ? "var(--border-primary)" : "var(--text-tertiary)", padding: 0, lineHeight: 1 }}>▼</button>
+                </div>
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
+                  {item.sub && <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.sub}</div>}
+                </div>
+                {/* Delete */}
+                <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--text-tertiary)", flexShrink: 0, padding: "0 4px" }} title="Remove">✕</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Timer item (locked, always last) */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12,
+            background: "var(--bg-tertiary)", border: "1.5px dashed var(--border-primary)",
+            borderRadius: 6, padding: "12px 16px", marginBottom: 20, opacity: 0.6,
+          }}>
+            <div style={{ fontSize: 16, flexShrink: 0 }}>🔒</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{TIMER_ITEM.label}</div>
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>{TIMER_ITEM.sub}</div>
+            </div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--text-tertiary)", flexShrink: 0 }}>ALWAYS LAST</div>
+          </div>
+
+          {/* Add new item */}
+          <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: 16, border: "1px solid var(--border-primary)", marginBottom: 20 }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>ADD NEW ITEM</div>
+            <input
+              type="text"
+              placeholder="Condition name (required)"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              maxLength={200}
+              onKeyDown={(e) => e.key === "Enter" && addItem()}
+              style={{ ...inputStyle, marginBottom: 8 }}
+            />
+            <input
+              type="text"
+              placeholder="Description (optional)"
+              value={newSub}
+              onChange={(e) => setNewSub(e.target.value)}
+              maxLength={300}
+              onKeyDown={(e) => e.key === "Enter" && addItem()}
+              style={{ ...inputStyle, marginBottom: 10 }}
+            />
+            <button onClick={addItem} disabled={!newLabel.trim()} style={{
+              fontFamily: "'JetBrains Mono', monospace", width: "100%", padding: 10, fontSize: 12, fontWeight: 600,
+              background: "transparent", border: `1px solid ${newLabel.trim() ? "var(--green)" : "var(--border-primary)"}`,
+              color: newLabel.trim() ? "var(--green)" : "var(--text-tertiary)",
+              borderRadius: 4, cursor: newLabel.trim() ? "pointer" : "default",
+              letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
+            }}>+ ADD ITEM</button>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={resetToDefaults} style={{
+              fontFamily: "'JetBrains Mono', monospace", flex: 1, padding: 12, fontSize: 12, fontWeight: 600,
+              background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-tertiary)",
+              borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
+            }}>RESET DEFAULTS</button>
+            <button onClick={cancelEdit} style={{
+              fontFamily: "'JetBrains Mono', monospace", flex: 1, padding: 12, fontSize: 12, fontWeight: 600,
+              background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-secondary)",
+              borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
+            }}>CANCEL</button>
+            <button onClick={saveItems} disabled={saving || editItems.length === 0} style={{
+              fontFamily: "'JetBrains Mono', monospace", flex: 1, padding: 12, fontSize: 12, fontWeight: 700,
+              background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)",
+              borderRadius: 4, cursor: saving ? "not-allowed" : "pointer", letterSpacing: "0.08em", textTransform: "uppercase",
+              boxShadow: "0 0 15px var(--accent-glow)", transition: "all 0.2s",
+            }}>{saving ? "SAVING..." : "SAVE CHECKLIST"}</button>
+          </div>
+        </TCard>
+      </div>
+    );
+  }
+
+  // ── Normal Checklist UI ──
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       <TCard style={{ padding: 28 }}>
+        {/* Header with edit button */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>A+ CHECKLIST</div>
+          <button onClick={openEdit} style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600, padding: "6px 14px",
+            background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-tertiary)",
+            borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
+          }}>CUSTOMIZE</button>
+        </div>
+
         {/* Progress bar */}
         <div style={{ background: "var(--bg-tertiary)", borderRadius: 4, height: 8, marginBottom: 10, overflow: "hidden", border: "1px solid var(--border-primary)" }}>
-          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, var(--green), var(--accent))", transition: "width 0.3s", width: `${(count / 10) * 100}%`, boxShadow: "0 0 8px var(--accent-glow)" }} />
+          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, var(--green), var(--accent))", transition: "width 0.3s", width: `${(count / totalCount) * 100}%`, boxShadow: "0 0 8px var(--accent-glow)" }} />
         </div>
         <div style={{ textAlign: "right", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)", marginBottom: 24 }}>
-          <span style={{ color: "var(--green)", fontWeight: 600 }}>{count}</span> / 10 confirmed
+          <span style={{ color: "var(--green)", fontWeight: 600 }}>{count}</span> / {totalCount} confirmed
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {CHECKLIST_ITEMS.map((item, i) => (
+          {allItems.map((item, i) => (
             <div
               key={i}
               onClick={() => toggleCheck(i)}
@@ -250,7 +475,7 @@ export function ChecklistView() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: checked[i] ? "var(--green)" : "var(--text-primary)" }}>{item.label}</div>
-                <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 3 }}>{item.sub}</div>
+                {item.sub && <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 3 }}>{item.sub}</div>}
                 {item.timer && !checked[i] && (
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", marginTop: 10, fontSize: 13, color: timerActive ? "var(--gold)" : "var(--text-tertiary)" }}>
                     {timerActive ? `⏱ Think about it... ${timerSecs}s` : "Click to start 10 second timer..."}

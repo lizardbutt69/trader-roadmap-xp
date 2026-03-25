@@ -159,3 +159,21 @@ create index if not exists idx_trade_plans_user_date on trade_plans(user_id, pla
 create index if not exists idx_accounts_user on accounts(user_id);
 create index if not exists idx_daily_moods_user_date on daily_moods(user_id, mood_date);
 create index if not exists idx_watchlist_user on watchlist(user_id);
+
+-- Custom checklist items (per user)
+create table if not exists checklist_items (
+  user_id uuid references auth.users(id) on delete cascade primary key,
+  items jsonb not null default '[]'::jsonb,
+  updated_at timestamptz default now()
+);
+
+alter table checklist_items enable row level security;
+
+create policy "Users can view own checklist"
+  on checklist_items for select using (auth.uid() = user_id);
+
+create policy "Users can insert own checklist"
+  on checklist_items for insert with check (auth.uid() = user_id);
+
+create policy "Users can update own checklist"
+  on checklist_items for update using (auth.uid() = user_id);
