@@ -2157,6 +2157,8 @@ const LIVE_CHANNELS = [
   { key: "euronews", label: "EuroNews", src: "https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1" },
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
   { key: "cnbc", label: "CNBC", src: "https://www.youtube.com/embed/9NyxcX3rhQs?autoplay=1&mute=1" },
+  { key: "cbs", label: "CBS News", src: "https://www.youtube.com/embed/ED_ezU86-6c?autoplay=1&mute=1" },
+  { key: "nbc", label: "NBC News", src: "https://www.youtube.com/embed/yhMLH5FtvHM?autoplay=1&mute=1" },
 ];
 
 function FinancialJuiceFeed() {
