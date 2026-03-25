@@ -41,6 +41,29 @@ const MOODS = [
 const DRAWDOWN_WARNING = 0.7;
 const DRAWDOWN_DANGER = 0.85;
 
+// ─── SECURITY HELPERS ────────────────────────────────────────────────────────
+
+function safeUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (["http:", "https:"].includes(parsed.protocol)) return parsed.href;
+  } catch {}
+  return null;
+}
+
+const VALID_ASSETS = new Set(["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"]);
+const VALID_DIRECTIONS = new Set(["Long", "Short", ""]);
+const VALID_APLUS = new Set(["Yes", "No", ""]);
+const VALID_TAKEN = new Set(["Missed", "Personal", "Eval", "PA & Funded", "Crypto", "Funded Account", ""]);
+const VALID_BIAS = new Set(["Bullish", "Bearish", ""]);
+const MAX_TEXT_LENGTH = 5000;
+
+function sanitizeText(str, maxLen = MAX_TEXT_LENGTH) {
+  if (!str) return "";
+  return String(str).slice(0, maxLen);
+}
+
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
 function calcStreaks(trades) {
@@ -365,9 +388,20 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
 
   const logTrade = async () => {
     if (!formDt || !formAsset) { alert("Please fill in Date & Time and Asset at minimum."); return; }
+    if (!VALID_ASSETS.has(formAsset)) { alert("Invalid asset selected."); return; }
+    if (formDirection && !VALID_DIRECTIONS.has(formDirection)) { alert("Invalid direction."); return; }
+    if (formAplus && !VALID_APLUS.has(formAplus)) { alert("Invalid A+ value."); return; }
+    if (formTaken && !VALID_TAKEN.has(formTaken)) { alert("Invalid Taken value."); return; }
+    if (formBias && !VALID_BIAS.has(formBias)) { alert("Invalid bias value."); return; }
+    if (formProfit && isNaN(parseFloat(formProfit))) { alert("Personal P&L must be a number."); return; }
+    if (formProfitFunded && isNaN(parseFloat(formProfitFunded))) { alert("Funded P&L must be a number."); return; }
+    if (formChart && !safeUrl(formChart)) { alert("Invalid chart URL. Must be a valid https:// link."); return; }
+    if (formAfter && !safeUrl(formAfter)) { alert("Invalid after-trade URL. Must be a valid https:// link."); return; }
+    const parsedDt = new Date(formDt);
+    if (isNaN(parsedDt.getTime())) { alert("Invalid date."); return; }
     const tradeData = {
       user_id: user.id,
-      dt: new Date(formDt).toISOString(),
+      dt: parsedDt.toISOString(),
       asset: formAsset,
       direction: formDirection,
       aplus: formAplus,
@@ -375,10 +409,10 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
       bias: formBias,
       profit: formProfit ? parseFloat(formProfit) : null,
       profit_funded: formProfitFunded ? parseFloat(formProfitFunded) : null,
-      chart: formChart,
-      after_chart: formAfter,
-      notes: formNotes,
-      after_thoughts: formAfterThoughts,
+      chart: safeUrl(formChart) || "",
+      after_chart: safeUrl(formAfter) || "",
+      notes: sanitizeText(formNotes),
+      after_thoughts: sanitizeText(formAfterThoughts),
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (!error) {
@@ -842,10 +876,10 @@ export function TradeStatsView({ supabase, user, trades, loadTrades }) {
                         {t.profit_funded != null ? <span style={{ color: pf >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{pf >= 0 ? "+" : ""}{pf.toFixed(0)}</span> : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
                       </td>
                       <td style={cellStyle}>
-                        {t.chart ? <a href={t.chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
+                        {safeUrl(t.chart) ? <a href={safeUrl(t.chart)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
                       <td style={cellStyle}>
-                        {t.after_chart ? <a href={t.after_chart} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
+                        {safeUrl(t.after_chart) ? <a href={safeUrl(t.after_chart)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
                       <td style={{ ...cellStyle, maxWidth: 140, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>{t.notes || "—"}</td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
@@ -2358,8 +2392,8 @@ export function WatchlistView({ supabase, user }) {
             {/* Footer */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border-secondary)" }}>
               <div style={{ display: "flex", gap: 10 }}>
-                {idea.chart_link && (
-                  <a href={idea.chart_link} target="_blank" rel="noopener noreferrer" style={{
+                {safeUrl(idea.chart_link) && (
+                  <a href={safeUrl(idea.chart_link)} target="_blank" rel="noopener noreferrer" style={{
                     fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--accent)", textDecoration: "none",
                   }}>VIEW CHART</a>
                 )}

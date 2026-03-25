@@ -417,7 +417,7 @@ export default function TraderRoadmapXP() {
   const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
 
   // Dark mode
-  const [dark, setDark] = useState(() => { try { return localStorage.getItem("theme") === "dark" || !localStorage.getItem("theme"); } catch { return true; } });
+  const [dark, setDark] = useState(() => { try { const t = localStorage.getItem("theme"); return t === "light" ? false : true; } catch { return true; } });
 
   useEffect(() => {
     const root = document.documentElement;
@@ -952,8 +952,8 @@ export default function TraderRoadmapXP() {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     required
-                    minLength={6}
-                    placeholder="••••••••"
+                    minLength={12}
+                    placeholder="Min 12 characters"
                     style={{
                       width: "100%", padding: "12px 14px", fontSize: 14,
                       border: `1px solid ${accentDim}`, borderRadius: 4,
@@ -1195,7 +1195,7 @@ export default function TraderRoadmapXP() {
                     Evidence Link
                   </div>
                   <a
-                    href={proof.link}
+                    href={(() => { try { const u = new URL(proof.link); return ["http:", "https:"].includes(u.protocol) ? u.href : "#"; } catch { return "#"; } })()}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ fontSize: 15, color: "var(--accent-secondary)", wordBreak: "break-all" }}
