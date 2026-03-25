@@ -952,8 +952,8 @@ export default function TraderRoadmapXP() {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     required
-                    minLength={12}
-                    placeholder="Min 12 characters"
+                    minLength={authMode === "signup" ? 12 : 1}
+                    placeholder={authMode === "signup" ? "Min 12 characters" : "••••••••"}
                     style={{
                       width: "100%", padding: "12px 14px", fontSize: 14,
                       border: `1px solid ${accentDim}`, borderRadius: 4,
