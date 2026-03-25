@@ -2194,10 +2194,10 @@ function FinancialJuiceFeed() {
   };
 
   return (
-    <TCard style={{ marginTop: 20 }}>
+    <TCard style={{ marginTop: 20, padding: "24px 28px" }}>
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--border-primary)",
+        marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border-primary)",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1d9bf0", animation: "hudPulse 2s ease-in-out infinite" }} />
@@ -2226,10 +2226,10 @@ function FinancialJuiceFeed() {
         <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 400, overflowY: "auto" }}>
           {tweets.map((tweet, i) => (
             <div key={tweet.id} style={{
-              padding: "10px 0",
-              borderBottom: i < tweets.length - 1 ? "1px solid var(--border-primary)" : "none",
+              padding: "12px 4px",
+              borderBottom: i < tweets.length - 1 ? "1px solid var(--border-secondary)" : "none",
             }}>
-              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6, marginBottom: 6 }}>
                 {tweet.text}
               </div>
               <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "'JetBrains Mono', monospace" }}>
