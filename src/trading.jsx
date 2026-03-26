@@ -1279,13 +1279,20 @@ ${tradesSummary}
 
 ANALYSIS INSTRUCTIONS:
 1. Performance Overview — P&L, win rate, key numbers. Judge wins against the $500 risk / $1,000 target framework. Call out breakeven trades disguised as wins.
-2. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
-3. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it.
-4. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
-5. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
-6. Final Word — One honest sentence about where this trader is mentally.
+2. Setup Pattern Recognition — Read through all trade notes and after-trade thoughts carefully. Identify which setups/confluences the trader used on each trade (SMT, 2STGSMT, SSMT, PSP, SMTFILL, CISD, ICCISD, CIC, TTFM, liquidity sweep, FVG, etc.). Then break down:
+   - Win rate per setup type (e.g. "SMT setups: 4W/1L = 80%")
+   - Which setups are making money vs losing money
+   - Which setup + session combos work best
+   - Any setups being forced (high frequency, low win rate)
+   - Setups that appear in winners but are absent in losers
+   If the trader doesn't mention specific setups in their notes, call that out — they should be documenting what confluence was present.
+3. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
+4. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it.
+5. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
+6. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
+7. Final Word — One honest sentence about where this trader is mentally.
 
-Be direct, specific, and reference actual trades and their notes. Keep it under 500 words.`;
+Be direct, specific, and reference actual trades and their notes. Keep it under 700 words.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
