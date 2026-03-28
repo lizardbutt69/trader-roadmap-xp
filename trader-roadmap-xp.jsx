@@ -1,61 +1,67 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
 const LIGHT_THEME = {
-  "--bg-primary": "#f0f2f5",
+  "--bg-primary": "#f8f9fc",
   "--bg-secondary": "#ffffff",
-  "--bg-tertiary": "#f5f7fa",
-  "--bg-input": "#f5f7fa",
-  "--border-primary": "#d8dce3",
-  "--border-secondary": "#e2e6eb",
-  "--border-glow": "rgba(0,180,150,0.1)",
+  "--bg-tertiary": "#f0f1f6",
+  "--bg-input": "#f0f1f6",
+  "--border-primary": "#dddfe8",
+  "--border-secondary": "#e8eaf0",
+  "--border-glow": "#d0d2dc",
   "--border-glow-shadow": "none",
-  "--text-primary": "#0f1117",
-  "--text-secondary": "#5a6577",
-  "--text-tertiary": "#8a95a5",
-  "--text-accent": "#00b896",
-  "--accent": "#00b896",
-  "--accent-dim": "#00b89630",
-  "--accent-glow": "rgba(0,184,150,0.06)",
-  "--accent-glow-strong": "rgba(0,184,150,0.15)",
-  "--accent-secondary": "#3b82f6",
-  "--card-shadow": "0 1px 4px rgba(0,0,0,0.06)",
-  "--card-glow": "0 1px 4px rgba(0,0,0,0.06)",
-  "--green": "#00b896",
-  "--red": "#e53e3e",
-  "--gold": "#d69e2e",
-  "--purple": "#805ad5",
-  "--hud-grid": "rgba(0,0,0,0.02)",
+  "--text-primary": "#0f1029",
+  "--text-secondary": "#4a4c6a",
+  "--text-tertiary": "#9496ae",
+  "--text-accent": "#0891b2",
+  "--accent": "#0891b2",
+  "--accent-dim": "rgba(8,145,178,0.10)",
+  "--accent-glow": "rgba(8,145,178,0.05)",
+  "--accent-glow-strong": "rgba(8,145,178,0.12)",
+  "--accent-secondary": "#6366f1",
+  "--card-shadow": "0 1px 3px rgba(0,0,0,0.04)",
+  "--card-glow": "0 1px 3px rgba(0,0,0,0.04)",
+  "--glass-blur": "none",
+  "--bg-glass": "#ffffff",
+  "--bg-glass-hover": "#f5f6fa",
+  "--green": "#059669",
+  "--red": "#e11d48",
+  "--gold": "#d97706",
+  "--purple": "#7c3aed",
+  "--hud-grid": "rgba(0,0,0,0.015)",
 };
 
 const DARK_THEME = {
-  "--bg-primary": "#0a0a0f",
-  "--bg-secondary": "#0f1117",
-  "--bg-tertiary": "#141820",
-  "--bg-input": "#141820",
-  "--border-primary": "rgba(0,232,196,0.18)",
-  "--border-secondary": "rgba(0,232,196,0.10)",
-  "--border-glow": "rgba(0,232,196,0.15)",
-  "--border-glow-shadow": "0 0 8px rgba(0,232,196,0.12), 0 0 2px rgba(0,232,196,0.06)",
-  "--text-primary": "#e0e6ed",
-  "--text-secondary": "#7a8a9e",
-  "--text-tertiary": "#4a5568",
-  "--text-accent": "#00e8c4",
-  "--accent": "#00e8c4",
-  "--accent-dim": "#00e8c440",
-  "--accent-glow": "rgba(0,232,196,0.08)",
-  "--accent-glow-strong": "rgba(0,232,196,0.2)",
-  "--accent-secondary": "#3b82f6",
-  "--card-shadow": "0 0 20px rgba(0,0,0,0.4), 0 0 2px rgba(0,232,196,0.05)",
-  "--card-glow": "0 0 15px rgba(0,232,196,0.06), 0 0 8px rgba(0,232,196,0.1), inset 0 1px 0 rgba(0,232,196,0.05)",
-  "--green": "#00e8c4",
-  "--red": "#ff4757",
-  "--gold": "#ffa502",
+  "--bg-primary": "#0b0d13",
+  "--bg-secondary": "rgba(255,255,255,0.04)",
+  "--bg-tertiary": "rgba(255,255,255,0.06)",
+  "--bg-input": "rgba(255,255,255,0.05)",
+  "--bg-glass": "rgba(255,255,255,0.04)",
+  "--bg-glass-hover": "rgba(255,255,255,0.07)",
+  "--border-primary": "rgba(255,255,255,0.08)",
+  "--border-secondary": "rgba(255,255,255,0.05)",
+  "--border-glow": "rgba(255,255,255,0.12)",
+  "--border-glow-shadow": "0 0 12px rgba(34,211,238,0.06)",
+  "--text-primary": "#eaebf0",
+  "--text-secondary": "#a0a3b5",
+  "--text-tertiary": "#6b6e84",
+  "--text-accent": "#22d3ee",
+  "--accent": "#22d3ee",
+  "--accent-dim": "rgba(34,211,238,0.12)",
+  "--accent-glow": "rgba(34,211,238,0.06)",
+  "--accent-glow-strong": "rgba(34,211,238,0.18)",
+  "--accent-secondary": "#818cf8",
+  "--card-shadow": "0 2px 16px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.06)",
+  "--card-glow": "0 2px 20px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.08)",
+  "--glass-blur": "blur(20px)",
+  "--green": "#34d399",
+  "--red": "#fb7185",
+  "--gold": "#fbbf24",
   "--purple": "#a78bfa",
-  "--hud-grid": "rgba(0,232,196,0.03)",
+  "--hud-grid": "rgba(255,255,255,0.015)",
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -212,11 +218,11 @@ function XPBar({ current, max, color = "#4a8fe7", height = 10 }) {
         style={{
           width: `${pct}%`,
           height: "100%",
-          background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+          background: `linear-gradient(90deg, ${color}, ${color}88)`,
           borderRadius: 4,
           transition: "width 0.8s cubic-bezier(.4,0,.2,1)",
           position: "relative",
-          boxShadow: `0 0 8px ${color}40`,
+          boxShadow: "none",
         }}
       />
     </div>
@@ -233,13 +239,15 @@ function Card({ children, style = {}, onClick, hoverable = false, className = ""
       onMouseLeave={() => setHovered(false)}
       style={{
         background: "var(--bg-secondary)",
-        borderRadius: 8,
+        backdropFilter: "var(--glass-blur)",
+        WebkitBackdropFilter: "var(--glass-blur)",
+        borderRadius: 10,
         border: "1px solid var(--border-primary)",
         boxShadow: hovered && hoverable
-          ? "0 0 30px var(--accent-glow-strong), 0 0 2px var(--border-glow)"
+          ? "0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px var(--border-glow)"
           : "var(--card-shadow)",
         transition: "all 0.3s cubic-bezier(.4,0,.2,1)",
-        transform: hovered && hoverable ? "translateY(-1px)" : "none",
+        transform: hovered && hoverable ? "translateY(-2px)" : "none",
         cursor: onClick ? "pointer" : "default",
         ...style,
       }}
@@ -265,7 +273,7 @@ function Chip({ label, color, icon }) {
         borderRadius: 4,
         letterSpacing: "0.1em",
         textTransform: "uppercase",
-        fontFamily: "'JetBrains Mono', monospace",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >
       {icon && <span style={{ fontSize: 12 }}>{icon}</span>}
@@ -304,16 +312,16 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
             {level.name}
           </span>
           <Chip label={level.tier} color={level.accent} />
         </div>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-secondary)", marginBottom: 8 }}>
           {level.subtitle}
         </div>
         <XPBar current={done} max={total} color={level.accent} height={8} />
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)", marginTop: 5, textAlign: "right" }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginTop: 5, textAlign: "right" }}>
           {done}/{total} quests · {pct}%
         </div>
       </div>
@@ -365,7 +373,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
           <span
             style={{
-              fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700,
               fontSize: 14,
               color: completed ? meta.color : "var(--text-primary)",
             }}
@@ -375,7 +383,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
           <Chip label={meta.label} color={meta.color} icon={meta.icon} />
           {ach.amount && <Chip label={ach.amount} color="var(--gold)" icon="💰" />}
         </div>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
           {ach.desc}
         </div>
         {completed && proof && (
@@ -389,7 +397,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
 
       <div
         style={{
-          fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700,
           fontSize: 13,
           color: completed ? meta.color : "var(--gold)",
           flexShrink: 0,
@@ -415,6 +423,67 @@ export default function TraderRoadmapXP() {
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [authMode, setAuthMode] = useState("login"); // "login" or "signup"
+
+  // Mobile menu
+  const [mobileMenu, setMobileMenu] = useState(false);
+
+  // NYSE Clock
+  const [nyClock, setNyClock] = useState(() => new Date());
+  const bellPlayedRef = useRef(null); // tracks which date's bell already rang
+  useEffect(() => {
+    const id = setInterval(() => setNyClock(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const nyOpts = { timeZone: "America/New_York" };
+  const nyTime = nyClock.toLocaleTimeString("en-US", { ...nyOpts, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  const nyDate = nyClock.toLocaleDateString("en-US", { ...nyOpts, weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  const nyHour = parseInt(nyClock.toLocaleTimeString("en-US", { ...nyOpts, hour: "numeric", hour12: false }));
+  const nyMin = parseInt(nyClock.toLocaleTimeString("en-US", { ...nyOpts, minute: "numeric" }));
+  const nySec = parseInt(nyClock.toLocaleTimeString("en-US", { ...nyOpts, second: "numeric" }));
+  const nyTotalMin = nyHour * 60 + nyMin;
+  const nyDay = nyClock.toLocaleDateString("en-US", { ...nyOpts, weekday: "long" });
+  const isWeekday = nyDay !== "Saturday" && nyDay !== "Sunday";
+  const isMarketOpen = isWeekday && nyTotalMin >= 570 && nyTotalMin < 960; // 9:30 AM - 4:00 PM ET
+  const isPreMarket = isWeekday && nyTotalMin >= 240 && nyTotalMin < 570; // 4:00 AM - 9:30 AM ET
+
+  // NYSE Opening Bell chime at 9:30 AM ET
+  useEffect(() => {
+    if (!isWeekday) return;
+    const dateKey = nyClock.toLocaleDateString("en-US", nyOpts);
+    if (nyHour === 9 && nyMin === 30 && nySec < 3 && bellPlayedRef.current !== dateKey) {
+      bellPlayedRef.current = dateKey;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const playTone = (freq, startTime, duration, vol) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+          gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + startTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + startTime);
+          osc.stop(ctx.currentTime + startTime + duration);
+        };
+        // Three-tone NYSE-style bell chime
+        playTone(830, 0, 1.8, 0.15);    // high bell
+        playTone(1245, 0, 1.4, 0.08);   // harmonic shimmer
+        playTone(622, 0.05, 2.0, 0.12); // lower resonance
+        playTone(830, 0.6, 1.5, 0.10);  // second strike
+        playTone(1245, 0.6, 1.2, 0.06);
+        playTone(622, 0.65, 1.8, 0.08);
+        playTone(830, 1.2, 2.0, 0.08);  // third strike (softer)
+        playTone(1245, 1.2, 1.6, 0.04);
+        setTimeout(() => ctx.close(), 4000);
+      } catch (e) { /* AudioContext not available */ }
+    }
+  }, [nyClock]);
+
+  // Privacy mode
+  const [privacyMode, setPrivacyMode] = useState(() => { try { return localStorage.getItem("privacyMode") === "true"; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem("privacyMode", privacyMode); } catch {} }, [privacyMode]);
 
   // Dark mode
   const [dark, setDark] = useState(() => { try { const t = localStorage.getItem("theme"); return t === "light" ? false : true; } catch { return true; } });
@@ -609,52 +678,80 @@ export default function TraderRoadmapXP() {
 
 
   const globalStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
-    @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     @keyframes hudPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-    @keyframes dataFlicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.97; } }
-    @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 10px var(--accent-glow), inset 0 1px 0 var(--border-glow); } 50% { box-shadow: 0 0 20px var(--accent-glow-strong), inset 0 1px 0 var(--border-glow); } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+    @keyframes subtleGlow { 0%,100% { box-shadow: 0 0 0 0 var(--accent-glow); } 50% { box-shadow: 0 0 20px 0 var(--accent-glow); } }
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Inter', sans-serif; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: var(--bg-primary); }
-    ::-webkit-scrollbar-thumb { background: var(--accent-dim); border-radius: 2px; }
+    body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-glow); }
     button, input, textarea, select { font-family: inherit; }
-    textarea:focus, input:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 10px var(--accent-glow) !important; }
+    textarea:focus, input:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow) !important; outline: none; }
     ::selection { background: var(--accent-dim); color: var(--text-primary); }
+    .sidebar-nav { transition: width 0.2s ease; }
+    .sidebar-nav button:hover { background: var(--bg-tertiary) !important; }
+    .nav-tab:hover { background: var(--bg-tertiary) !important; }
+    @media (max-width: 768px) {
+      .sidebar-nav { display: none !important; }
+      .mobile-bar { display: flex !important; }
+      .mobile-menu-overlay { display: block !important; }
+      .header-bar { padding: 12px 16px !important; }
+      .main-content { padding: 16px 16px 72px !important; }
+      .edu-grid { grid-template-columns: 1fr 1fr !important; }
+      .edu-controls { flex-direction: column !important; align-items: stretch !important; }
+      .edu-controls input { max-width: 100% !important; }
+      .edu-status-row { flex-wrap: wrap !important; }
+      .edu-modal-inner { max-width: 100% !important; border-radius: 0 !important; max-height: 100vh !important; height: 100vh !important; }
+      .acct-summary { grid-template-columns: repeat(3, 1fr) !important; }
+      .acct-summary-2 { grid-template-columns: 1fr 1fr !important; }
+      .payout-form-grid { grid-template-columns: 1fr 1fr !important; }
+    }
+    @media (min-width: 769px) {
+      .mobile-bar { display: none !important; }
+      .mobile-menu-overlay { display: none !important; }
+    }
     @media (max-width: 640px) {
       .grid-4 { grid-template-columns: 1fr 1fr !important; }
-      .grid-5 { grid-template-columns: repeat(3, 1fr) !important; }
+      .grid-5 { grid-template-columns: repeat(2, 1fr) !important; }
       .grid-week { grid-template-columns: repeat(5, 1fr) !important; gap: 4px !important; }
-      .card-pad { padding: 14px !important; }
+      .card-pad { padding: 12px !important; }
       .form-grid { grid-template-columns: 1fr !important; }
-      .modal-card { max-width: 100% !important; padding: 20px !important; margin: 10px !important; }
-      .stat-val { font-size: 18px !important; }
-      .nav-tabs { gap: 3px !important; padding: 8px 10px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-      .nav-tabs::-webkit-scrollbar { display: none; }
-      .nav-tab { padding: 6px 10px !important; font-size: 10px !important; white-space: nowrap !important; }
-      .main-content { padding: 12px 10px 60px !important; }
-      .cal-grid { gap: 3px !important; }
-      .cal-day { min-height: 52px !important; padding: 4px !important; font-size: 10px !important; }
-      .cal-day-num { font-size: 11px !important; }
+      .modal-card { max-width: 100% !important; padding: 16px !important; margin: 8px !important; }
+      .stat-val { font-size: 16px !important; }
+      .cal-grid { gap: 2px !important; }
+      .cal-day { min-height: 48px !important; padding: 3px !important; font-size: 10px !important; }
+      .cal-day-num { font-size: 10px !important; }
       .cal-pnl { font-size: 9px !important; }
       .cal-count { font-size: 8px !important; }
       .section-title { font-size: 11px !important; }
-      .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 12px !important; padding: 16px !important; }
-      .header-bar { padding: 10px 12px !important; }
-      .header-bar .header-right { gap: 8px !important; }
+      .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 70px !important; padding: 14px !important; }
+      .header-bar .header-right { gap: 6px !important; }
       .header-bar .xp-display { display: none !important; }
-      .mood-grid { gap: 5px !important; }
-      .mood-grid button { padding: 6px 10px !important; font-size: 10px !important; }
+      .mood-grid { gap: 4px !important; }
+      .mood-grid button { padding: 6px 8px !important; font-size: 10px !important; min-height: 40px !important; }
       .news-channels { gap: 3px !important; }
       .news-channels button { padding: 5px 8px !important; font-size: 9px !important; }
-      .tilt-modal { padding: 24px !important; }
+      .tilt-modal { padding: 20px !important; }
       .tilt-modal h2 { font-size: 16px !important; }
       .trade-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .trade-table table { min-width: 600px; }
+      .edu-grid { grid-template-columns: 1fr !important; }
+      .edu-cat-chips { gap: 4px !important; }
+      .edu-cat-chips button { padding: 4px 10px !important; font-size: 9px !important; }
+      .acct-summary { grid-template-columns: 1fr 1fr !important; }
+      .acct-card-stats { flex-direction: column !important; gap: 12px !important; }
+      .payout-form-grid { grid-template-columns: 1fr !important; }
+      .welcome-title { font-size: 24px !important; }
+    }
+    @media (max-width: 420px) {
+      .grid-4 { grid-template-columns: 1fr !important; }
+      .grid-5 { grid-template-columns: 1fr 1fr !important; }
+      .acct-summary { grid-template-columns: 1fr !important; }
+      .main-content { padding: 12px 12px 72px !important; }
     }
   `;
 
@@ -662,28 +759,28 @@ export default function TraderRoadmapXP() {
   const TradeSharpLogo = ({ size = 64 }) => (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Outer hexagon */}
-      <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke="#00e8c4" strokeWidth="1.5" fill="none" opacity="0.6" />
+      <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke="#22d3ee" strokeWidth="1.5" fill="none" opacity="0.5" />
       {/* Inner hexagon */}
-      <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke="#00e8c4" strokeWidth="1" fill="rgba(0,232,196,0.04)" />
+      <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke="#22d3ee" strokeWidth="1" fill="rgba(34,211,238,0.03)" />
       {/* Crosshair horizontal */}
-      <line x1="20" y1="32" x2="44" y2="32" stroke="#00e8c4" strokeWidth="1.5" opacity="0.8" />
+      <line x1="20" y1="32" x2="44" y2="32" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
       {/* Crosshair vertical */}
-      <line x1="32" y1="20" x2="32" y2="44" stroke="#00e8c4" strokeWidth="1.5" opacity="0.8" />
+      <line x1="32" y1="20" x2="32" y2="44" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
       {/* Center diamond */}
-      <path d="M32 26L38 32L32 38L26 32Z" fill="#00e8c4" opacity="0.9" />
+      <path d="M32 26L38 32L32 38L26 32Z" fill="#22d3ee" opacity="0.85" />
       {/* Corner ticks */}
-      <line x1="20" y1="20" x2="24" y2="20" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="20" y1="20" x2="20" y2="24" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="44" y1="20" x2="40" y2="20" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="44" y1="20" x2="44" y2="24" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="20" y1="44" x2="24" y2="44" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="20" y1="44" x2="20" y2="40" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="44" y1="44" x2="40" y2="44" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      <line x1="44" y1="44" x2="44" y2="40" stroke="#00e8c4" strokeWidth="1" opacity="0.5" />
-      {/* Pulse ring */}
-      <circle cx="32" cy="32" r="28" stroke="#00e8c4" strokeWidth="0.5" opacity="0.2">
-        <animate attributeName="r" values="28;30;28" dur="3s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.2;0.05;0.2" dur="3s" repeatCount="indefinite" />
+      <line x1="20" y1="20" x2="24" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="20" x2="20" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="40" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="44" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="24" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="20" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="40" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="44" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      {/* Subtle pulse ring */}
+      <circle cx="32" cy="32" r="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.12">
+        <animate attributeName="r" values="28;29;28" dur="4s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0.12;0.04;0.12" dur="4s" repeatCount="indefinite" />
       </circle>
     </svg>
   );
@@ -691,11 +788,11 @@ export default function TraderRoadmapXP() {
   // ── LOADING ───
   if (authLoading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#050508", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{globalStyles}</style>
-        <div style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>
+        <div style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
           <div style={{ marginBottom: 16 }}><TradeSharpLogo size={48} /></div>
-          <div style={{ fontSize: 13, color: "#3a4a5c", letterSpacing: "0.15em", textTransform: "uppercase" }}>ESTABLISHING SECURE CONNECTION...</div>
+          <div style={{ fontSize: 13, color: "#52546a", letterSpacing: "0.15em", textTransform: "uppercase" }}>ESTABLISHING SECURE CONNECTION...</div>
         </div>
       </div>
     );
@@ -703,11 +800,11 @@ export default function TraderRoadmapXP() {
 
   // ── LANDING PAGE ───
   if (!user) {
-    const accent = "#00e8c4";
-    const accentDim = "rgba(0,232,196,0.12)";
-    const accentGlow = "rgba(0,232,196,0.06)";
+    const accent = "#22d3ee";
+    const accentDim = "rgba(34,211,238,0.12)";
+    const accentGlow = "rgba(34,211,238,0.06)";
     const sectionStyle = { maxWidth: 1100, margin: "0 auto", padding: "0 24px" };
-    const mono = "'JetBrains Mono', monospace";
+    const mono = "'Plus Jakarta Sans', sans-serif";
 
     const features = [
       { icon: "📋", title: "A+ Trade Checklist", desc: "10-point pre-trade confirmation system with a built-in 10-second honesty timer. Never take a B-grade setup again." },
@@ -721,46 +818,34 @@ export default function TraderRoadmapXP() {
     ];
 
     return (
-      <div style={{ minHeight: "100vh", background: "#050508", fontFamily: "'Inter', sans-serif", overflowX: "hidden" }}>
+      <div style={{ minHeight: "100vh", background: "#06070a", fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: "hidden" }}>
         <style>{globalStyles}{`
-          .landing-scanline {
-            position: fixed; top: 0; left: 0; right: 0; height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(0,232,196,0.06), transparent);
-            animation: scanline 8s linear infinite;
-            pointer-events: none; z-index: 100;
-          }
           .auth-input:focus {
-            border-color: #00e8c4 !important;
-            box-shadow: 0 0 12px rgba(0,232,196,0.15) !important;
+            border-color: #22d3ee !important;
+            box-shadow: 0 0 0 2px rgba(34,211,238,0.12) !important;
           }
           .landing-btn:hover {
-            background: rgba(0,232,196,0.08) !important;
-            box-shadow: 0 0 30px rgba(0,232,196,0.15) !important;
+            background: rgba(34,211,238,0.06) !important;
             transform: translateY(-1px);
           }
-          .landing-btn { transition: all 0.2s ease !important; }
+          .landing-btn { transition: all 0.25s ease !important; }
           .feature-card {
             transition: all 0.25s ease;
             cursor: default;
           }
           .feature-card:hover {
-            border-color: rgba(0,232,196,0.3) !important;
-            box-shadow: 0 0 30px rgba(0,232,196,0.08) !important;
+            border-color: #2a2d3a !important;
             transform: translateY(-2px);
           }
           .landing-nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-            background: rgba(5,5,8,0.85); backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(0,232,196,0.08);
+            background: rgba(6,7,10,0.88); backdrop-filter: blur(20px);
+            border-bottom: 1px solid #1c1e2a;
           }
           .landing-section { scroll-margin-top: 80px; }
           @keyframes heroFloat {
             0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-          }
-          @keyframes gridPulse {
-            0%, 100% { opacity: 0.03; }
-            50% { opacity: 0.06; }
+            50% { transform: translateY(-6px); }
           }
           @media (max-width: 768px) {
             .features-grid { grid-template-columns: 1fr !important; }
@@ -772,20 +857,18 @@ export default function TraderRoadmapXP() {
           }
         `}</style>
 
-        <div className="landing-scanline" />
-
         {/* ── Nav ── */}
         <nav className="landing-nav">
           <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <TradeSharpLogo size={32} />
-              <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", letterSpacing: 3, textTransform: "uppercase" }}>TRADESHARP</span>
+              <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", letterSpacing: 3, textTransform: "uppercase" }}>TRADESHARP</span>
             </div>
             <div className="landing-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
-              <a href="#features" style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
-                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#4a5568"}>Features</a>
-              <a href="#auth-section" style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
-                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#4a5568"}>Get Started</a>
+              <a href="#features" style={{ fontFamily: mono, fontSize: 11, color: "#52546a", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
+                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#52546a"}>Features</a>
+              <a href="#auth-section" style={{ fontFamily: mono, fontSize: 11, color: "#52546a", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
+                onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#52546a"}>Get Started</a>
               <button onClick={() => document.getElementById("auth-section")?.scrollIntoView({ behavior: "smooth" })}
                 style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, padding: "8px 18px", background: "transparent", border: `1px solid ${accentDim}`, color: accent, borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s" }}
               >Sign In</button>
@@ -795,23 +878,21 @@ export default function TraderRoadmapXP() {
 
         {/* ── Hero ── */}
         <section style={{ paddingTop: 140, paddingBottom: 100, position: "relative" }}>
-          {/* Background grid pattern */}
-          <div style={{ position: "absolute", inset: 0, backgroundImage: `radial-gradient(circle at 1px 1px, rgba(0,232,196,0.04) 1px, transparent 0)`, backgroundSize: "40px 40px", animation: "gridPulse 6s ease-in-out infinite", pointerEvents: "none" }} />
-          {/* Radial glow */}
-          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", height: "100%", background: "radial-gradient(ellipse at 50% 20%, rgba(0,232,196,0.06) 0%, transparent 60%)", pointerEvents: "none" }} />
+          {/* Subtle radial glow */}
+          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", height: "100%", background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.04) 0%, transparent 50%)", pointerEvents: "none" }} />
 
           <div className="hero-content" style={{ ...sectionStyle, display: "flex", alignItems: "center", gap: 60, position: "relative" }}>
             <div className="hero-text" style={{ flex: 1 }}>
               <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 20, opacity: 0.8 }}>
                 TRADING PERFORMANCE SYSTEM
               </div>
-              <h1 style={{ fontFamily: mono, fontSize: 44, fontWeight: 700, color: "#e0e6ed", lineHeight: 1.15, marginBottom: 20, letterSpacing: "-0.5px" }}>
+              <h1 style={{ fontFamily: mono, fontSize: 44, fontWeight: 700, color: "#e8e8ed", lineHeight: 1.15, marginBottom: 20, letterSpacing: "-0.5px" }}>
                 Trade with<br />
                 <span style={{ color: accent }}>Precision.</span><br />
                 Journal with<br />
                 <span style={{ color: accent }}>Purpose.</span>
               </h1>
-              <p className="hero-sub" style={{ fontSize: 18, color: "#5a6577", lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
+              <p className="hero-sub" style={{ fontSize: 18, color: "#8b8d9e", lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
                 The all-in-one trading journal built for futures traders who take their edge seriously. A+ checklist, AI-powered reviews, P&L tracking, and RPG-style progression.
               </p>
               <div className="cta-row" style={{ display: "flex", gap: 14 }}>
@@ -822,7 +903,7 @@ export default function TraderRoadmapXP() {
                     fontFamily: mono, fontSize: 13, fontWeight: 700, padding: "14px 32px",
                     background: "transparent", border: `1.5px solid ${accent}`, color: accent,
                     borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
-                    boxShadow: `0 0 20px ${accentGlow}`,
+                    boxShadow: "none",
                   }}
                 >GET STARTED FREE</button>
                 <button
@@ -830,7 +911,7 @@ export default function TraderRoadmapXP() {
                   onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
                   style={{
                     fontFamily: mono, fontSize: 13, fontWeight: 600, padding: "14px 32px",
-                    background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#5a6577",
+                    background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#8b8d9e",
                     borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
                   }}
                 >SEE FEATURES</button>
@@ -843,7 +924,7 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── Stats Banner ── */}
-        <section style={{ borderTop: `1px solid ${accentDim}`, borderBottom: `1px solid ${accentDim}`, padding: "40px 0", background: "rgba(0,232,196,0.015)" }}>
+        <section style={{ borderTop: "1px solid #1c1e2a", borderBottom: "1px solid #1c1e2a", padding: "40px 0", background: "rgba(34,211,238,0.02)" }}>
           <div style={{ ...sectionStyle, display: "flex", justifyContent: "center", gap: 60, flexWrap: "wrap" }}>
             {[
               ["10-Point", "A+ Checklist"],
@@ -853,7 +934,7 @@ export default function TraderRoadmapXP() {
             ].map(([val, label], i) => (
               <div key={i} style={{ textAlign: "center" }}>
                 <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: accent, marginBottom: 4 }}>{val}</div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: "#4a5568", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
+                <div style={{ fontFamily: mono, fontSize: 11, color: "#52546a", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
               </div>
             ))}
           </div>
@@ -864,19 +945,19 @@ export default function TraderRoadmapXP() {
           <div style={sectionStyle}>
             <div style={{ textAlign: "center", marginBottom: 60 }}>
               <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>FEATURES</div>
-              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e0e6ed", letterSpacing: "-0.3px", marginBottom: 12 }}>Everything You Need to Level Up</h2>
-              <p style={{ fontSize: 16, color: "#4a5568", maxWidth: 540, margin: "0 auto" }}>Built by a trader, for traders. Every feature exists because the process demanded it.</p>
+              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px", marginBottom: 12 }}>Everything You Need to Level Up</h2>
+              <p style={{ fontSize: 16, color: "#52546a", maxWidth: 540, margin: "0 auto" }}>Built by a trader, for traders. Every feature exists because the process demanded it.</p>
             </div>
             <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
               {features.map((f, i) => (
                 <div key={i} className="feature-card" style={{
-                  background: "rgba(15,17,23,0.8)", borderRadius: 8, padding: 28,
+                  background: "rgba(12,13,18,0.9)", borderRadius: 8, padding: 28,
                   border: `1px solid ${accentDim}`,
-                  boxShadow: "0 0 20px rgba(0,0,0,0.3)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
                 }}>
                   <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-                  <h3 style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", marginBottom: 8, letterSpacing: "0.03em" }}>{f.title}</h3>
-                  <p style={{ fontSize: 14, color: "#5a6577", lineHeight: 1.7 }}>{f.desc}</p>
+                  <h3 style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", marginBottom: 8, letterSpacing: "0.03em" }}>{f.title}</h3>
+                  <p style={{ fontSize: 14, color: "#8b8d9e", lineHeight: 1.7 }}>{f.desc}</p>
                 </div>
               ))}
             </div>
@@ -884,11 +965,11 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── How It Works ── */}
-        <section style={{ padding: "80px 0", borderTop: `1px solid ${accentDim}` }}>
+        <section style={{ padding: "80px 0", borderTop: "1px solid #1c1e2a" }}>
           <div style={sectionStyle}>
             <div style={{ textAlign: "center", marginBottom: 50 }}>
               <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>HOW IT WORKS</div>
-              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e0e6ed", letterSpacing: "-0.3px" }}>Your Daily Trading Workflow</h2>
+              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px" }}>Your Daily Trading Workflow</h2>
             </div>
             <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
               {[
@@ -899,8 +980,8 @@ export default function TraderRoadmapXP() {
               ].map(([num, title, desc], i) => (
                 <div key={i} style={{ flex: "1 1 220px", maxWidth: 240, textAlign: "center" }}>
                   <div style={{ fontFamily: mono, fontSize: 36, fontWeight: 700, color: accentDim, marginBottom: 12 }}>{num}</div>
-                  <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e0e6ed", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
-                  <p style={{ fontSize: 13, color: "#4a5568", lineHeight: 1.7 }}>{desc}</p>
+                  <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
+                  <p style={{ fontSize: 13, color: "#52546a", lineHeight: 1.7 }}>{desc}</p>
                 </div>
               ))}
             </div>
@@ -908,27 +989,27 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── Auth / Get Started ── */}
-        <section id="auth-section" className="landing-section" style={{ padding: "100px 0", borderTop: `1px solid ${accentDim}` }}>
+        <section id="auth-section" className="landing-section" style={{ padding: "100px 0", borderTop: "1px solid #1c1e2a" }}>
           <div style={{ ...sectionStyle, maxWidth: 440 }}>
             <div style={{ textAlign: "center", marginBottom: 36 }}>
               <div style={{ display: "inline-block", marginBottom: 16 }}><TradeSharpLogo size={56} /></div>
-              <h2 style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: "#e0e6ed", letterSpacing: "0.05em", marginBottom: 8 }}>
+              <h2 style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: "#e8e8ed", letterSpacing: "0.05em", marginBottom: 8 }}>
                 {authMode === "signup" ? "Create Your Account" : "Welcome Back"}
               </h2>
-              <p style={{ fontSize: 14, color: "#4a5568" }}>
+              <p style={{ fontSize: 14, color: "#52546a" }}>
                 {authMode === "signup" ? "Start journaling your trades in under 60 seconds." : "Sign in to pick up where you left off."}
               </p>
             </div>
 
             <div style={{
-              background: "rgba(10,12,18,0.9)", borderRadius: 8,
-              border: `1px solid ${accentDim}`,
-              padding: 32, backdropFilter: "blur(20px)",
-              boxShadow: `0 0 40px rgba(0,0,0,0.5), 0 0 20px ${accentGlow}`,
+              background: "#0c0d12", borderRadius: 8,
+              border: "1px solid #1c1e2a",
+              padding: 32,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
             }}>
               <form onSubmit={handleAuth}>
                 <div style={{ marginBottom: 16 }}>
-                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#4a5568", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Email</label>
+                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#52546a", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Email</label>
                   <input
                     className="auth-input"
                     type="email"
@@ -939,13 +1020,13 @@ export default function TraderRoadmapXP() {
                     style={{
                       width: "100%", padding: "12px 14px", fontSize: 14,
                       border: `1px solid ${accentDim}`, borderRadius: 4,
-                      outline: "none", background: "rgba(0,232,196,0.02)",
-                      color: "#e0e6ed", fontFamily: mono, transition: "all 0.2s ease",
+                      outline: "none", background: "#141520",
+                      color: "#e8e8ed", fontFamily: mono, transition: "all 0.2s ease",
                     }}
                   />
                 </div>
                 <div style={{ marginBottom: 24 }}>
-                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#4a5568", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Password</label>
+                  <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#52546a", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Password</label>
                   <input
                     className="auth-input"
                     type="password"
@@ -957,15 +1038,15 @@ export default function TraderRoadmapXP() {
                     style={{
                       width: "100%", padding: "12px 14px", fontSize: 14,
                       border: `1px solid ${accentDim}`, borderRadius: 4,
-                      outline: "none", background: "rgba(0,232,196,0.02)",
-                      color: "#e0e6ed", fontFamily: mono, transition: "all 0.2s ease",
+                      outline: "none", background: "#141520",
+                      color: "#e8e8ed", fontFamily: mono, transition: "all 0.2s ease",
                     }}
                   />
                 </div>
                 {authError && (
                   <div style={{
-                    fontSize: 12, color: "#e53e3e", marginBottom: 16, padding: "10px 14px",
-                    background: "rgba(229,62,62,0.06)", borderRadius: 4, border: "1px solid rgba(229,62,62,0.15)",
+                    fontSize: 12, color: "#fb7185", marginBottom: 16, padding: "10px 14px",
+                    background: "rgba(251,113,133,0.06)", borderRadius: 4, border: "1px solid rgba(251,113,133,0.15)",
                     fontFamily: mono,
                   }}>
                     {authError}
@@ -978,7 +1059,7 @@ export default function TraderRoadmapXP() {
                     width: "100%", fontSize: 13, fontWeight: 700, padding: "14px 20px",
                     background: "transparent", border: `1.5px solid ${accent}`, color: accent,
                     borderRadius: 4, cursor: "pointer",
-                    boxShadow: `0 0 20px ${accentGlow}`,
+                    boxShadow: "none",
                     fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase",
                   }}
                 >
@@ -988,7 +1069,7 @@ export default function TraderRoadmapXP() {
               <div style={{ textAlign: "center", marginTop: 20 }}>
                 <button
                   onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                  style={{ fontSize: 12, color: "#4a5568", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: mono }}
+                  style={{ fontSize: 12, color: "#52546a", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: mono }}
                 >
                   {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
                 </button>
@@ -998,13 +1079,13 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── Footer ── */}
-        <footer style={{ borderTop: `1px solid ${accentDim}`, padding: "40px 0" }}>
+        <footer style={{ borderTop: "1px solid #1c1e2a", padding: "40px 0" }}>
           <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <TradeSharpLogo size={24} />
-              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: "#3a4a5c", letterSpacing: 2, textTransform: "uppercase" }}>TRADESHARP</span>
+              <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 600, color: "#52546a", letterSpacing: 2, textTransform: "uppercase" }}>TRADESHARP</span>
             </div>
-            <div style={{ fontFamily: mono, fontSize: 10, color: "#2a3444", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: "#4a4c6a", letterSpacing: "0.1em", textTransform: "uppercase" }}>
               Built for traders, by a trader // {new Date().getFullYear()}
             </div>
           </div>
@@ -1019,7 +1100,7 @@ export default function TraderRoadmapXP() {
       style={{
         minHeight: "100vh",
         background: "var(--bg-primary)",
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >
       <style>{globalStyles}</style>
@@ -1043,16 +1124,16 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
                   Submit Proof
                 </div>
                 <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
                   {ach?.name}
                 </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--gold)", marginTop: 4 }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--gold)", marginTop: 4 }}>
                   +{ach?.xp} XP
                 </div>
               </div>
@@ -1070,7 +1151,7 @@ export default function TraderRoadmapXP() {
                     width: "100%",
                     padding: "10px 14px",
                     fontSize: 14,
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                     border: "1.5px solid var(--border-primary)",
                     borderRadius: 4,
                     outline: "none",
@@ -1094,7 +1175,7 @@ export default function TraderRoadmapXP() {
                     width: "100%",
                     padding: "10px 14px",
                     fontSize: 14,
-                    fontFamily: "'Inter', sans-serif",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                     border: "1.5px solid var(--border-primary)",
                     borderRadius: 4,
                     outline: "none",
@@ -1117,7 +1198,7 @@ export default function TraderRoadmapXP() {
                     color: "var(--text-secondary)",
                     borderRadius: 4,
                     cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
                   Cancel
@@ -1135,9 +1216,9 @@ export default function TraderRoadmapXP() {
                     color: proofNote.trim() && !saving ? "var(--accent)" : "var(--text-tertiary)",
                     borderRadius: 4,
                     cursor: proofNote.trim() && !saving ? "pointer" : "not-allowed",
-                    boxShadow: proofNote.trim() && !saving ? "0 0 20px var(--accent-glow)" : "none",
+                    boxShadow: proofNote.trim() && !saving ? "none" : "none",
                     transition: "all 0.2s",
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
                   {saving ? "Saving..." : "Complete Quest"}
@@ -1169,10 +1250,10 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
                   {ach?.name}
                 </div>
                 <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 4 }}>
@@ -1181,7 +1262,7 @@ export default function TraderRoadmapXP() {
               </div>
 
               <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: "14px 16px", marginBottom: 12 }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Proof
                 </div>
                 <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
@@ -1191,7 +1272,7 @@ export default function TraderRoadmapXP() {
 
               {proof?.link && (
                 <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: "14px 16px", marginBottom: 12 }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     Evidence Link
                   </div>
                   <a
@@ -1218,7 +1299,7 @@ export default function TraderRoadmapXP() {
                     color: "var(--red)",
                     borderRadius: 4,
                     cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
                   Undo Quest
@@ -1235,7 +1316,7 @@ export default function TraderRoadmapXP() {
                     color: "var(--text-secondary)",
                     borderRadius: 4,
                     cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
                   }}
                 >
                   Close
@@ -1253,48 +1334,48 @@ export default function TraderRoadmapXP() {
           onClick={(e) => e.target === e.currentTarget && setShowTilt(false)}
         >
           <div style={{
-            maxWidth: 420, width: "100%", background: "#1a0a0a", borderRadius: 8,
-            border: "1px solid rgba(229,62,62,0.4)", padding: 36, textAlign: "center",
-            boxShadow: "0 0 60px rgba(229,62,62,0.15), 0 0 20px rgba(229,62,62,0.1)",
+            maxWidth: 420, width: "100%", background: "#0c0a14", borderRadius: 8,
+            border: "1px solid rgba(251,113,133,0.2)", padding: 36, textAlign: "center",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
             animation: "fadeSlideIn 0.3s ease",
           }} className="tilt-modal">
             <div style={{ fontSize: 48, marginBottom: 20 }}>
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#e53e3e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M24 4L44 40H4L24 4Z" fill="rgba(229,62,62,0.08)" />
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#fb7185" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M24 4L44 40H4L24 4Z" fill="rgba(251,113,133,0.08)" />
                 <line x1="24" y1="18" x2="24" y2="28" />
-                <circle cx="24" cy="33" r="1" fill="#e53e3e" />
+                <circle cx="24" cy="33" r="1" fill="#fb7185" />
               </svg>
             </div>
             <h2 style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700,
-              color: "#e53e3e", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16,
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700,
+              color: "#fb7185", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16,
             }}>TILT DETECTED</h2>
             <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#ff6b6b",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "#fb7185",
               letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 20,
-              padding: "8px 16px", background: "rgba(229,62,62,0.06)", borderRadius: 4,
-              border: "1px solid rgba(229,62,62,0.15)",
+              padding: "8px 16px", background: "rgba(251,113,133,0.06)", borderRadius: 4,
+              border: "1px solid rgba(251,113,133,0.15)",
             }}>PROTOCOL ACTIVATED</div>
             <p style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, color: "#ccc",
               lineHeight: 1.8, marginBottom: 12,
             }}>
               You are emotional. You are not thinking clearly.
             </p>
             <p style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, color: "#ccc",
               lineHeight: 1.8, marginBottom: 12,
             }}>
-              <strong style={{ color: "#e53e3e" }}>Close the charts. Step away from the screen.</strong>
+              <strong style={{ color: "#fb7185" }}>Close the charts. Step away from the screen.</strong>
             </p>
             <p style={{
-              fontFamily: "'Inter', sans-serif", fontSize: 15, color: "#ccc",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, color: "#ccc",
               lineHeight: 1.8, marginBottom: 28,
             }}>
               No trade is worth your account. No revenge trade has ever ended well. Protect your capital — come back tomorrow with a clear head.
             </p>
             <div style={{
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#666",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "#666",
               letterSpacing: "0.1em", marginBottom: 24,
             }}>
               "Discipline is choosing between what you want now and what you want most."
@@ -1302,9 +1383,9 @@ export default function TraderRoadmapXP() {
             <button
               onClick={() => setShowTilt(false)}
               style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700,
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
                 padding: "14px 32px", background: "transparent",
-                border: "1px solid rgba(229,62,62,0.4)", color: "#e53e3e",
+                border: "1px solid rgba(251,113,133,0.4)", color: "#fb7185",
                 borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em",
                 textTransform: "uppercase", transition: "all 0.2s",
               }}
@@ -1321,9 +1402,9 @@ export default function TraderRoadmapXP() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
         >
-          <Card className="modal-card" style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 0 40px rgba(0,0,0,0.5), 0 0 15px var(--accent-glow)" }}>
+          <Card className="modal-card" style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit Profile</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit Profile</div>
               <div
                 onClick={() => avatarInputRef.current?.click()}
                 style={{
@@ -1348,21 +1429,21 @@ export default function TraderRoadmapXP() {
               />
             </div>
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
+              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Your trader name..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'JetBrains Mono', monospace" }}
+                style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
               />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowProfileEditor(false)}
-                style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace" }}>
+                style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 Cancel
               </button>
               <button onClick={saveProfile}
-                style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "0 0 20px var(--accent-glow)", fontFamily: "'JetBrains Mono', monospace" }}>
+                style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "none", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 Save
               </button>
             </div>
@@ -1370,151 +1451,354 @@ export default function TraderRoadmapXP() {
         </div>
       )}
 
-      {/* ── Top Bar ── */}
-      <div className="header-bar" style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)", borderTop: "1px solid var(--border-glow)", padding: "14px 20px", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                onClick={() => { setEditName(profile.display_name); setShowProfileEditor(true); }}
-                style={{
-                  width: 38, height: 38, borderRadius: "50%", cursor: "pointer",
-                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: `2px solid ${currentLevel.accent}40`, flexShrink: 0,
-                }}
-              >
-                {!profile.avatar_url && <span style={{ fontSize: 16, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
-              </div>
-              <div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "var(--text-secondary)" }}>{displayName}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
-                    {currentLevel.name}
-                  </span>
-                  <Chip label={currentLevel.tier} color={currentLevel.accent} />
-                </div>
-              </div>
+      {/* ── Sidebar + Content Layout ── */}
+      <div style={{ display: "flex", minHeight: "calc(100vh)" }}>
+
+        {/* ── Sidebar Nav ── */}
+        <div className="sidebar-nav" style={{
+          width: 240, flexShrink: 0,
+          background: "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+          borderRight: "1px solid var(--border-primary)",
+          position: "sticky", top: 0, height: "100vh", overflowY: "auto",
+          display: "flex", flexDirection: "column",
+          padding: "20px 0",
+        }}>
+          {/* Logo + Brand */}
+          <div style={{ padding: "0 20px 24px", borderBottom: "1px solid var(--border-primary)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <TradeSharpLogo size={28} />
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", letterSpacing: 2 }}>TRADESHARP</span>
             </div>
-            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div className="xp-display" style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--gold)", textShadow: "0 0 10px var(--accent-glow)" }}>
-                  {currentXP.toLocaleString()} XP
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>
-                  / {TOTAL_XP.toLocaleString()}
-                </div>
+            {/* NYSE Clock */}
+            <div style={{
+              background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+              backdropFilter: "var(--glass-blur)",
+              WebkitBackdropFilter: "var(--glass-blur)",
+              borderRadius: 8,
+              padding: "12px 10px",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+              position: "relative",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                background: isMarketOpen
+                  ? "linear-gradient(90deg, #059669, #22d3ee)"
+                  : isPreMarket
+                    ? "linear-gradient(90deg, #d97706, #f59e0b)"
+                    : "linear-gradient(90deg, var(--text-tertiary), transparent)",
+                opacity: isMarketOpen ? 1 : 0.5,
+              }} />
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: 1.5,
+                  textTransform: "uppercase", color: "var(--text-tertiary)",
+                }}>NYSE</span>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+                  padding: "2px 6px", borderRadius: 4,
+                  background: isMarketOpen
+                    ? "rgba(5,150,105,0.15)"
+                    : isPreMarket
+                      ? "rgba(217,119,6,0.15)"
+                      : dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  color: isMarketOpen ? "#059669" : isPreMarket ? "#d97706" : "var(--text-tertiary)",
+                }}>
+                  {isMarketOpen ? "OPEN" : isPreMarket ? "PRE-MKT" : "CLOSED"}
+                </span>
               </div>
-              <button
-                onClick={() => setDark(d => !d)}
-                title="Toggle dark mode"
-                style={{
-                  fontSize: 18, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                  borderRadius: 4, padding: "0 10px", cursor: "pointer", height: 34,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                {dark ? "☀️" : "🌙"}
-              </button>
-              <button
-                onClick={() => setShowTilt(true)}
-                title="Tilt alert — step away"
-                style={{
-                  fontSize: 16, background: "rgba(229,62,62,0.1)", border: "1px solid rgba(229,62,62,0.3)",
-                  borderRadius: 4, padding: "0 10px", cursor: "pointer", height: 34,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transition: "all 0.2s",
-                }}
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#e53e3e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="9" r="7.5" /><line x1="9" y1="5.5" x2="9" y2="9.5" /><circle cx="9" cy="12" r="0.5" fill="#e53e3e" />
-                </svg>
-              </button>
-              <button
-                onClick={handleSignOut}
-                title="Sign out"
-                style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                  borderRadius: 4, padding: "0 10px", cursor: "pointer", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em", height: 34,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                Sign out
-              </button>
+              <div style={{
+                fontSize: 20, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+                letterSpacing: -0.5, color: "var(--text-primary)", lineHeight: 1.1, marginBottom: 4,
+              }}>
+                {nyTime}
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 500, color: "var(--text-tertiary)", letterSpacing: 0.3 }}>
+                {nyDate} · ET
+              </div>
             </div>
           </div>
-          <XPBar
-            current={nextLevel ? currentXP - currentLevel.xpRequired : 1}
-            max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1}
-            color={currentLevel.accent}
-            height={8}
-          />
-          {nextLevel && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", textAlign: "right", marginTop: 4, letterSpacing: "0.05em" }}>
-              {(nextLevel.xpRequired - currentXP).toLocaleString()} XP to {nextLevel.name}
-            </div>
-          )}
-        </div>
-      </div>
 
-      {/* ── Nav Tabs ── */}
-      <div className="nav-tabs" style={{ display: "flex", justifyContent: "center", gap: 6, padding: "12px 20px", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-primary)" }}>
-        <button
-          className="nav-tab"
-          onClick={() => { setView("map"); setSelectedLevel(null); }}
-          title="Home"
-          style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 16, padding: "8px 12px",
-            background: "transparent", border: "1px solid transparent",
-            color: "var(--text-tertiary)", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
-            display: "flex", alignItems: "center",
-          }}
-        >
+          {/* Nav Items */}
+          <div style={{ padding: "16px 12px", flex: 1 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", padding: "0 8px 8px", marginBottom: 4 }}>Navigation</div>
+            {[
+              { key: "map", label: "Dashboard", icon: "⊡", reset: false },
+              { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
+              { key: "checklist", label: "Checklist", icon: "☑", reset: false },
+              { key: "journal", label: "Journal", icon: "⊟", reset: false },
+              { key: "watchlist", label: "Watchlist", icon: "◎", reset: false },
+              { key: "accounts", label: "Accounts", icon: "⊞", reset: false },
+              { key: "stats", label: "Stats", icon: "◧", reset: false },
+              { key: "education", label: "Education", icon: "◈", reset: false },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                className="nav-tab"
+                onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  width: "100%", textAlign: "left",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 13,
+                  fontWeight: view === tab.key ? 600 : 400,
+                  padding: "9px 12px",
+                  paddingLeft: view === tab.key ? 10 : 12,
+                  background: view === tab.key ? "var(--accent-dim)" : "transparent",
+                  border: "none",
+                  borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
+                  color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                  marginBottom: 2,
+                }}
+              >
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, opacity: view === tab.key ? 1 : 0.5 }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* User Profile */}
           <div style={{
-            width: 10, height: 10, borderRadius: "50%",
-            background: "var(--green)",
-            boxShadow: "0 0 8px var(--green), 0 0 16px var(--green)",
-          }} />
-        </button>
-        {[
-          { key: "roadmap", label: "ROADMAP", reset: true },
-          { key: "checklist", label: "CHECKLIST" },
-          { key: "journal", label: "JOURNAL" },
-          { key: "watchlist", label: "WATCHLIST" },
-          { key: "accounts", label: "ACCOUNTS" },
-          { key: "stats", label: "STATS" },
-        ].map((tab) => (
+            padding: "16px 12px",
+            borderTop: "1px solid var(--border-primary)",
+            borderBottom: "1px solid var(--border-primary)",
+          }}>
+            <div
+              onClick={() => { setEditName(profile.display_name); setShowProfileEditor(true); }}
+              style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
+            >
+              <div style={{
+                width: 32, height: 32, borderRadius: 6, flexShrink: 0,
+                background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {!profile.avatar_url && <span style={{ fontSize: 13, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{currentXP.toLocaleString()} XP</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom actions */}
+          <div style={{ padding: "16px 12px", borderTop: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", gap: 4 }}>
+            <button
+              onClick={() => setPrivacyMode(p => !p)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", textAlign: "left",
+                fontSize: 13, padding: "9px 12px",
+                background: privacyMode ? "var(--accent-dim)" : "transparent", border: "none",
+                color: privacyMode ? "var(--accent)" : "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{privacyMode ? "◉" : "◎"}</span>
+              {privacyMode ? "Privacy On" : "Privacy Mode"}
+            </button>
+            <button
+              onClick={() => setDark(d => !d)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", textAlign: "left",
+                fontSize: 13, padding: "9px 12px",
+                background: "transparent", border: "none",
+                color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{dark ? "☀" : "☾"}</span>
+              {dark ? "Light mode" : "Dark mode"}
+            </button>
+            <button
+              onClick={() => setShowTilt(true)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", textAlign: "left",
+                fontSize: 13, padding: "9px 12px",
+                background: "transparent", border: "none",
+                color: "var(--red)", borderRadius: 6, cursor: "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>⚠</span>
+              Tilt Protocol
+            </button>
+            <button
+              onClick={handleSignOut}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", textAlign: "left",
+                fontSize: 13, padding: "9px 12px",
+                background: "transparent", border: "none",
+                color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>↗</span>
+              Sign out
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Bottom Bar */}
+        <div className="mobile-bar" style={{
+          display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
+          background: "rgba(11,13,19,0.85)", borderTop: "1px solid var(--border-primary)",
+          backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+          padding: "6px 8px env(safe-area-inset-bottom, 6px)", zIndex: 200,
+          justifyContent: "space-around", alignItems: "center",
+        }}>
+          {[
+            { key: "map", label: "Home", icon: "⊡" },
+            { key: "checklist", label: "Check", icon: "☑" },
+            { key: "journal", label: "Journal", icon: "⊟" },
+            { key: "stats", label: "Stats", icon: "◧" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => { setView(tab.key); setMobileMenu(false); }}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                background: "none", border: "none", cursor: "pointer",
+                color: view === tab.key ? "var(--accent)" : "var(--text-tertiary)",
+                fontSize: 9, fontWeight: view === tab.key ? 700 : 500,
+                fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "4px 6px",
+                minWidth: 44, minHeight: 44, justifyContent: "center",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
           <button
-            key={tab.key}
-            className="nav-tab"
-            onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
+            onClick={() => setMobileMenu((v) => !v)}
             style={{
-              fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 13,
-              fontWeight: view === tab.key ? 700 : 500,
-              padding: "8px 20px",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              background: view === tab.key ? "var(--accent-glow)" : "transparent",
-              border: view === tab.key ? "1px solid var(--accent-dim)" : "1px solid transparent",
-              color: view === tab.key ? "var(--accent)" : "var(--text-tertiary)",
-              borderRadius: 4,
-              cursor: "pointer",
-              transition: "all 0.2s",
-              boxShadow: view === tab.key ? "0 0 10px var(--accent-glow)" : "none",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              background: "none", border: "none", cursor: "pointer",
+              color: mobileMenu ? "var(--accent)" : "var(--text-tertiary)",
+              fontSize: 9, fontWeight: mobileMenu ? 700 : 500,
+              fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "4px 6px",
+              minWidth: 44, minHeight: 44, justifyContent: "center",
             }}
           >
-            {tab.label}
+            <span style={{ fontSize: 18 }}>{mobileMenu ? "✕" : "☰"}</span>
+            More
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* ── Content ── */}
-      <div className="main-content" style={{ maxWidth: 960, margin: "0 auto", padding: "20px 16px 60px" }}>
+        {/* Mobile Slide-up Menu */}
+        {mobileMenu && (
+          <div className="mobile-menu-overlay" style={{
+            display: "none", position: "fixed", inset: 0, zIndex: 150,
+            background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+          }} onClick={() => setMobileMenu(false)}>
+            <div onClick={(e) => e.stopPropagation()} style={{
+              position: "absolute", bottom: 60, left: 12, right: 12,
+              background: "rgba(11,13,19,0.95)", border: "1px solid var(--border-primary)",
+              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+              borderRadius: 12, padding: "12px 8px",
+              boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
+              animation: "fadeSlideIn 0.2s ease",
+            }}>
+              {[
+                { key: "map", label: "Dashboard", icon: "⊡" },
+                { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
+                { key: "checklist", label: "Checklist", icon: "☑" },
+                { key: "journal", label: "Journal", icon: "⊟" },
+                { key: "watchlist", label: "Watchlist", icon: "◎" },
+                { key: "accounts", label: "Accounts", icon: "⊞" },
+                { key: "stats", label: "Stats", icon: "◧" },
+                { key: "education", label: "Education", icon: "◈" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); setMobileMenu(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 12, width: "100%",
+                    background: view === tab.key ? "var(--accent-dim)" : "transparent",
+                    border: "none", borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
+                    color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
+                    fontSize: 14, fontWeight: view === tab.key ? 600 : 400,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "12px 14px",
+                    borderRadius: 8, cursor: "pointer", textAlign: "left",
+                    minHeight: 44,
+                  }}
+                >
+                  <span style={{ fontSize: 16, opacity: view === tab.key ? 1 : 0.5, width: 20, textAlign: "center" }}>{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+              {/* Quick actions */}
+              <div style={{ borderTop: "1px solid var(--border-primary)", marginTop: 8, paddingTop: 8, display: "flex", gap: 4 }}>
+                <button onClick={() => { setDark((d) => !d); setMobileMenu(false); }} style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  background: "transparent", border: "none", color: "var(--text-tertiary)",
+                  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 0",
+                  cursor: "pointer", minHeight: 44,
+                }}>
+                  <span>{dark ? "☀" : "☾"}</span> {dark ? "Light" : "Dark"}
+                </button>
+                <button onClick={() => { setPrivacyMode((p) => !p); setMobileMenu(false); }} style={{
+                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  background: privacyMode ? "var(--accent-dim)" : "transparent",
+                  border: "none", color: privacyMode ? "var(--accent)" : "var(--text-tertiary)",
+                  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 0",
+                  cursor: "pointer", borderRadius: 6, minHeight: 44,
+                }}>
+                  <span>{privacyMode ? "◉" : "◎"}</span> Privacy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Main Content ── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Top bar — minimal */}
+          <div className="header-bar" style={{
+            background: "rgba(11,13,19,0.75)", borderBottom: "1px solid var(--border-primary)",
+            backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+            boxShadow: "0 1px 12px rgba(0,0,0,0.2)",
+            padding: "16px 32px", position: "sticky", top: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <div>
+              <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "checklist" ? "A+ Checklist" : view === "journal" ? "Journal" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+              </h1>
+            </div>
+            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div className="xp-display" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
+                    {currentXP.toLocaleString()} <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>/ {TOTAL_XP.toLocaleString()} XP</span>
+                  </div>
+                </div>
+                <div style={{ width: 120 }}>
+                  <XPBar
+                    current={nextLevel ? currentXP - currentLevel.xpRequired : 1}
+                    max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1}
+                    color={currentLevel.accent}
+                    height={6}
+                  />
+                </div>
+              </div>
+              <Chip label={currentLevel.tier} color={currentLevel.accent} />
+            </div>
+          </div>
+
+          {/* ── Content ── */}
+          <div className="main-content" style={{ maxWidth: 960, margin: "0 auto", padding: "28px 32px 60px" }}>
 
         {/* HOME — default view */}
         {view === "map" && (
-          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} />
+          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} displayName={displayName} privacyMode={privacyMode} />
         )}
 
         {/* MAP VIEW — Trail Style */}
@@ -1540,7 +1824,7 @@ export default function TraderRoadmapXP() {
                       background: allDone ? level.accent : isCurrent ? "var(--bg-secondary)" : isPast ? level.accent + "88" : "var(--bg-tertiary)",
                       border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "var(--border-primary)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: isCurrent ? `0 0 14px ${level.accent}50, 0 0 4px var(--accent-glow)` : "none",
+                      boxShadow: "none",
                       transition: "all 0.3s",
                     }}>
                       {allDone && <span style={{ fontSize: 11, color: "var(--bg-primary)", lineHeight: 1 }}>✓</span>}
@@ -1559,7 +1843,7 @@ export default function TraderRoadmapXP() {
                         cursor: isActive ? "pointer" : "default",
                         opacity: isActive ? 1 : 0.55,
                         transition: "all 0.3s",
-                        boxShadow: isCurrent ? `0 0 20px ${level.accent}18, inset 0 1px 0 var(--border-glow)` : "var(--card-shadow)",
+                        boxShadow: "var(--card-shadow)",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1568,7 +1852,7 @@ export default function TraderRoadmapXP() {
                         </ProgressRing>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
                               {level.name}
                             </span>
                             <Chip label={level.tier} color={level.accent} />
@@ -1576,7 +1860,7 @@ export default function TraderRoadmapXP() {
                           </div>
                           <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>{level.subtitle}</div>
                           <XPBar current={done} max={total} color={level.accent} height={6} />
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, textAlign: "right" }}>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, textAlign: "right" }}>
                             {done}/{total} quests · {pct}%
                           </div>
                         </div>
@@ -1619,19 +1903,19 @@ export default function TraderRoadmapXP() {
                 <Card key={i} style={{ padding: 20, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <span style={{ fontSize: 18 }}>{s.icon}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</span>
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 18, color: s.color, marginBottom: 2 }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 18, color: s.color, marginBottom: 2 }}>
                     {s.value}
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
                 </Card>
               ))}
             </div>
 
             {/* Trading Performance */}
             {trades.length > 0 && (
-              <TradingStatsView trades={trades} />
+              <TradingStatsView trades={trades} privacyMode={privacyMode} />
             )}
           </div>
         )}
@@ -1642,7 +1926,7 @@ export default function TraderRoadmapXP() {
             <button
               onClick={() => { setView("roadmap"); setSelectedLevel(null); }}
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 13,
                 color: "var(--text-tertiary)",
                 background: "transparent",
@@ -1664,7 +1948,7 @@ export default function TraderRoadmapXP() {
                 <span style={{ fontSize: 38 }}>{selectedData.icon}</span>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
                       {selectedData.name}
                     </span>
                     <Chip label={selectedData.tier} color={selectedData.accent} />
@@ -1680,12 +1964,12 @@ export default function TraderRoadmapXP() {
                 max={selectedData.achievements.length}
                 color={selectedData.accent}
               />
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
                 {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} complete
               </div>
             </Card>
 
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Quests
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1710,12 +1994,12 @@ export default function TraderRoadmapXP() {
 
         {/* JOURNAL VIEW */}
         {view === "journal" && (
-          <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} />
+          <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
         )}
 
         {/* STATS VIEW — Trade performance data */}
         {view === "stats" && (
-          <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} />
+          <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} privacyMode={privacyMode} />
         )}
 
         {/* WATCHLIST VIEW */}
@@ -1725,16 +2009,23 @@ export default function TraderRoadmapXP() {
 
         {/* ACCOUNTS VIEW */}
         {view === "accounts" && (
-          <AccountsView supabase={supabase} user={user} />
+          <AccountsView supabase={supabase} user={user} privacyMode={privacyMode} />
         )}
-      </div>
 
-      {/* Footer */}
-      <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 11, color: "var(--text-tertiary)", letterSpacing: 4, textTransform: "uppercase" }}>
-          TRADESHARP · THE FRACTAL MODEL
-        </span>
-      </div>
+        {/* EDUCATION VIEW */}
+        {view === "education" && (
+          <EducationView supabase={supabase} user={user} />
+        )}
+          </div>{/* close main-content */}
+
+          {/* Footer */}
+          <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 500, fontSize: 10, color: "var(--text-tertiary)", letterSpacing: 3, textTransform: "uppercase", opacity: 0.6 }}>
+              TRADESHARP
+            </span>
+          </div>
+        </div>{/* close flex:1 wrapper */}
+      </div>{/* close flex container */}
     </div>
   );
 }
