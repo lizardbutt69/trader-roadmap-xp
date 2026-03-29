@@ -124,6 +124,341 @@ function buildDayMap(trades, mode = "personal") {
   return m;
 }
 
+// ─── TOOLTIP ─────────────────────────────────────────────────────────────────
+
+function InfoTip({ text }) {
+  const [show, setShow] = useState(false);
+  const ref = useRef(null);
+  // Close on outside click
+  useEffect(() => {
+    if (!show) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setShow(false); };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("touchstart", handler); };
+  }, [show]);
+  return (
+    <span ref={ref} style={{ position: "relative", display: "inline-flex" }}>
+      <span
+        onClick={() => setShow(s => !s)}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          width: 15, height: 15, borderRadius: "50%", cursor: "help",
+          background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700,
+          color: "var(--text-tertiary)", flexShrink: 0, userSelect: "none",
+        }}
+      >?</span>
+      {show && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)",
+          width: 220, padding: "10px 12px", borderRadius: 6, zIndex: 100,
+          background: "var(--bg-primary)", border: "1px solid var(--border-primary)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 500,
+          color: "var(--text-secondary)", lineHeight: 1.6, textAlign: "left",
+          animation: "fadeSlideIn 0.15s ease",
+          pointerEvents: "none",
+        }}>
+          {text}
+          <span style={{
+            position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%) rotate(45deg)",
+            width: 8, height: 8, background: "var(--bg-primary)", borderRight: "1px solid var(--border-primary)",
+            borderBottom: "1px solid var(--border-primary)",
+          }} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ─── TRADESHARP SCORE ────────────────────────────────────────────────────────
+
+function calcTradeSharpScore(trades) {
+  const valid = trades.filter((t) => t.dt && t.profit !== "" && t.profit != null && t.taken && t.taken !== "Missed");
+  if (valid.length < 3) return null; // need minimum trades
+
+  // Win Rate
+  const wins = valid.filter((t) => parseFloat(t.profit) > 0).length;
+  const winRate = valid.length ? wins / valid.length : 0;
+
+  // Profit Factor
+  const grossWin = valid.reduce((s, t) => { const p = parseFloat(t.profit) || 0; return p > 0 ? s + p : s; }, 0);
+  const grossLoss = Math.abs(valid.reduce((s, t) => { const p = parseFloat(t.profit) || 0; return p < 0 ? s + p : s; }, 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : grossWin > 0 ? 5 : 0;
+
+  // Avg Win / Avg Loss ratio
+  const winTrades = valid.filter((t) => parseFloat(t.profit) > 0);
+  const lossTrades = valid.filter((t) => parseFloat(t.profit) < 0);
+  const avgWin = winTrades.length ? winTrades.reduce((s, t) => s + parseFloat(t.profit), 0) / winTrades.length : 0;
+  const avgLoss = lossTrades.length ? Math.abs(lossTrades.reduce((s, t) => s + parseFloat(t.profit), 0) / lossTrades.length) : 1;
+  const avgWinLoss = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? 5 : 0;
+
+  // Max Drawdown (as % of peak equity)
+  let peak = 0, maxDD = 0, equity = 0;
+  const sorted = [...valid].sort((a, b) => new Date(a.dt) - new Date(b.dt));
+  sorted.forEach((t) => {
+    equity += parseFloat(t.profit) || 0;
+    if (equity > peak) peak = equity;
+    const dd = peak > 0 ? (peak - equity) / peak : 0;
+    if (dd > maxDD) maxDD = dd;
+  });
+
+  // Consistency (% of trading days that are green)
+  const dayPnl = {};
+  sorted.forEach((t) => {
+    const k = dateKey(t.dt);
+    dayPnl[k] = (dayPnl[k] || 0) + (parseFloat(t.profit) || 0);
+  });
+  const days = Object.values(dayPnl);
+  const greenDays = days.filter((p) => p > 0).length;
+  const consistency = days.length ? greenDays / days.length : 0;
+
+  // Recovery Factor (net profit / max drawdown dollar amount)
+  const netProfit = equity;
+  const maxDDDollar = peak * maxDD;
+  const recoveryFactor = maxDDDollar > 0 ? netProfit / maxDDDollar : netProfit > 0 ? 10 : 0;
+
+  // A+ Discipline (% of trades that were A+ rated)
+  const aplusCount = valid.filter((t) => t.aplus === "Yes").length;
+  const aplusPct = valid.length ? aplusCount / valid.length : 0;
+
+  // Score each pillar 0-100
+  const score = (val, tiers) => {
+    // tiers: [[threshold, score], ...] ascending
+    for (let i = tiers.length - 1; i >= 0; i--) {
+      if (val >= tiers[i][0]) return Math.min(100, tiers[i][1] + ((val - tiers[i][0]) / (tiers[i + 1] ? tiers[i + 1][0] - tiers[i][0] : 1)) * (tiers[i + 1] ? tiers[i + 1][1] - tiers[i][1] : 10));
+    }
+    return Math.max(0, (val / tiers[0][0]) * tiers[0][1]);
+  };
+
+  const pillars = [
+    { key: "winRate", label: "Win Rate", value: winRate, display: `${(winRate * 100).toFixed(0)}%`, score: score(winRate, [[0.35, 30], [0.50, 55], [0.60, 75], [0.70, 90]]), tip: "Percentage of trades that closed in profit. Winning trades ÷ total trades taken." },
+    { key: "profitFactor", label: "Profit Factor", value: profitFactor, display: `${profitFactor.toFixed(2)}`, score: score(profitFactor, [[1.0, 30], [1.5, 55], [2.5, 80], [3.5, 95]]), tip: "Gross profits ÷ gross losses. Above 1.0 means you make more than you lose. Above 2.0 is strong." },
+    { key: "avgWinLoss", label: "Win/Loss Size", value: avgWinLoss, display: `${avgWinLoss.toFixed(2)}`, score: score(avgWinLoss, [[0.8, 25], [1.2, 50], [2.0, 75], [3.0, 92]]), tip: "Average winning trade ÷ average losing trade. Shows if your winners are bigger than your losers." },
+    { key: "maxDD", label: "Drawdown", value: maxDD, display: `${(maxDD * 100).toFixed(1)}%`, score: score(1 - maxDD, [[0.90, 30], [0.95, 60], [0.98, 82], [0.99, 95]]), tip: "Largest peak-to-trough decline as % of peak equity. Lower is better — measures worst-case risk." },
+    { key: "consistency", label: "Consistency", value: consistency, display: `${(consistency * 100).toFixed(0)}%`, score: score(consistency, [[0.40, 25], [0.55, 55], [0.70, 78], [0.80, 93]]), tip: "Percentage of trading days that ended green. Measures how stable your daily returns are." },
+    { key: "recoveryFactor", label: "Recovery", value: recoveryFactor, display: `${recoveryFactor.toFixed(1)}`, score: score(recoveryFactor, [[1, 30], [3, 55], [6, 80], [10, 95]]), tip: "Net profit ÷ max drawdown. How quickly you recover from losses. Higher means faster bounce-back." },
+    { key: "discipline", label: "A+ Discipline", value: aplusPct, display: `${(aplusPct * 100).toFixed(0)}%`, score: score(aplusPct, [[0.30, 25], [0.50, 50], [0.70, 75], [0.90, 95]]), tip: "Percentage of trades you rated A+ setup quality. Measures how selective you are with entries." },
+  ];
+
+  // Weighted composite — consistency and discipline weighted higher for funded traders
+  const weights = { winRate: 1.0, profitFactor: 1.2, avgWinLoss: 0.9, maxDD: 1.1, consistency: 1.3, recoveryFactor: 0.8, discipline: 1.2 };
+  const totalWeight = Object.values(weights).reduce((s, w) => s + w, 0);
+  const composite = Math.round(pillars.reduce((s, p) => s + p.score * weights[p.key], 0) / totalWeight);
+
+  return { pillars, composite, totalTrades: valid.length };
+}
+
+function TradeSharpScore({ trades, month }) {
+  const result = calcTradeSharpScore(trades);
+  if (!result) {
+    return (
+      <TCard style={{ padding: 28, marginBottom: 24, textAlign: "center" }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>TRADESHARP SCORE</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)" }}>Log at least 3 trades to generate your score.</div>
+      </TCard>
+    );
+  }
+
+  const { pillars, composite, totalTrades } = result;
+  const tier = composite >= 80 ? { label: "ELITE", color: "#22d3ee", verdict: "Trading at a high level. Protect this edge." }
+    : composite >= 60 ? { label: "SOLID", color: "#22c55e", verdict: "Fundamentals are strong. Sharpen the weak spots." }
+    : composite >= 40 ? { label: "DEVELOPING", color: "#f59e0b", verdict: "Building the foundation. Focus on consistency and discipline." }
+    : { label: "NEEDS WORK", color: "#ef4444", verdict: "Review your process. Reduce risk, increase selectivity." };
+
+  const pillarColor = (s) => s >= 80 ? "#22d3ee" : s >= 60 ? "#22c55e" : s >= 40 ? "#f59e0b" : "#ef4444";
+
+  // Find strongest and weakest
+  const sorted = [...pillars].sort((a, b) => b.score - a.score);
+  const strongest = sorted[0];
+  const weakest = sorted[sorted.length - 1];
+
+  // Score ring SVG
+  const ringR = 72;
+  const ringCirc = 2 * Math.PI * ringR;
+  const ringOffset = ringCirc - (composite / 100) * ringCirc;
+
+  // Mini radar for background texture — 7 axes, compact
+  const radarCx = 80, radarCy = 80, radarR = 65;
+  const n = pillars.length;
+  const radarAngle = (2 * Math.PI) / n;
+  const radarStart = -Math.PI / 2;
+  const radarPt = (i, pct) => {
+    const a = radarStart + i * radarAngle;
+    return [radarCx + radarR * pct * Math.cos(a), radarCy + radarR * pct * Math.sin(a)];
+  };
+  const radarGridPath = (pct) => {
+    const pts = pillars.map((_, i) => radarPt(i, pct));
+    return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + " Z";
+  };
+  const radarScorePts = pillars.map((p, i) => radarPt(i, Math.max(0.08, p.score / 100)));
+  const radarScorePath = radarScorePts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + " Z";
+
+  return (
+    <TCard style={{ padding: 0, marginBottom: 24, marginTop: 24, overflow: "hidden", position: "relative" }}>
+      {/* Header */}
+      <div style={{
+        padding: "20px 28px", borderBottom: "1px solid var(--border-primary)",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            TRADESHARP SCORE
+          </div>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>
+            {month} · {totalTrades} trades
+          </span>
+        </div>
+        <span style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "3px 10px",
+          borderRadius: 20, letterSpacing: "0.1em",
+          background: `${tier.color}18`, color: tier.color, border: `1px solid ${tier.color}40`,
+        }}>{tier.label}</span>
+      </div>
+
+      {/* Hero — Spider Chart with centered score */}
+      <div style={{ padding: "28px 28px 20px", display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "relative" }}>
+          {/* Glow */}
+          <div style={{
+            position: "absolute", inset: -30,
+            background: `radial-gradient(circle, ${tier.color}06 0%, transparent 65%)`,
+            borderRadius: "50%", pointerEvents: "none",
+          }} />
+          <svg viewBox="0 0 340 340" width="340" height="340" style={{ overflow: "visible" }}>
+            {(() => {
+              const cx = 170, cy = 170, r = 120;
+              const angleStep = (2 * Math.PI) / n;
+              const startA = -Math.PI / 2;
+              const pt = (i, pct) => {
+                const a = startA + i * angleStep;
+                return [cx + r * pct * Math.cos(a), cy + r * pct * Math.sin(a)];
+              };
+              const gridPath = (pct) => {
+                const pts = pillars.map((_, i) => pt(i, pct));
+                return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + " Z";
+              };
+              const sPts = pillars.map((p, i) => pt(i, Math.max(0.06, p.score / 100)));
+              const sPath = sPts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") + " Z";
+
+              return (
+                <>
+                  {/* Grid rings */}
+                  {[0.25, 0.5, 0.75, 1.0].map((pct, i) => (
+                    <path key={i} d={gridPath(pct)} fill={pct === 1 ? "none" : "none"} stroke="var(--text-tertiary)" strokeWidth={pct === 1 ? 1.5 : 0.8} opacity={pct === 1 ? 0.4 : 0.15} />
+                  ))}
+                  {/* Axis lines */}
+                  {pillars.map((_, i) => {
+                    const p = pt(i, 1);
+                    return <line key={i} x1={cx} y1={cy} x2={p[0]} y2={p[1]} stroke="var(--text-tertiary)" strokeWidth="0.8" opacity="0.2" />;
+                  })}
+                  {/* Score polygon */}
+                  <path d={sPath} fill={`${tier.color}20`} stroke={tier.color} strokeWidth="2.5" strokeLinejoin="round">
+                    <animate attributeName="opacity" from="0" to="1" dur="0.8s" fill="freeze" />
+                  </path>
+                  {/* Dots */}
+                  {sPts.map((p, i) => (
+                    <circle key={i} cx={p[0]} cy={p[1]} r="4" fill={pillarColor(pillars[i].score)} stroke="var(--bg-primary)" strokeWidth="1.5">
+                      <animate attributeName="r" from="0" to="4" dur="0.5s" begin={`${i * 0.07}s`} fill="freeze" />
+                    </circle>
+                  ))}
+                  {/* Labels + scores */}
+                  {pillars.map((p, i) => {
+                    const a = startA + i * angleStep;
+                    const lr = r + 44;
+                    const lx = cx + lr * Math.cos(a);
+                    const ly = cy + lr * Math.sin(a);
+                    const anchor = lx < cx - 15 ? "end" : lx > cx + 15 ? "start" : "middle";
+                    const dy = ly < cy - 60 ? -4 : ly > cy + 60 ? 14 : 4;
+                    return (
+                      <g key={i}>
+                        <text x={lx} y={ly + dy} textAnchor={anchor} style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                          fill: "var(--text-secondary)", letterSpacing: "0.02em",
+                        }}>{p.label}</text>
+                        <text x={lx} y={ly + dy + 16} textAnchor={anchor} style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800,
+                          fill: pillarColor(p.score),
+                        }}>{Math.round(p.score)}</text>
+                      </g>
+                    );
+                  })}
+                  {/* Center composite */}
+                  <text x={cx} y={cy - 6} textAnchor="middle" style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 42, fontWeight: 800,
+                    fill: tier.color, letterSpacing: "-0.03em",
+                  }}>{composite}</text>
+                  <text x={cx} y={cy + 14} textAnchor="middle" style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 8, fontWeight: 700,
+                    fill: "var(--text-tertiary)", letterSpacing: "0.25em",
+                  }}>OVERALL</text>
+                </>
+              );
+            })()}
+          </svg>
+        </div>
+      </div>
+
+      {/* Strength / Weakness callout */}
+      <div style={{ padding: "0 28px 20px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div style={{
+          flex: 1, minWidth: 180, padding: "12px 16px", borderRadius: 6,
+          background: `${pillarColor(strongest.score)}08`, border: `1px solid ${pillarColor(strongest.score)}20`,
+        }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>STRONGEST</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: pillarColor(strongest.score) }}>
+            {strongest.label} · {Math.round(strongest.score)}
+          </div>
+        </div>
+        <div style={{
+          flex: 1, minWidth: 180, padding: "12px 16px", borderRadius: 6,
+          background: `${pillarColor(weakest.score)}08`, border: `1px solid ${pillarColor(weakest.score)}20`,
+        }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>FOCUS AREA</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: pillarColor(weakest.score) }}>
+            {weakest.label} · {Math.round(weakest.score)}
+          </div>
+        </div>
+      </div>
+
+      {/* Pillar Breakdown */}
+      <div style={{ padding: "0 28px 28px" }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 14 }}>
+          PILLAR BREAKDOWN
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {pillars.map((p) => (
+            <div key={p.key}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{p.label}</span>
+                  <InfoTip text={p.tip} />
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>{p.display}</span>
+                </div>
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800, color: pillarColor(p.score), fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right" }}>
+                  {Math.round(p.score)}
+                </span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: "var(--bg-tertiary)", overflow: "hidden" }}>
+                <div style={{
+                  height: "100%", borderRadius: 3,
+                  width: `${Math.max(2, p.score)}%`,
+                  background: `linear-gradient(90deg, ${pillarColor(p.score)}66, ${pillarColor(p.score)})`,
+                  boxShadow: `0 0 8px ${pillarColor(p.score)}30`,
+                  transition: "width 1s ease",
+                }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </TCard>
+  );
+}
+
 // ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
 
 export function PageBanner({ label, title, subtitle }) {
@@ -1006,6 +1341,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
         title="Numbers don't lie. Let the data guide you."
         subtitle="P&L calendar, equity curve, and trade history — your performance at a glance."
       />
+
       {/* Stats Bar */}
       <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
         {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} Stats
@@ -1300,6 +1636,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           </TCard>
         </div>
       )}
+
+      {/* ── TradeSharp Score ── */}
+      <TradeSharpScore trades={monthTrades} month={new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} />
 
       {/* ── AI Trading Summary ── */}
       <AISummarySection trades={trades} />

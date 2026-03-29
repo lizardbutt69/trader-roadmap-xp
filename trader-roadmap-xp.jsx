@@ -1920,6 +1920,17 @@ export default function TraderRoadmapXP() {
                 </div>
               </div>
               <Chip label={currentLevel.tier} color={currentLevel.accent} />
+              <button
+                onClick={handleSignOut}
+                title="Sign out"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: 6,
+                  background: "transparent", border: "1px solid var(--border-primary)",
+                  color: "var(--text-tertiary)", fontSize: 14, cursor: "pointer",
+                  transition: "all 0.15s", flexShrink: 0,
+                }}
+              >↗</button>
             </div>
           </div>
 
