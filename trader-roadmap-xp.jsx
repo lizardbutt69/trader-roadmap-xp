@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, PageBanner } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -508,11 +508,15 @@ export default function TraderRoadmapXP() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showTilt, setShowTilt] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editGsUrl, setEditGsUrl] = useState("");
+  const [editApiKey, setEditApiKey] = useState("");
+  const [profileSaved, setProfileSaved] = useState(false);
   const avatarInputRef = useRef(null);
 
   // Trading app state
   const [trades, setTrades] = useState([]);
   const [gsUrl, setGsUrl] = useState(() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } });
+  const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem("aiApiKey") || ""; } catch { return ""; } });
 
   const syncToSheets = useCallback(async (data) => {
     const url = gsUrl || (() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } })();
@@ -600,7 +604,16 @@ export default function TraderRoadmapXP() {
     if (!user) return;
     await supabase.from("profiles").upsert({ id: user.id, display_name: editName.trim(), avatar_url: profile.avatar_url, updated_at: new Date().toISOString() });
     setProfile((p) => ({ ...p, display_name: editName.trim() }));
-    setShowProfileEditor(false);
+    // Save integrations to localStorage
+    const trimmedGs = editGsUrl.trim();
+    const trimmedKey = editApiKey.trim();
+    setGsUrl(trimmedGs);
+    setApiKey(trimmedKey);
+    try { localStorage.setItem("gsUrl", trimmedGs); } catch {}
+    try { localStorage.setItem("aiApiKey", trimmedKey); } catch {}
+    // Show confirmation
+    setProfileSaved(true);
+    setTimeout(() => { setProfileSaved(false); setShowProfileEditor(false); }, 1200);
   };
 
   const uploadAvatar = async (file) => {
@@ -679,6 +692,7 @@ export default function TraderRoadmapXP() {
 
   const globalStyles = `
     @keyframes fadeSlideIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
     @keyframes hudPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
@@ -697,13 +711,13 @@ export default function TraderRoadmapXP() {
     .nav-tab:hover { background: var(--bg-tertiary) !important; }
     @media (max-width: 768px) {
       .sidebar-nav { display: none !important; }
-      .mobile-bar { display: flex !important; }
-      .mobile-menu-overlay { display: block !important; }
+      .mobile-hamburger { display: flex !important; }
+      .mobile-sidebar-overlay { display: block !important; }
       .header-bar { padding: 12px 16px !important; }
-      .main-content { padding: 16px 16px 72px !important; }
+      .main-content { padding: 16px 16px 32px !important; }
       .edu-grid { grid-template-columns: 1fr 1fr !important; }
-      .edu-controls { flex-direction: column !important; align-items: stretch !important; }
-      .edu-controls input { max-width: 100% !important; }
+      .edu-controls { flex-direction: row !important; flex-wrap: wrap !important; }
+      .edu-controls input { max-width: none !important; min-width: 0 !important; flex: 1 1 100% !important; }
       .edu-status-row { flex-wrap: wrap !important; }
       .edu-modal-inner { max-width: 100% !important; border-radius: 0 !important; max-height: 100vh !important; height: 100vh !important; }
       .acct-summary { grid-template-columns: repeat(3, 1fr) !important; }
@@ -711,8 +725,8 @@ export default function TraderRoadmapXP() {
       .payout-form-grid { grid-template-columns: 1fr 1fr !important; }
     }
     @media (min-width: 769px) {
-      .mobile-bar { display: none !important; }
-      .mobile-menu-overlay { display: none !important; }
+      .mobile-hamburger { display: none !important; }
+      .mobile-sidebar-overlay { display: none !important; }
     }
     @media (max-width: 640px) {
       .grid-4 { grid-template-columns: 1fr 1fr !important; }
@@ -728,7 +742,7 @@ export default function TraderRoadmapXP() {
       .cal-pnl { font-size: 9px !important; }
       .cal-count { font-size: 8px !important; }
       .section-title { font-size: 11px !important; }
-      .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 70px !important; padding: 14px !important; }
+      .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 20px !important; padding: 14px !important; }
       .header-bar .header-right { gap: 6px !important; }
       .header-bar .xp-display { display: none !important; }
       .mood-grid { gap: 4px !important; }
@@ -751,7 +765,7 @@ export default function TraderRoadmapXP() {
       .grid-4 { grid-template-columns: 1fr !important; }
       .grid-5 { grid-template-columns: 1fr 1fr !important; }
       .acct-summary { grid-template-columns: 1fr !important; }
-      .main-content { padding: 12px 12px 72px !important; }
+      .main-content { padding: 12px 12px 32px !important; }
     }
   `;
 
@@ -1402,9 +1416,26 @@ export default function TraderRoadmapXP() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
         >
-          <Card className="modal-card" style={{ maxWidth: 380, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+          <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+            {/* Saved confirmation overlay */}
+            {profileSaved && (
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 10, borderRadius: 10,
+                background: dark ? "rgba(11,13,19,0.95)" : "rgba(255,255,255,0.95)",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                animation: "fadeSlideIn 0.2s ease",
+              }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent-dim)", border: "2px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+                  <span style={{ fontSize: 22, color: "var(--accent)" }}>✓</span>
+                </div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Settings Saved</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>All changes confirmed</div>
+              </div>
+            )}
+
+            {/* Profile section */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit Profile</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Profile & Settings</div>
               <div
                 onClick={() => avatarInputRef.current?.click()}
                 style={{
@@ -1434,9 +1465,54 @@ export default function TraderRoadmapXP() {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 placeholder="Your trader name..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1.5px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                style={{ width: "100%", padding: "10px 14px", fontSize: 13, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box" }}
               />
             </div>
+
+            {/* Integrations divider */}
+            <div style={{ borderTop: "1px solid var(--border-primary)", margin: "20px 0 16px", position: "relative" }}>
+              <span style={{
+                position: "absolute", top: -8, left: 12, padding: "0 8px",
+                background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
+              }}>Integrations</span>
+            </div>
+
+            {/* Google Sheets */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <span style={{ fontSize: 13 }}>📊</span> Google Sheets URL
+                {gsUrl && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>CONNECTED</span>}
+              </label>
+              <input
+                value={editGsUrl}
+                onChange={(e) => setEditGsUrl(e.target.value)}
+                placeholder="Paste your Apps Script URL here..."
+                style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box" }}
+              />
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                Syncs trade data to Google Sheets on each journal entry.
+              </div>
+            </div>
+
+            {/* Anthropic API Key */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <span style={{ fontSize: 13 }}>🔑</span> Anthropic API Key
+                {apiKey && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>ACTIVE</span>}
+              </label>
+              <input
+                type="password"
+                value={editApiKey}
+                onChange={(e) => setEditApiKey(e.target.value)}
+                placeholder="sk-ant-..."
+                style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', monospace", boxSizing: "border-box", letterSpacing: editApiKey ? 1 : 0 }}
+              />
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                Powers AI trading summaries on the Stats page. Stored locally only.
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowProfileEditor(false)}
                 style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -1568,7 +1644,7 @@ export default function TraderRoadmapXP() {
             borderBottom: "1px solid var(--border-primary)",
           }}>
             <div
-              onClick={() => { setEditName(profile.display_name); setShowProfileEditor(true); }}
+              onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); }}
               style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
             >
               <div style={{
@@ -1646,112 +1722,153 @@ export default function TraderRoadmapXP() {
           </div>
         </div>
 
-        {/* Mobile Bottom Bar */}
-        <div className="mobile-bar" style={{
-          display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
-          background: "rgba(11,13,19,0.85)", borderTop: "1px solid var(--border-primary)",
-          backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-          padding: "6px 8px env(safe-area-inset-bottom, 6px)", zIndex: 200,
-          justifyContent: "space-around", alignItems: "center",
-        }}>
-          {[
-            { key: "map", label: "Home", icon: "⊡" },
-            { key: "checklist", label: "Check", icon: "☑" },
-            { key: "journal", label: "Journal", icon: "⊟" },
-            { key: "stats", label: "Stats", icon: "◧" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setView(tab.key); setMobileMenu(false); }}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                background: "none", border: "none", cursor: "pointer",
-                color: view === tab.key ? "var(--accent)" : "var(--text-tertiary)",
-                fontSize: 9, fontWeight: view === tab.key ? 700 : 500,
-                fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "4px 6px",
-                minWidth: 44, minHeight: 44, justifyContent: "center",
-              }}
-            >
-              <span style={{ fontSize: 18 }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-          <button
-            onClick={() => setMobileMenu((v) => !v)}
-            style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-              background: "none", border: "none", cursor: "pointer",
-              color: mobileMenu ? "var(--accent)" : "var(--text-tertiary)",
-              fontSize: 9, fontWeight: mobileMenu ? 700 : 500,
-              fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "4px 6px",
-              minWidth: 44, minHeight: 44, justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: 18 }}>{mobileMenu ? "✕" : "☰"}</span>
-            More
-          </button>
-        </div>
-
-        {/* Mobile Slide-up Menu */}
+        {/* Mobile Slide-in Sidebar */}
         {mobileMenu && (
-          <div className="mobile-menu-overlay" style={{
-            display: "none", position: "fixed", inset: 0, zIndex: 150,
+          <div className="mobile-sidebar-overlay" style={{
+            display: "none", position: "fixed", inset: 0, zIndex: 300,
             background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
           }} onClick={() => setMobileMenu(false)}>
             <div onClick={(e) => e.stopPropagation()} style={{
-              position: "absolute", bottom: 60, left: 12, right: 12,
-              background: "rgba(11,13,19,0.95)", border: "1px solid var(--border-primary)",
+              position: "absolute", top: 0, left: 0, bottom: 0, width: 260,
+              background: dark ? "rgba(11,13,19,0.97)" : "rgba(255,255,255,0.97)",
+              border: "none", borderRight: "1px solid var(--border-primary)",
               backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-              borderRadius: 12, padding: "12px 8px",
-              boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
-              animation: "fadeSlideIn 0.2s ease",
+              boxShadow: "8px 0 40px rgba(0,0,0,0.3)",
+              display: "flex", flexDirection: "column",
+              overflowY: "auto",
+              animation: "slideInLeft 0.2s ease",
             }}>
-              {[
-                { key: "map", label: "Dashboard", icon: "⊡" },
-                { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
-                { key: "checklist", label: "Checklist", icon: "☑" },
-                { key: "journal", label: "Journal", icon: "⊟" },
-                { key: "watchlist", label: "Watchlist", icon: "◎" },
-                { key: "accounts", label: "Accounts", icon: "⊞" },
-                { key: "stats", label: "Stats", icon: "◧" },
-                { key: "education", label: "Education", icon: "◈" },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); setMobileMenu(false); }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12, width: "100%",
-                    background: view === tab.key ? "var(--accent-dim)" : "transparent",
-                    border: "none", borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                    color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
-                    fontSize: 14, fontWeight: view === tab.key ? 600 : 400,
-                    fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "12px 14px",
-                    borderRadius: 8, cursor: "pointer", textAlign: "left",
-                    minHeight: 44,
-                  }}
+              {/* Logo + Clock */}
+              <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--border-primary)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <TradeSharpLogo size={24} />
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-primary)", letterSpacing: 2 }}>TRADESHARP</span>
+                  </div>
+                  <button onClick={() => setMobileMenu(false)} style={{
+                    background: "none", border: "none", color: "var(--text-tertiary)",
+                    fontSize: 18, cursor: "pointer", padding: "4px",
+                  }}>✕</button>
+                </div>
+                {/* NYSE Clock */}
+                <div style={{
+                  background: dark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                  borderRadius: 8, padding: "10px 10px",
+                  border: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+                  position: "relative", overflow: "hidden",
+                }}>
+                  <div style={{
+                    position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                    background: isMarketOpen ? "linear-gradient(90deg, #059669, #22d3ee)" : isPreMarket ? "linear-gradient(90deg, #d97706, #f59e0b)" : "linear-gradient(90deg, var(--text-tertiary), transparent)",
+                    opacity: isMarketOpen ? 1 : 0.5,
+                  }} />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--text-tertiary)" }}>NYSE</span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: 0.5, padding: "2px 6px", borderRadius: 4,
+                      background: isMarketOpen ? "rgba(5,150,105,0.15)" : isPreMarket ? "rgba(217,119,6,0.15)" : dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                      color: isMarketOpen ? "#059669" : isPreMarket ? "#d97706" : "var(--text-tertiary)",
+                    }}>{isMarketOpen ? "OPEN" : isPreMarket ? "PRE-MKT" : "CLOSED"}</span>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: "tabular-nums", letterSpacing: -0.5, color: "var(--text-primary)", lineHeight: 1.1, marginBottom: 2 }}>{nyTime}</div>
+                  <div style={{ fontSize: 9, fontWeight: 500, color: "var(--text-tertiary)", letterSpacing: 0.3 }}>{nyDate} · ET</div>
+                </div>
+              </div>
+
+              {/* Nav Items */}
+              <div style={{ padding: "12px 10px", flex: 1 }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", padding: "0 8px 8px", marginBottom: 4 }}>Navigation</div>
+                {[
+                  { key: "map", label: "Dashboard", icon: "⊡" },
+                  { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
+                  { key: "checklist", label: "Checklist", icon: "☑" },
+                  { key: "journal", label: "Journal", icon: "⊟" },
+                  { key: "watchlist", label: "Watchlist", icon: "◎" },
+                  { key: "accounts", label: "Accounts", icon: "⊞" },
+                  { key: "stats", label: "Stats", icon: "◧" },
+                  { key: "education", label: "Education", icon: "◈" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); setMobileMenu(false); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 10, width: "100%",
+                      background: view === tab.key ? "var(--accent-dim)" : "transparent",
+                      border: "none", borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
+                      color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
+                      fontSize: 13, fontWeight: view === tab.key ? 600 : 400,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 12px",
+                      borderRadius: 6, cursor: "pointer", textAlign: "left",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <span style={{ fontSize: 14, opacity: view === tab.key ? 1 : 0.5, width: 18, textAlign: "center" }}>{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Profile */}
+              <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border-primary)" }}>
+                <div
+                  onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); setMobileMenu(false); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
                 >
-                  <span style={{ fontSize: 16, opacity: view === tab.key ? 1 : 0.5, width: 20, textAlign: "center" }}>{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-              {/* Quick actions */}
-              <div style={{ borderTop: "1px solid var(--border-primary)", marginTop: 8, paddingTop: 8, display: "flex", gap: 4 }}>
-                <button onClick={() => { setDark((d) => !d); setMobileMenu(false); }} style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  background: "transparent", border: "none", color: "var(--text-tertiary)",
-                  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 0",
-                  cursor: "pointer", minHeight: 44,
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 6, flexShrink: 0,
+                    background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {!profile.avatar_url && <span style={{ fontSize: 11, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)" }}>{currentXP.toLocaleString()} XP</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom actions */}
+              <div style={{ padding: "8px 10px 16px", borderTop: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", gap: 2 }}>
+                <button onClick={() => { setPrivacyMode(p => !p); }} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                  fontSize: 12, padding: "8px 12px",
+                  background: privacyMode ? "var(--accent-dim)" : "transparent", border: "none",
+                  color: privacyMode ? "var(--accent)" : "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span>{dark ? "☀" : "☾"}</span> {dark ? "Light" : "Dark"}
+                  <span style={{ fontSize: 13 }}>{privacyMode ? "◉" : "◎"}</span>
+                  {privacyMode ? "Privacy On" : "Privacy Mode"}
                 </button>
-                <button onClick={() => { setPrivacyMode((p) => !p); setMobileMenu(false); }} style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  background: privacyMode ? "var(--accent-dim)" : "transparent",
-                  border: "none", color: privacyMode ? "var(--accent)" : "var(--text-tertiary)",
-                  fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 0",
-                  cursor: "pointer", borderRadius: 6, minHeight: 44,
+                <button onClick={() => { setDark(d => !d); }} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                  fontSize: 12, padding: "8px 12px",
+                  background: "transparent", border: "none",
+                  color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span>{privacyMode ? "◉" : "◎"}</span> Privacy
+                  <span style={{ fontSize: 13 }}>{dark ? "☀" : "☾"}</span>
+                  {dark ? "Light mode" : "Dark mode"}
+                </button>
+                <button onClick={() => { setShowTilt(true); setMobileMenu(false); }} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                  fontSize: 12, padding: "8px 12px",
+                  background: "transparent", border: "none",
+                  color: "var(--red)", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}>
+                  <span style={{ fontSize: 13 }}>⚠</span>
+                  Tilt Protocol
+                </button>
+                <button onClick={() => { handleSignOut(); setMobileMenu(false); }} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                  fontSize: 12, padding: "8px 12px",
+                  background: "transparent", border: "none",
+                  color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}>
+                  <span style={{ fontSize: 13 }}>↗</span>
+                  Sign out
                 </button>
               </div>
             </div>
@@ -1762,13 +1879,26 @@ export default function TraderRoadmapXP() {
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Top bar — minimal */}
           <div className="header-bar" style={{
-            background: "rgba(11,13,19,0.75)", borderBottom: "1px solid var(--border-primary)",
+            background: dark ? "rgba(11,13,19,0.75)" : "rgba(248,249,252,0.85)",
+            borderBottom: "1px solid var(--border-primary)",
             backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-            boxShadow: "0 1px 12px rgba(0,0,0,0.2)",
+            boxShadow: dark ? "0 1px 12px rgba(0,0,0,0.2)" : "0 1px 8px rgba(0,0,0,0.06)",
             padding: "16px 32px", position: "sticky", top: 0, zIndex: 50,
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {/* Mobile hamburger */}
+              <button
+                className="mobile-hamburger"
+                onClick={() => setMobileMenu(v => !v)}
+                style={{
+                  display: "none", alignItems: "center", justifyContent: "center",
+                  width: 36, height: 36, borderRadius: 8,
+                  background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                  color: "var(--text-primary)", fontSize: 18, cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >☰</button>
               <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
                 {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "checklist" ? "A+ Checklist" : view === "journal" ? "Journal" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
@@ -1804,6 +1934,11 @@ export default function TraderRoadmapXP() {
         {/* MAP VIEW — Trail Style */}
         {view === "roadmap" && !selectedLevel && (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <PageBanner
+              label="TRADER ROADMAP"
+              title="From breakeven to independence."
+              subtitle="Complete quests, earn XP, and level up through 5 stages of your trading journey."
+            />
             {LEVELS.map((level, i) => {
               const isActive = currentXP >= level.xpRequired || i === 0;
               const isCurrent = level.id === currentLevel.id;

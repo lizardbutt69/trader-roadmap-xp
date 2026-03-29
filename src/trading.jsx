@@ -126,6 +126,35 @@ function buildDayMap(trades, mode = "personal") {
 
 // ─── SHARED COMPONENTS ──────────────────────────────────────────────────────
 
+export function PageBanner({ label, title, subtitle }) {
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)",
+      border: "1px solid var(--border-primary)",
+      borderRadius: 8, padding: "24px 28px", marginBottom: 24,
+      position: "relative", overflow: "hidden",
+      backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
+    }}>
+      <div style={{
+        position: "absolute", top: 0, right: 0, width: 200, height: "100%",
+        background: "radial-gradient(ellipse at right, var(--accent-glow) 0%, transparent 70%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{ position: "relative" }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>
+          {label}
+        </div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+          {title}
+        </div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", lineHeight: 1.6 }}>
+          {subtitle}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TCard({ children, style = {}, className = "", onClick }) {
   return (
     <div className={`card-pad ${className}`} onClick={onClick} style={{
@@ -441,6 +470,11 @@ export function ChecklistView({ supabase, user }) {
   // ── Normal Checklist UI ──
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="PRE-TRADE CHECKLIST"
+        title="Only A+ setups deserve your capital."
+        subtitle="Run through every criterion before you execute. Discipline is the edge."
+      />
       <TCard style={{ padding: 28 }}>
         {/* Header with edit button */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -663,22 +697,11 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-      {/* Google Sheets Settings Toggle */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 12, gap: 8 }}>
-        {gsUrl && !showGsSettings && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--green)" }}>SHEETS CONNECTED</span>}
-        <button onClick={() => setShowGsSettings(!showGsSettings)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--text-tertiary)" }} title="Google Sheets sync settings">⚙️</button>
-      </div>
-      {showGsSettings && (
-        <TCard style={{ padding: 20, marginBottom: 20 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>GOOGLE SHEETS SYNC</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input style={{ ...inputStyle, flex: 1 }} type="url" placeholder="Paste your Apps Script URL here..." value={gsUrl} onChange={(e) => setGsUrl(e.target.value)} />
-            <button onClick={saveGsUrl} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 20px", fontSize: 13, fontWeight: 700, background: "transparent", color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, cursor: "pointer", whiteSpace: "nowrap", letterSpacing: "0.05em" }}>SAVE</button>
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 10 }}>Plans and trades will sync to both Supabase and your Google Sheet.</div>
-        </TCard>
-      )}
-
+      <PageBanner
+        label="TRADE JOURNAL"
+        title="Document every session. Review every trade."
+        subtitle="Your journal is your mirror — track plans, log executions, and find patterns in your performance."
+      />
       {/* Pre-Trade Plan */}
       <TCard style={{ padding: 28, marginBottom: 24 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em" }}>PRE-TRADE PLAN</div>
@@ -978,6 +1001,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="TRADE STATS"
+        title="Numbers don't lie. Let the data guide you."
+        subtitle="P&L calendar, equity curve, and trade history — your performance at a glance."
+      />
       {/* Stats Bar */}
       <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
         {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} Stats
@@ -1311,7 +1339,7 @@ function AISummarySection({ trades }) {
     const periodTrades = trades.filter((t) => t.dt && new Date(t.dt) >= startDate);
     if (!periodTrades.length) { setOutput("No trades logged for this period yet."); setPeriod(label); return; }
 
-    if (!apiKey) { setOutput("No API key set. Click the key icon to add your Anthropic API key."); setPeriod(label); return; }
+    if (!apiKey) { setOutput("No API key set. Add your Anthropic API key in Profile settings."); setPeriod(label); return; }
 
     setPeriod(label); setLoading(true); setOutput("");
     const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed").length;
@@ -1389,26 +1417,10 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
     <TCard style={{ padding: 28, marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI TRADING SUMMARY</div>
-        <button onClick={() => setShowKeyInput(!showKeyInput)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: apiKey ? "var(--green)" : "var(--text-tertiary)" }} title="Set API Key">🔑</button>
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: apiKey ? "rgba(5,150,105,0.12)" : "rgba(255,255,255,0.06)", color: apiKey ? "var(--green)" : "var(--text-tertiary)" }}>
+          {apiKey ? "API KEY ACTIVE" : "NO API KEY — Set in Profile"}
+        </span>
       </div>
-      {showKeyInput && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input type="password" style={{ ...inputStyle, flex: 1 }} placeholder="Anthropic API Key" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-            <button
-              onClick={() => { saveKey(apiKey); setShowKeyInput(false); }}
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "10px 18px",
-                background: apiKey ? "var(--accent-glow-strong)" : "var(--bg-tertiary)",
-                border: `1px solid ${apiKey ? "var(--accent)" : "var(--border-primary)"}`,
-                color: apiKey ? "var(--accent)" : "var(--text-tertiary)",
-                borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap",
-              }}
-            >SAVE</button>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>Your key is stored locally and never sent to our servers.</div>
-        </div>
-      )}
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <button onClick={() => generate("week")} disabled={loading} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "1px solid var(--accent-secondary)", borderRadius: 4, cursor: loading ? "not-allowed" : "pointer", background: "transparent", color: "var(--accent-secondary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>THIS WEEK</button>
         <button onClick={() => generate("month")} disabled={loading} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "1px solid var(--purple)", borderRadius: 4, cursor: loading ? "not-allowed" : "pointer", background: "transparent", color: "var(--purple)", letterSpacing: "0.05em", textTransform: "uppercase" }}>THIS MONTH</button>
@@ -1770,6 +1782,11 @@ export function AccountsView({ supabase, user, privacyMode }) {
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="FUNDED ACCOUNTS"
+        title="Track every account. Manage every dollar."
+        subtitle="Monitor your funded accounts, payouts, and drawdown — stay sharp, stay funded."
+      />
       {/* Summary */}
       <div className="acct-summary" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
@@ -2502,6 +2519,11 @@ export function WatchlistView({ supabase, user }) {
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="WATCHLIST"
+        title="Patience is a position. Stalk your setups."
+        subtitle="Log trade ideas, mark key levels, and wait for the market to come to you."
+      />
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
@@ -3012,44 +3034,30 @@ export function EducationView({ supabase, user }) {
         </div>
       )}
 
-      {/* Banner */}
-      <div style={{
-        background: "linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)",
-        border: "1px solid var(--border-primary)",
-        borderRadius: 8, padding: "24px 28px", marginBottom: 24,
-        position: "relative", overflow: "hidden",
-        backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
-      }}>
-        <div style={{
-          position: "absolute", top: 0, right: 0, width: 200, height: "100%",
-          background: "radial-gradient(ellipse at right, var(--accent-glow) 0%, transparent 70%)",
-          pointerEvents: "none",
-        }} />
-        <div style={{ position: "relative" }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>
-            LEARNING LIBRARY
-          </div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
-            The edge is built between sessions.
-          </div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", lineHeight: 1.6 }}>
-            Every concept you study compounds. Save videos, notes, and chart screenshots here.
-          </div>
-        </div>
-      </div>
+      <PageBanner
+        label="LEARNING LIBRARY"
+        title="The edge is built between sessions."
+        subtitle="Every concept you study compounds. Save videos, notes, and chart screenshots here."
+      />
 
       {/* Controls */}
-      <div className="edu-controls" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="edu-controls" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <input
           placeholder="Search resources..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ ...inputStyle, flex: 1, minWidth: 180, maxWidth: 240 }}
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, padding: "8px 12px",
+            background: "var(--bg-input)", border: "1px solid var(--border-primary)",
+            color: "var(--text-primary)", borderRadius: 4, outline: "none",
+            flex: 1, minWidth: 140, maxWidth: 200, boxSizing: "border-box",
+            transition: "all 0.2s ease",
+          }}
         />
-        <div className="edu-status-row" style={{ display: "flex", gap: 4 }}>
+        <div className="edu-status-row" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {[["all", "Any Status"], ...EDU_STATUSES.map((s) => [s.value, s.label])].map(([v, l]) => (
             <button key={v} onClick={() => setStatusFilter(v)} style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "8px 14px",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "8px 12px",
               borderRadius: 4, cursor: "pointer",
               border: statusFilter === v ? `1px solid ${v === "all" ? "var(--accent)" : statusMeta(v).color}` : "1px solid var(--border-primary)",
               background: statusFilter === v ? (v === "all" ? "var(--accent-dim)" : `${statusMeta(v).color}18`) : "var(--bg-tertiary)",
@@ -3060,10 +3068,10 @@ export function EducationView({ supabase, user }) {
         <button
           onClick={() => { setShowForm((v) => !v); if (showForm) resetForm(); }}
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "8px 14px",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "8px 12px",
             borderRadius: 4, cursor: "pointer", marginLeft: "auto",
             border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)",
-            letterSpacing: "0.05em", transition: "all 0.15s",
+            letterSpacing: "0.05em", transition: "all 0.15s", whiteSpace: "nowrap",
           }}
         >{showForm ? "✕ Cancel" : "+ Add Resource"}</button>
       </div>
