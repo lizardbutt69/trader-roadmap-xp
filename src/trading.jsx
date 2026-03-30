@@ -2391,60 +2391,6 @@ function ProgressBar({ pct, color, height = 8 }) {
   );
 }
 
-const TICKER_LABELS = { "NQ=F": "$NQ", "ES=F": "$ES", "YM=F": "$YM", "RTY=F": "$RTY", "GC=F": "$GC", "SI=F": "$SI", "CL=F": "$CL", "RB=F": "$RB", "HO=F": "$HO", "BTC-USD": "$BTC", "ETH-USD": "$ETH", "SOL-USD": "$SOL" };
-const TICKER_SYMBOLS = Object.keys(TICKER_LABELS);
-
-function LiveTicker() {
-  const [quotes, setQuotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  const fetchQuotes = useCallback(async () => {
-    try {
-      const res = await fetch("/api/quotes");
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (Array.isArray(data) && data.length) { setQuotes(data); setError(false); }
-      else setError(true);
-    } catch { setError(true); }
-    finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => {
-    fetchQuotes();
-    const id = setInterval(fetchQuotes, 60000);
-    return () => clearInterval(id);
-  }, [fetchQuotes]);
-
-  const displayItems = quotes.length ? [...quotes, ...quotes] : [...TICKER_SYMBOLS.map(s => ({ symbol: s })), ...TICKER_SYMBOLS.map(s => ({ symbol: s }))];
-
-  const renderItem = (q, i) => {
-    const label = TICKER_LABELS[q.symbol] || q.symbol;
-    const hasData = q.price != null;
-    const up = q.change >= 0;
-    const price = hasData ? q.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
-    const chg = hasData ? (up ? "+" : "") + q.change.toFixed(2) : null;
-    const pct = hasData ? (up ? "+" : "") + q.changePct.toFixed(2) + "%" : null;
-    return (
-      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 28px", borderRight: "1px solid var(--border-primary)", flexShrink: 0, whiteSpace: "nowrap" }}>
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{label}</span>
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: hasData ? "var(--text-primary)" : "var(--text-tertiary)" }}>{price}</span>
-        {chg && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: up ? "var(--green)" : "var(--red)" }}>{up ? "▲" : "▼"} {chg} ({pct})</span>}
-      </div>
-    );
-  };
-
-  return (
-    <>
-      <style>{`@keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }`}</style>
-      <div style={{ overflow: "hidden", marginBottom: 24, borderRadius: 6, border: "1px solid var(--border-primary)", background: "var(--bg-secondary)", backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)" }}>
-        <div style={{ display: "flex", animation: "tickerScroll 60s linear infinite", width: "max-content" }}>
-          {displayItems.map(renderItem)}
-        </div>
-      </div>
-    </>
-  );
-}
 
 export function DashboardView({ supabase, user, trades, syncToSheets, displayName, privacyMode }) {
   const [accounts, setAccounts] = useState([]);
@@ -2548,9 +2494,6 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
           Welcome Back, {displayName || "Trader"}
         </h1>
       </div>
-
-      {/* Live Ticker */}
-      <LiveTicker />
 
       {/* Today's Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
