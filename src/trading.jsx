@@ -3308,10 +3308,11 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
             </div>
             <Field label="Session Plan">
               <textarea
-                style={{ ...inputStyle, resize: "vertical", minHeight: 80, lineHeight: 1.7 }}
+                style={{ ...inputStyle, resize: "none", overflow: "hidden", minHeight: 80, lineHeight: 1.7 }}
                 placeholder="What's your plan for today's NY session? Setups, confluences, anything to avoid..."
                 value={plan.session_plan}
                 onChange={(e) => setPlan(p => ({ ...p, session_plan: e.target.value }))}
+                onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
               />
             </Field>
             <div style={{ marginTop: 12 }}>
@@ -3334,13 +3335,14 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
               <textarea
                 value={entry[key]}
                 onChange={(e) => setEntry(prev => ({ ...prev, [key]: e.target.value }))}
+                onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
                 onBlur={(e) => handleBlur(key, e.target.value)}
                 onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
                 placeholder={placeholder}
                 rows={5}
                 style={{
                   width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-primary)",
-                  borderRadius: 6, padding: "12px 14px", resize: "vertical",
+                  borderRadius: 6, padding: "12px 14px", resize: "none", overflow: "hidden",
                   fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-primary)",
                   lineHeight: 1.75, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
                 }}
