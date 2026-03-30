@@ -2392,9 +2392,11 @@ function ProgressBar({ pct, color, height = 8 }) {
 }
 
 const TICKER_LABELS = { "NQ=F": "$NQ", "ES=F": "$ES", "YM=F": "$YM", "RTY=F": "$RTY", "GC=F": "$GC", "SI=F": "$SI", "CL=F": "$CL", "RB=F": "$RB", "HO=F": "$HO", "BTC-USD": "$BTC", "ETH-USD": "$ETH", "SOL-USD": "$SOL" };
+const TICKER_SYMBOLS = Object.keys(TICKER_LABELS);
 
 function LiveTicker() {
   const [quotes, setQuotes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
@@ -2405,6 +2407,7 @@ function LiveTicker() {
       if (Array.isArray(data) && data.length) { setQuotes(data); setError(false); }
       else setError(true);
     } catch { setError(true); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -2413,22 +2416,46 @@ function LiveTicker() {
     return () => clearInterval(id);
   }, [fetchQuotes]);
 
-  if (error || !quotes.length) return null;
+  const barStyle = {
+    overflow: "hidden", marginBottom: 24,
+    borderRadius: 6, border: "1px solid var(--border-primary)",
+    background: "var(--bg-secondary)",
+    backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
+  };
 
-  const items = [...quotes, ...quotes]; // duplicate for seamless loop
+  // Placeholder while loading
+  if (loading) {
+    return (
+      <div style={{ ...barStyle, display: "flex", alignItems: "center" }}>
+        {TICKER_SYMBOLS.map((sym) => (
+          <div key={sym} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 28px", borderRight: "1px solid var(--border-primary)", flexShrink: 0, whiteSpace: "nowrap" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{TICKER_LABELS[sym]}</span>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--border-primary)" }}>—</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // API unavailable (local dev or fetch error)
+  if (error || !quotes.length) {
+    return (
+      <div style={{ ...barStyle, display: "flex", alignItems: "center" }}>
+        {TICKER_SYMBOLS.map((sym) => (
+          <div key={sym} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 28px", borderRight: "1px solid var(--border-primary)", flexShrink: 0, whiteSpace: "nowrap" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{TICKER_LABELS[sym]}</span>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>—</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const items = [...quotes, ...quotes];
 
   return (
-    <div style={{
-      overflow: "hidden", marginBottom: 24,
-      borderRadius: 6, border: "1px solid var(--border-primary)",
-      background: "var(--bg-secondary)",
-      backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
-    }}>
-      <div style={{
-        display: "flex",
-        animation: "tickerScroll 60s linear infinite",
-        width: "max-content",
-      }}>
+    <div style={barStyle}>
+      <div style={{ display: "flex", animation: "tickerScroll 60s linear infinite", width: "max-content" }}>
         {items.map((q, i) => {
           const up = q.change >= 0;
           const label = TICKER_LABELS[q.symbol] || q.symbol;
@@ -2436,11 +2463,7 @@ function LiveTicker() {
           const chg = (up ? "+" : "") + q.change?.toFixed(2);
           const pct = (up ? "+" : "") + q.changePct?.toFixed(2) + "%";
           return (
-            <div key={i} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "10px 28px", borderRight: "1px solid var(--border-primary)",
-              flexShrink: 0, whiteSpace: "nowrap",
-            }}>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 28px", borderRight: "1px solid var(--border-primary)", flexShrink: 0, whiteSpace: "nowrap" }}>
               <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{label}</span>
               <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{price}</span>
               <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: up ? "var(--green)" : "var(--red)" }}>
