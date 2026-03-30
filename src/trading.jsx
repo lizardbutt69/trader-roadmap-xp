@@ -2466,9 +2466,6 @@ const LIVE_CHANNELS = [
   { key: "aljazeera", label: "Al Jazeera", src: "https://www.youtube.com/embed/gCNeDWCI0vo?autoplay=1&mute=1" },
   { key: "euronews", label: "EuroNews", src: "https://www.youtube.com/embed/pykpO5kQJ98?autoplay=1&mute=1" },
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
-  { key: "cnbc", label: "CNBC", src: "https://www.youtube.com/embed/9NyxcX3rhQs?autoplay=1&mute=1" },
-  { key: "cbs", label: "CBS News", src: "https://www.youtube.com/embed/ED_ezU86-6c?autoplay=1&mute=1" },
-  { key: "nbc", label: "NBC News", src: "https://www.youtube.com/embed/yhMLH5FtvHM?autoplay=1&mute=1" },
 ];
 
 function FinancialJuiceFeed() {
@@ -3321,7 +3318,7 @@ Be direct. Quote their exact words. Tough but fair.`;
             </div>
             <Field label="Session Plan">
               <textarea
-                style={{ ...inputStyle, resize: "none", overflow: "hidden", minHeight: 80, lineHeight: 1.7 }}
+                style={{ ...inputStyle, resize: "vertical", overflow: "auto", minHeight: 80, lineHeight: 1.7 }}
                 placeholder="What's your plan for today's NY session? Setups, confluences, anything to avoid..."
                 value={plan.session_plan}
                 onChange={(e) => setPlan(p => ({ ...p, session_plan: e.target.value }))}
@@ -3355,7 +3352,7 @@ Be direct. Quote their exact words. Tough but fair.`;
                 rows={5}
                 style={{
                   width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-primary)",
-                  borderRadius: 6, padding: "12px 14px", resize: "none", overflow: "hidden",
+                  borderRadius: 6, padding: "12px 14px", resize: "vertical", overflow: "auto",
                   fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-primary)",
                   lineHeight: 1.75, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
                 }}
