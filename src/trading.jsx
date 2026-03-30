@@ -321,14 +321,14 @@ function TradeSharpScore({ trades, month }) {
 
       {/* Hero — Spider Chart with centered score */}
       <div style={{ padding: "28px 28px 20px", display: "flex", justifyContent: "center" }}>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", width: "100%", maxWidth: 340 }}>
           {/* Glow */}
           <div style={{
             position: "absolute", inset: -30,
             background: `radial-gradient(circle, ${tier.color}06 0%, transparent 65%)`,
             borderRadius: "50%", pointerEvents: "none",
           }} />
-          <svg viewBox="0 0 340 340" width="340" height="340" style={{ overflow: "visible" }}>
+          <svg viewBox="0 0 340 340" width="100%" style={{ display: "block", overflow: "visible" }}>
             {(() => {
               const cx = 170, cy = 170, r = 120;
               const angleStep = (2 * Math.PI) / n;
@@ -368,7 +368,7 @@ function TradeSharpScore({ trades, month }) {
                   {/* Labels + scores */}
                   {pillars.map((p, i) => {
                     const a = startA + i * angleStep;
-                    const lr = r + 44;
+                    const lr = r + 36;
                     const lx = cx + lr * Math.cos(a);
                     const ly = cy + lr * Math.sin(a);
                     const anchor = lx < cx - 15 ? "end" : lx > cx + 15 ? "start" : "middle";
@@ -376,11 +376,11 @@ function TradeSharpScore({ trades, month }) {
                     return (
                       <g key={i}>
                         <text x={lx} y={ly + dy} textAnchor={anchor} style={{
-                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
                           fill: "var(--text-secondary)", letterSpacing: "0.02em",
                         }}>{p.label}</text>
-                        <text x={lx} y={ly + dy + 16} textAnchor={anchor} style={{
-                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800,
+                        <text x={lx} y={ly + dy + 15} textAnchor={anchor} style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 800,
                           fill: pillarColor(p.score),
                         }}>{Math.round(p.score)}</text>
                       </g>
@@ -3166,11 +3166,14 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
     }
 
     const { data: entries } = await supabase.from("notebook_entries").select("*").eq("user_id", user.id).gte("entry_date", startDate).order("entry_date");
+    const { data: moodRows } = await supabase.from("daily_moods").select("mood_date, mood").eq("user_id", user.id).gte("mood_date", startDate);
+    const moodByDate = Object.fromEntries((moodRows || []).map(r => [r.mood_date, r.mood]));
     const periodTrades = trades.filter(t => t.dt && t.dt.split("T")[0] >= startDate);
 
-    const notebookText = (entries || []).map(e =>
-      `DATE: ${e.entry_date}\nMOOD: ${e.mood ? MOOD_OPTIONS.find(m => m.val === e.mood)?.label : "not set"}\nGAMEPLAN: ${e.gameplan || "(blank)"}\nRECAP: ${e.recap || "(blank)"}\nEOD REFLECTION: ${e.eod_reflection || "(blank)"}`
-    ).join("\n\n---\n\n");
+    const notebookText = (entries || []).map(e => {
+      const mood = moodByDate[e.entry_date] || "(not set)";
+      return `DATE: ${e.entry_date}\nMOOD (their words): "${mood}"\nRECAP: ${e.recap || "(blank)"}\nEOD REFLECTION: ${e.eod_reflection || "(blank)"}`;
+    }).join("\n\n---\n\n");
 
     const tradeLines = periodTrades.map(t =>
       `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Notes: ${t.notes || "none"}`
@@ -3191,11 +3194,12 @@ ${tradeLines || "(No trades)"}
 Write a focused coaching summary (300–500 words):
 1. Gameplan vs Reality — did they trade their plan?
 2. Self-awareness — are their EOD reflections honest and specific, or vague?
-3. Mental state — what do the mood scores and language reveal?
-4. Patterns across entries — habits, recurring mistakes, or strengths.
-5. 2–3 specific, actionable focuses for the next session.
+3. Inner dialogue — pay close attention to the exact words and phrases they use to describe their mood and mental state. What patterns show up? Are they self-critical, avoidant, confident, scattered? Quote their own language back to them. This is how they talk to themselves going into trades — it matters.
+4. Language vs outcome — does the way they described feeling before a session correlate with how they traded? Note any recurring words tied to good or bad sessions.
+5. Patterns across entries — habits, recurring mistakes, or strengths.
+6. 2–3 specific, actionable focuses for the next session.
 
-Be direct. Reference specific dates and their own words. Tough but fair.`;
+Be direct. Quote their exact words. Tough but fair.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -3219,13 +3223,22 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-      <style>{`@media (max-width: 768px) { .notebook-layout { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+        @media (max-width: 768px) {
+          .notebook-layout { grid-template-columns: 1fr !important; }
+          .notebook-calendar { order: 2; }
+          .notebook-editor { order: 1; }
+          .pretrade-grid { grid-template-columns: 1fr !important; }
+          .ai-header { flex-direction: column !important; align-items: flex-start !important; }
+          .ai-buttons { flex-wrap: wrap !important; }
+        }
+      `}</style>
       <PageBanner label="NOTEBOOK" title="Write it down. Own the day." subtitle="Pre-market gameplan, trade recap, and EOD reflection — in one place. AI coached." />
 
       <div className="notebook-layout" style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 20, alignItems: "start" }}>
 
         {/* ── Left: Calendar + stats ── */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="notebook-calendar" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <TCard style={{ padding: 0, overflow: "hidden" }}>
             {/* Month nav */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: "1px solid var(--border-primary)" }}>
@@ -3275,7 +3288,7 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
         </div>
 
         {/* ── Right: Entry editor ── */}
-        <div>
+        <div className="notebook-editor">
           {/* Date header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
             <div>
@@ -3289,7 +3302,7 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
           {/* Pre-Trade Plan */}
           <TCard style={{ padding: 20, marginBottom: 14 }}>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 14 }}>PRE-TRADE PLAN</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div className="pretrade-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <Field label="Daily Bias">
                 <select style={selectStyle} value={plan.bias} onChange={(e) => setPlan(p => ({ ...p, bias: e.target.value }))}>
                   <option value="">Select...</option>
@@ -3369,9 +3382,9 @@ Be direct. Reference specific dates and their own words. Tough but fair.`;
 
           {/* AI Coaching Summary */}
           <TCard style={{ padding: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+            <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: apiKey ? "rgba(5,150,105,0.12)" : "rgba(255,255,255,0.06)", color: apiKey ? "var(--green)" : "var(--text-tertiary)" }}>
                   {apiKey ? "API KEY ACTIVE" : "NO API KEY — Set in Profile"}
                 </span>
