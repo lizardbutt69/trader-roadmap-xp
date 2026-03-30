@@ -54,8 +54,8 @@ const DARK_THEME = {
   "--accent-glow": "rgba(34,211,238,0.06)",
   "--accent-glow-strong": "rgba(34,211,238,0.18)",
   "--accent-secondary": "#818cf8",
-  "--card-shadow": "0 2px 16px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.06)",
-  "--card-glow": "0 2px 20px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.08)",
+  "--card-shadow": "0 2px 16px rgba(0,0,0,0.25)",
+  "--card-glow": "0 2px 20px rgba(0,0,0,0.2)",
   "--glass-blur": "blur(20px)",
   "--green": "#34d399",
   "--red": "#fb7185",
@@ -697,6 +697,7 @@ export default function TraderRoadmapXP() {
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes subtleGlow { 0%,100% { box-shadow: 0 0 0 0 var(--accent-glow); } 50% { box-shadow: 0 0 20px 0 var(--accent-glow); } }
+    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
     ::-webkit-scrollbar { width: 5px; }
@@ -744,7 +745,6 @@ export default function TraderRoadmapXP() {
       .section-title { font-size: 11px !important; }
       .drawdown-popup { width: calc(100vw - 24px) !important; right: 12px !important; bottom: 20px !important; padding: 14px !important; }
       .header-bar .header-right { gap: 6px !important; }
-      .header-bar .xp-display { display: none !important; }
       .mood-grid { gap: 4px !important; }
       .mood-grid button { padding: 6px 8px !important; font-size: 10px !important; min-height: 40px !important; }
       .news-channels { gap: 3px !important; }
@@ -1639,24 +1639,42 @@ export default function TraderRoadmapXP() {
 
           {/* User Profile */}
           <div style={{
-            padding: "16px 12px",
+            padding: "14px 12px",
             borderTop: "1px solid var(--border-primary)",
             borderBottom: "1px solid var(--border-primary)",
           }}>
             <div
               onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); }}
-              style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
+              style={{ cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
             >
-              <div style={{
-                width: 32, height: 32, borderRadius: 6, flexShrink: 0,
-                background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                {!profile.avatar_url && <span style={{ fontSize: 13, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+              {/* Avatar + name row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 7, flexShrink: 0,
+                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {!profile.avatar_url && <span style={{ fontSize: 13, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40` }}>{currentLevel.tier}</span>
+                  </div>
+                </div>
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{currentXP.toLocaleString()} XP</div>
+              {/* XP progress */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)", fontWeight: 600 }}>{currentXP.toLocaleString()} XP</span>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)" }}>{nextLevel ? `${nextLevel.xpRequired.toLocaleString()} to ${nextLevel.name}` : "MAX LEVEL"}</span>
+                </div>
+                <XPBar
+                  current={nextLevel ? currentXP - currentLevel.xpRequired : 1}
+                  max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1}
+                  color={currentLevel.accent}
+                  height={4}
+                />
               </div>
             </div>
           </div>
@@ -1903,23 +1921,21 @@ export default function TraderRoadmapXP() {
                 {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "checklist" ? "A+ Checklist" : view === "journal" ? "Journal" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
-            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <div className="xp-display" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>
-                    {currentXP.toLocaleString()} <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>/ {TOTAL_XP.toLocaleString()} XP</span>
-                  </div>
-                </div>
-                <div style={{ width: 120 }}>
-                  <XPBar
-                    current={nextLevel ? currentXP - currentLevel.xpRequired : 1}
-                    max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1}
-                    color={currentLevel.accent}
-                    height={6}
-                  />
-                </div>
-              </div>
-              <Chip label={currentLevel.tier} color={currentLevel.accent} />
+            <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {[
+                { icon: privacyMode ? "◉" : "◎", title: privacyMode ? "Privacy On" : "Privacy Mode", onClick: () => setPrivacyMode(p => !p), active: privacyMode, color: "var(--accent)" },
+                { icon: dark ? "☀" : "☾", title: dark ? "Light mode" : "Dark mode", onClick: () => setDark(d => !d), active: false, color: null },
+                { icon: "⚠", title: "Tilt Protocol", onClick: () => setShowTilt(true), active: false, color: "var(--red)" },
+              ].map(({ icon, title, onClick, active, color }) => (
+                <button key={title} onClick={onClick} title={title} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: 6,
+                  background: active ? "var(--accent-dim)" : "transparent",
+                  border: active ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+                  color: active ? "var(--accent)" : (color || "var(--text-tertiary)"),
+                  fontSize: 14, cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
+                }}>{icon}</button>
+              ))}
               <button
                 onClick={handleSignOut}
                 title="Sign out"

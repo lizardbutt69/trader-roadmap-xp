@@ -711,7 +711,7 @@ export function ChecklistView({ supabase, user }) {
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   background: dragIdx === i ? "var(--accent-glow)" : "var(--bg-tertiary)",
-                  border: `1.5px solid ${dragIdx === i ? "var(--accent-dim)" : "var(--border-primary)"}`,
+                  border: `1px solid ${dragIdx === i ? "var(--accent-dim)" : "var(--border-primary)"}`,
                   borderRadius: 6, padding: "12px 16px",
                   cursor: "grab", transition: "all 0.15s", userSelect: "none",
                 }}
@@ -737,7 +737,7 @@ export function ChecklistView({ supabase, user }) {
           {/* Timer item (locked, always last) */}
           <div style={{
             display: "flex", alignItems: "center", gap: 12,
-            background: "var(--bg-tertiary)", border: "1.5px dashed var(--border-primary)",
+            background: "var(--bg-tertiary)", border: "1px dashed var(--border-primary)",
             borderRadius: 6, padding: "12px 16px", marginBottom: 20, opacity: 0.6,
           }}>
             <div style={{ fontSize: 16, flexShrink: 0 }}>🔒</div>
@@ -1413,7 +1413,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   className="cal-day"
                   style={{
                     minHeight: 76, borderRadius: 6, padding: "8px 10px", fontSize: 13,
-                    border: `1.5px solid ${isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--border-primary)"}`,
+                    border: `1px solid ${isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--border-primary)"}`,
                     background: isGreen ? "var(--accent-glow)" : isRed ? "rgba(239,68,68,0.06)" : "var(--bg-tertiary)",
                     cursor: data ? "pointer" : "default",
                     boxShadow: isToday ? "0 0 0 2px var(--accent-secondary)" : isGreen ? "none" : "none",
@@ -2391,6 +2391,69 @@ function ProgressBar({ pct, color, height = 8 }) {
   );
 }
 
+const TICKER_LABELS = { "NQ=F": "$NQ", "ES=F": "$ES", "YM=F": "$YM", "RTY=F": "$RTY", "GC=F": "$GC", "SI=F": "$SI", "CL=F": "$CL", "RB=F": "$RB", "HO=F": "$HO", "BTC-USD": "$BTC", "ETH-USD": "$ETH", "SOL-USD": "$SOL" };
+
+function LiveTicker() {
+  const [quotes, setQuotes] = useState([]);
+  const [error, setError] = useState(false);
+
+  const fetchQuotes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/quotes");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      if (Array.isArray(data) && data.length) { setQuotes(data); setError(false); }
+      else setError(true);
+    } catch { setError(true); }
+  }, []);
+
+  useEffect(() => {
+    fetchQuotes();
+    const id = setInterval(fetchQuotes, 60000);
+    return () => clearInterval(id);
+  }, [fetchQuotes]);
+
+  if (error || !quotes.length) return null;
+
+  const items = [...quotes, ...quotes]; // duplicate for seamless loop
+
+  return (
+    <div style={{
+      overflow: "hidden", marginBottom: 24,
+      borderRadius: 6, border: "1px solid var(--border-primary)",
+      background: "var(--bg-secondary)",
+      backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
+    }}>
+      <div style={{
+        display: "flex",
+        animation: "tickerScroll 60s linear infinite",
+        width: "max-content",
+      }}>
+        {items.map((q, i) => {
+          const up = q.change >= 0;
+          const label = TICKER_LABELS[q.symbol] || q.symbol;
+          const price = q.price?.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const chg = (up ? "+" : "") + q.change?.toFixed(2);
+          const pct = (up ? "+" : "") + q.changePct?.toFixed(2) + "%";
+          return (
+            <div key={i} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 28px", borderRight: "1px solid var(--border-primary)",
+              flexShrink: 0, whiteSpace: "nowrap",
+            }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.06em" }}>{label}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{price}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: up ? "var(--green)" : "var(--red)" }}>
+                {up ? "▲" : "▼"} {chg} ({pct})
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function DashboardView({ supabase, user, trades, syncToSheets, displayName, privacyMode }) {
   const [accounts, setAccounts] = useState([]);
 
@@ -2488,11 +2551,14 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
       )}
 
       {/* Welcome */}
-      <div style={{ textAlign: "left", marginBottom: 28, padding: "8px 0" }}>
+      <div style={{ textAlign: "left", marginBottom: 20, padding: "8px 0" }}>
         <h1 className="welcome-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>
           Welcome Back, {displayName || "Trader"}
         </h1>
       </div>
+
+      {/* Live Ticker */}
+      <LiveTicker />
 
       {/* Today's Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
@@ -2876,12 +2942,14 @@ export function WatchlistView({ supabase, user }) {
         <button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, padding: "10px 20px",
-            background: showForm ? "var(--bg-tertiary)" : "var(--accent)", color: showForm ? "var(--text-secondary)" : "var(--bg-primary)",
-            border: "none", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "8px 12px",
+            borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.15s", whiteSpace: "nowrap",
+            border: showForm ? "1px solid var(--border-primary)" : "1px solid var(--accent)",
+            background: showForm ? "var(--bg-tertiary)" : "var(--accent-dim)",
+            color: showForm ? "var(--text-secondary)" : "var(--accent)",
           }}
         >
-          {showForm ? "CANCEL" : "+ NEW IDEA"}
+          {showForm ? "✕ Cancel" : "+ New Idea"}
         </button>
       </div>
 
@@ -3576,11 +3644,11 @@ export function EducationView({ supabase, user }) {
                 )}
 
                 {/* Card body */}
-                <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ padding: "16px 18px", flex: 1, display: "flex", flexDirection: "column" }}>
                   {/* Top row */}
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                         {r.title}
                       </div>
                     </div>
@@ -3597,7 +3665,7 @@ export function EducationView({ supabase, user }) {
                   </div>
 
                   {/* Category + type tags */}
-                  <div style={{ display: "flex", gap: 5, marginBottom: r.notes ? 8 : 0, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 5, marginBottom: r.notes ? 10 : 4, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: `${catColor(r.category)}15`, color: catColor(r.category), letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       {r.category}
                     </span>
@@ -3608,7 +3676,7 @@ export function EducationView({ supabase, user }) {
 
                   {/* Notes preview */}
                   {r.notes && (
-                    <div style={{ marginTop: 6 }}>
+                    <div style={{ marginBottom: 4 }}>
                       <div style={{
                         fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.7,
                         overflow: "hidden", display: "-webkit-box",
@@ -3618,7 +3686,7 @@ export function EducationView({ supabase, user }) {
                   )}
 
                   {/* Footer */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 12, borderTop: "1px solid var(--border-primary)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 14, borderTop: "1px solid var(--border-primary)" }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>
                       {r.created_at ? new Date(r.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : ""}
                     </span>
