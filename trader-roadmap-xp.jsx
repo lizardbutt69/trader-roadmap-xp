@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, PageBanner } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -410,6 +410,49 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
         {completed ? "✓ " : "+"}
         {ach.xp}
       </div>
+    </div>
+  );
+}
+
+// ─── JOURNAL + CHECKLIST COMBINED ────────────────────────────────────────────
+
+function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl, setGsUrl, privacyMode }) {
+  const [checklistOpen, setChecklistOpen] = useState(() => {
+    const stored = sessionStorage.getItem("checklistOpen");
+    return stored === null ? true : stored === "true";
+  });
+  const toggleChecklist = (val) => {
+    setChecklistOpen(val);
+    sessionStorage.setItem("checklistOpen", val);
+  };
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      {/* Collapsible Checklist */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={() => toggleChecklist(!checklistOpen)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", padding: "12px 18px", marginBottom: checklistOpen ? 12 : 0,
+            background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
+            borderRadius: checklistOpen ? "8px 8px 0 0" : 8,
+            cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 11, fontWeight: 700, color: "var(--accent)",
+            textTransform: "uppercase", letterSpacing: "0.12em",
+            backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
+          }}
+        >
+          <span>☑ A+ Checklist</span>
+          <span style={{ fontSize: 14, color: "var(--text-tertiary)", transition: "transform 0.2s", display: "inline-block", transform: checklistOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+        </button>
+        {checklistOpen && (
+          <div style={{ border: "1px solid var(--border-primary)", borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" }}>
+            <ChecklistView supabase={supabase} user={user} embedded />
+          </div>
+        )}
+      </div>
+      {/* Journal */}
+      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
     </div>
   );
 }
@@ -1601,8 +1644,8 @@ export default function TraderRoadmapXP() {
             {[
               { key: "map", label: "Dashboard", icon: "⊡", reset: false },
               { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
-              { key: "checklist", label: "Checklist", icon: "☑", reset: false },
               { key: "journal", label: "Journal", icon: "⊟", reset: false },
+              { key: "notebook", label: "Notebook", icon: "✎", reset: false },
               { key: "watchlist", label: "Watchlist", icon: "◎", reset: false },
               { key: "accounts", label: "Accounts", icon: "⊞", reset: false },
               { key: "stats", label: "Stats", icon: "◧", reset: false },
@@ -1798,8 +1841,8 @@ export default function TraderRoadmapXP() {
                 {[
                   { key: "map", label: "Dashboard", icon: "⊡" },
                   { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
-                  { key: "checklist", label: "Checklist", icon: "☑" },
                   { key: "journal", label: "Journal", icon: "⊟" },
+                  { key: "notebook", label: "Notebook", icon: "✎" },
                   { key: "watchlist", label: "Watchlist", icon: "◎" },
                   { key: "accounts", label: "Accounts", icon: "⊞" },
                   { key: "stats", label: "Stats", icon: "◧" },
@@ -1917,7 +1960,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "checklist" ? "A+ Checklist" : view === "journal" ? "Journal" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2148,14 +2191,9 @@ export default function TraderRoadmapXP() {
           </div>
         )}
 
-        {/* CHECKLIST VIEW */}
-        {view === "checklist" && (
-          <ChecklistView supabase={supabase} user={user} />
-        )}
-
-        {/* JOURNAL VIEW */}
+        {/* JOURNAL VIEW (with collapsible checklist) */}
         {view === "journal" && (
-          <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
+          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
         )}
 
         {/* STATS VIEW — Trade performance data */}
@@ -2171,6 +2209,11 @@ export default function TraderRoadmapXP() {
         {/* ACCOUNTS VIEW */}
         {view === "accounts" && (
           <AccountsView supabase={supabase} user={user} privacyMode={privacyMode} />
+        )}
+
+        {/* NOTEBOOK VIEW */}
+        {view === "notebook" && (
+          <NotebookView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} />
         )}
 
         {/* EDUCATION VIEW */}

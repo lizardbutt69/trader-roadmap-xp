@@ -153,7 +153,28 @@ create policy "Users can update own watchlist"
 create policy "Users can delete own watchlist"
   on watchlist for delete using (auth.uid() = user_id);
 
+-- Notebook entries table
+create table if not exists notebook_entries (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  entry_date date not null,
+  gameplan text,
+  recap text,
+  eod_reflection text,
+  mood int,
+  ai_summary text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(user_id, entry_date)
+);
+
+alter table notebook_entries enable row level security;
+
+create policy "Users manage own notebook entries"
+  on notebook_entries for all using (auth.uid() = user_id);
+
 -- Indexes
+create index if not exists idx_notebook_entries_user_date on notebook_entries(user_id, entry_date);
 create index if not exists idx_trades_user_dt on trades(user_id, dt);
 create index if not exists idx_trade_plans_user_date on trade_plans(user_id, plan_date);
 create index if not exists idx_accounts_user on accounts(user_id);
