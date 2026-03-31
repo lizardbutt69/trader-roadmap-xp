@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, TradeCardView } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -645,7 +645,11 @@ export default function TraderRoadmapXP() {
   const syncToSheets = useCallback(async (data) => {
     const url = gsUrl || (() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } })();
     if (!url) return;
-    try { await fetch(url, { method: "POST", body: JSON.stringify(data) }); } catch (e) {}
+    try {
+      await fetch(url, { method: "POST", body: JSON.stringify(data), mode: "no-cors" });
+    } catch (e) {
+      console.error("[Sheets] Sync error:", e.message);
+    }
   }, [gsUrl]);
 
   // Auth listener
@@ -1472,7 +1476,7 @@ export default function TraderRoadmapXP() {
 
       {/* ── Quick Log Modal ── */}
       {showQuickLog && (
-        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} />
+        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} syncToSheets={syncToSheets} />
       )}
 
       {/* ── Tilt Alert Modal ── */}
@@ -1742,6 +1746,7 @@ export default function TraderRoadmapXP() {
               { key: "accounts", label: "Accounts", icon: "⊞", reset: false },
               { key: "stats", label: "Stats", icon: "◧", reset: false },
               { key: "education", label: "Education", icon: "◈", reset: false },
+              { key: "cards", label: "Trade Cards", icon: "✦", reset: false },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -1939,6 +1944,7 @@ export default function TraderRoadmapXP() {
                   { key: "accounts", label: "Accounts", icon: "⊞" },
                   { key: "stats", label: "Stats", icon: "◧" },
                   { key: "education", label: "Education", icon: "◈" },
+                  { key: "cards", label: "Trade Cards", icon: "✦" },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -2052,7 +2058,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "cards" ? "Trade Cards" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2320,6 +2326,11 @@ export default function TraderRoadmapXP() {
         {/* EDUCATION VIEW */}
         {view === "education" && (
           <EducationView supabase={supabase} user={user} />
+        )}
+
+        {/* TRADE CARDS VIEW */}
+        {view === "cards" && (
+          <TradeCardView trades={trades} />
         )}
           </div>{/* close main-content */}
 
