@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
@@ -1151,6 +1151,8 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
   const [filterMonth, setFilterMonth] = useState(currentMonth);
   const [filterTag, setFilterTag] = useState("all");
   const [rowSaving, setRowSaving] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const [rowEdits, setRowEdits] = useState({});
 
   const allMonths = [...new Set(trades.filter(t => t.dt).map(t => t.dt.slice(0, 7)))].sort().reverse();
   if (!allMonths.includes(currentMonth)) allMonths.unshift(currentMonth);
@@ -1176,6 +1178,37 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
     setRowSaving(s => ({ ...s, [trade.id]: "saved" }));
     setTimeout(() => setRowSaving(s => { const n = { ...s }; delete n[trade.id]; return n; }), 1500);
   };
+
+  const openExpand = (t) => {
+    if (expandedId === t.id) { setExpandedId(null); return; }
+    setExpandedId(t.id);
+    setRowEdits(e => ({ ...e, [t.id]: {
+      asset: t.asset || "", direction: t.direction || "", aplus: t.aplus || "",
+      taken: t.taken || "", bias: t.bias || "",
+      profit: t.profit != null ? String(t.profit) : "",
+      profit_funded: t.profit_funded != null ? String(t.profit_funded) : "",
+      chart: t.chart || "", after_chart: t.after_chart || "",
+      notes: t.notes || "", after_thoughts: t.after_thoughts || "",
+    }}));
+  };
+
+  const saveRow = async (id) => {
+    setRowSaving(s => ({ ...s, [id]: "saving" }));
+    const edits = rowEdits[id];
+    await supabase.from("trades").update({
+      ...edits,
+      profit: edits.profit !== "" ? parseFloat(edits.profit) : null,
+      profit_funded: edits.profit_funded !== "" ? parseFloat(edits.profit_funded) : null,
+    }).eq("id", id);
+    await loadTrades();
+    setRowSaving(s => ({ ...s, [id]: "saved" }));
+    setTimeout(() => {
+      setRowSaving(s => { const n = { ...s }; delete n[id]; return n; });
+      setExpandedId(null);
+    }, 800);
+  };
+
+  const setField = (id, field, val) => setRowEdits(e => ({ ...e, [id]: { ...e[id], [field]: val } }));
 
   const tagBtn = (key, label) => (
     <button key={key} onClick={() => setFilterTag(key)} style={{
@@ -1257,7 +1290,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
                 <tr>
-                  {["Date", "Asset", "Dir", "A+ Setup", "Taken", "P&L", "Chart", "After", "Notes", "After Thoughts"].map(h => (
+                  {["Date", "Asset", "Dir", "A+ Setup", "Taken", "Personal P&L", "Funded P&L", "Chart", "After", "Notes", "After Thoughts", ""].map(h => (
                     <th key={h} style={{
                       padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700,
                       color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
@@ -1270,8 +1303,26 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                 {filtered.map(t => {
                   const pnl = parseFloat(t.profit);
                   const status = rowSaving[t.id];
+                  const isExpanded = expandedId === t.id;
+                  const ed = rowEdits[t.id] || {};
+                  const isSaving = rowSaving[t.id] === "saving";
+                  const isSaved = rowSaving[t.id] === "saved";
+                  const inpStyle = {
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+                    padding: "8px 10px", borderRadius: 4, outline: "none", width: "100%", boxSizing: "border-box",
+                    background: "var(--bg-input)", border: "1px solid var(--border-primary)",
+                    color: "var(--text-primary)",
+                  };
+                  const sel = (field, opts) => (
+                    <select value={ed[field] || ""} onChange={e => setField(t.id, field, e.target.value)} style={inpStyle}>
+                      <option value="">—</option>
+                      {opts.map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  );
                   return (
-                    <tr key={t.id} style={{ borderBottom: "1px solid var(--border-primary)", transition: "background 0.1s" }}
+                    <React.Fragment key={t.id}>
+
+                    <tr style={{ borderBottom: "1px solid var(--border-primary)", transition: "background 0.1s" }}
                       onMouseEnter={e => e.currentTarget.style.background = "var(--bg-tertiary)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                     >
@@ -1322,6 +1373,13 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                             </span>
                           : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
                       </td>
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        {t.profit_funded != null
+                          ? <span style={{ fontWeight: 700, color: parseFloat(t.profit_funded) >= 0 ? "var(--green)" : "var(--red)" }}>
+                              {privacyMode ? "••••" : `${parseFloat(t.profit_funded) >= 0 ? "+" : ""}$${Math.abs(parseFloat(t.profit_funded)).toFixed(0)}`}
+                            </span>
+                          : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
+                      </td>
 
                       <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                         {safeUrl(t.chart)
@@ -1339,7 +1397,95 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                       <td style={{ padding: "12px 16px", color: "var(--text-tertiary)", minWidth: 200, maxWidth: 300, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontSize: 12 }}>
                         {t.after_thoughts || "—"}
                       </td>
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        <button onClick={() => openExpand(t)} style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                          padding: "5px 12px", borderRadius: 4, cursor: "pointer", letterSpacing: "0.04em",
+                          border: expandedId === t.id ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+                          background: expandedId === t.id ? "var(--accent-dim)" : "var(--bg-tertiary)",
+                          color: expandedId === t.id ? "var(--accent)" : "var(--text-secondary)",
+                          transition: "all 0.15s",
+                        }}>{isExpanded ? "▲ CLOSE" : "✏ EDIT"}</button>
+                      </td>
                     </tr>
+
+                    {/* Expanded edit row */}
+                    {isExpanded && (
+                        <tr>
+                          <td colSpan={12} style={{ padding: "0 0 2px 0", background: "var(--bg-tertiary)" }}>
+                            <div style={{ padding: "20px 24px", borderTop: "2px solid var(--accent)", borderBottom: "1px solid var(--border-primary)" }}>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Asset</div>
+                                  <select value={ed.asset} onChange={e => setField(t.id, "asset", e.target.value)} style={inpStyle}>
+                                    <option value="">—</option>
+                                    {ASSETS.map(a => <option key={a}>{a}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Direction</div>
+                                  {sel("direction", ["Long", "Short"])}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>A+ Trade?</div>
+                                  {sel("aplus", APLUS_OPTIONS)}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Taken?</div>
+                                  {sel("taken", ["Yes", "No", "Missed"])}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Bias</div>
+                                  {sel("bias", ["Bullish", "Bearish", "Neutral"])}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Personal P&L</div>
+                                  <input type="number" value={ed.profit} onChange={e => setField(t.id, "profit", e.target.value)} style={inpStyle} placeholder="e.g. 500" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Funded P&L</div>
+                                  <input type="number" value={ed.profit_funded} onChange={e => setField(t.id, "profit_funded", e.target.value)} style={inpStyle} placeholder="e.g. 500" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Chart URL</div>
+                                  <input type="text" value={ed.chart} onChange={e => setField(t.id, "chart", e.target.value)} style={inpStyle} placeholder="https://..." />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>After Chart URL</div>
+                                  <input type="text" value={ed.after_chart} onChange={e => setField(t.id, "after_chart", e.target.value)} style={inpStyle} placeholder="https://..." />
+                                </div>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Notes</div>
+                                  <textarea value={ed.notes} onChange={e => setField(t.id, "notes", e.target.value)} rows={3} style={{ ...inpStyle, resize: "vertical" }} placeholder="Trade notes..." />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>After Thoughts</div>
+                                  <textarea value={ed.after_thoughts} onChange={e => setField(t.id, "after_thoughts", e.target.value)} rows={3} style={{ ...inpStyle, resize: "vertical" }} placeholder="Post-trade reflection..." />
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                <button onClick={() => saveRow(t.id)} disabled={isSaving} style={{
+                                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                                  padding: "9px 24px", borderRadius: 4, cursor: isSaving ? "not-allowed" : "pointer",
+                                  border: isSaved ? "1px solid var(--green)" : "1px solid var(--accent)",
+                                  background: isSaved ? "rgba(5,150,105,0.08)" : "var(--accent-dim)",
+                                  color: isSaved ? "var(--green)" : "var(--accent)",
+                                  letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.2s",
+                                }}>{isSaving ? "Saving..." : isSaved ? "✓ Saved" : "Save Changes"}</button>
+                                <button onClick={() => setExpandedId(null)} style={{
+                                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                                  padding: "9px 20px", borderRadius: 4, cursor: "pointer",
+                                  border: "1px solid var(--border-primary)", background: "transparent",
+                                  color: "var(--text-secondary)", letterSpacing: "0.06em", textTransform: "uppercase",
+                                }}>Cancel</button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
