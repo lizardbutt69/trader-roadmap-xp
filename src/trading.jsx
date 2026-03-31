@@ -1874,6 +1874,12 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const [editForm, setEditForm] = useState({});
   const [pnlMode, setPnlMode] = useState("personal");
   const [showReview, setShowReview] = useState(false);
+  const [accounts, setAccounts] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+  }, [user]);
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
