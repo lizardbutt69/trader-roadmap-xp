@@ -79,9 +79,10 @@ function calcStreaks(trades) {
   let greenStreak = 0, bestGreen = 0, cur = 0;
   keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; bestGreen = Math.max(bestGreen, cur); } else cur = 0; });
   for (let i = keys.length - 1; i >= 0; i--) { if (dayMap[keys[i]].pnl > 0) greenStreak++; else break; }
+  const isAplusSetup = (t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
   let aplusStreak = 0, bestAplus = 0, curA = 0;
-  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; bestAplus = Math.max(bestAplus, curA); } else curA = 0; });
-  for (let i = sorted.length - 1; i >= 0; i--) { if (sorted[i].aplus === "Yes") aplusStreak++; else break; }
+  sorted.forEach((t) => { if (isAplusSetup(t)) { curA++; bestAplus = Math.max(bestAplus, curA); } else curA = 0; });
+  for (let i = sorted.length - 1; i >= 0; i--) { if (isAplusSetup(sorted[i])) aplusStreak++; else break; }
   return { greenStreak, bestGreen, aplusStreak, bestAplus };
 }
 
@@ -119,7 +120,7 @@ function buildDayMap(trades, mode = "personal") {
     m[k].pnl += getPnlForMode(t, mode);
     if (t.taken) m[k].count++;
     m[k].trades.push(t);
-    if (t.aplus === "Yes") m[k].aplusTrades++;
+    if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") m[k].aplusTrades++;
   });
   return m;
 }
@@ -221,9 +222,17 @@ function calcTradeSharpScore(trades) {
   const maxDDDollar = peak * maxDD;
   const recoveryFactor = maxDDDollar > 0 ? netProfit / maxDDDollar : netProfit > 0 ? 10 : 0;
 
-  // A+ Discipline (% of trades that were A+ rated)
-  const aplusCount = valid.filter((t) => t.aplus === "Yes").length;
+  // A+ Discipline — setup quality (Yes + Yes But Execution Sucked = setup was valid)
+  const isAplusSetup = (t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
+  const aplusCount = valid.filter(isAplusSetup).length;
   const aplusPct = valid.length ? aplusCount / valid.length : 0;
+
+  // Execution quality — of A+ setups, how many had poor execution
+  const execSuckedCount = valid.filter((t) => t.aplus === "Yes But Execution Sucked").length;
+  const execQualityPct = aplusCount > 0 ? ((aplusCount - execSuckedCount) / aplusCount) * 100 : null;
+
+  // Post-review corrections — trades initially marked A+ but walked back
+  const yesToNoCount = valid.filter((t) => t.aplus === "Yes to No").length;
 
   // Score each pillar 0-100
   const score = (val, tiers) => {
@@ -249,7 +258,7 @@ function calcTradeSharpScore(trades) {
   const totalWeight = Object.values(weights).reduce((s, w) => s + w, 0);
   const composite = Math.round(pillars.reduce((s, p) => s + p.score * weights[p.key], 0) / totalWeight);
 
-  return { pillars, composite, totalTrades: valid.length };
+  return { pillars, composite, totalTrades: valid.length, execQualityPct, execSuckedCount, yesToNoCount, aplusCount };
 }
 
 function TradeSharpScore({ trades, month }) {
@@ -263,7 +272,7 @@ function TradeSharpScore({ trades, month }) {
     );
   }
 
-  const { pillars, composite, totalTrades } = result;
+  const { pillars, composite, totalTrades, execQualityPct, execSuckedCount, yesToNoCount, aplusCount } = result;
   const tier = composite >= 80 ? { label: "ELITE", color: "#22d3ee", verdict: "Trading at a high level. Protect this edge." }
     : composite >= 60 ? { label: "SOLID", color: "#22c55e", verdict: "Fundamentals are strong. Sharpen the weak spots." }
     : composite >= 40 ? { label: "DEVELOPING", color: "#f59e0b", verdict: "Building the foundation. Focus on consistency and discipline." }
@@ -423,6 +432,41 @@ function TradeSharpScore({ trades, month }) {
           </div>
         </div>
       </div>
+
+      {/* Execution Quality + Review Honesty */}
+      {aplusCount > 0 && (
+        <div style={{ padding: "0 28px 20px", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {execQualityPct !== null && (
+            <div style={{
+              flex: 1, minWidth: 180, padding: "12px 16px", borderRadius: 6,
+              background: execSuckedCount > 0 ? "rgba(245,158,11,0.06)" : "rgba(34,197,94,0.06)",
+              border: `1px solid ${execSuckedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(34,197,94,0.2)"}`,
+            }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>EXECUTION QUALITY</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: execSuckedCount > 0 ? "#f59e0b" : "#22c55e" }}>
+                {execQualityPct.toFixed(0)}% clean
+              </div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
+                {execSuckedCount > 0 ? `${execSuckedCount} of ${aplusCount} A+ trades left money on table` : `All ${aplusCount} A+ setups executed cleanly`}
+              </div>
+            </div>
+          )}
+          {yesToNoCount > 0 && (
+            <div style={{
+              flex: 1, minWidth: 180, padding: "12px 16px", borderRadius: 6,
+              background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.2)",
+            }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>REVIEW HONESTY</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+                {yesToNoCount} trade{yesToNoCount > 1 ? "s" : ""} corrected
+              </div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
+                Caught on review — good self-awareness
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pillar Breakdown */}
       <div style={{ padding: "0 28px 28px" }}>
@@ -1080,6 +1124,252 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TRADE REVIEW MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+
+const APLUS_OPTIONS = ["Yes", "No", "Yes to No", "Yes But Execution Sucked"];
+
+const aplusColor = (v) => {
+  if (v === "Yes") return "var(--green)";
+  if (v === "No") return "var(--red)";
+  if (v === "Yes to No") return "#f59e0b";
+  if (v === "Yes But Execution Sucked") return "#a78bfa";
+  return "var(--text-tertiary)";
+};
+
+const aplusShort = (v) => {
+  if (v === "Yes") return "YES ✓";
+  if (v === "No") return "NO";
+  if (v === "Yes to No") return "Y→N";
+  if (v === "Yes But Execution Sucked") return "YES / BAD EXEC";
+  return "—";
+};
+
+function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacyMode }) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [filterMonth, setFilterMonth] = useState(currentMonth);
+  const [filterTag, setFilterTag] = useState("all");
+  const [rowSaving, setRowSaving] = useState({});
+
+  const allMonths = [...new Set(trades.filter(t => t.dt).map(t => t.dt.slice(0, 7)))].sort().reverse();
+  if (!allMonths.includes(currentMonth)) allMonths.unshift(currentMonth);
+
+  const monthLabel = (m) => {
+    const [y, mo] = m.split("-");
+    return new Date(parseInt(y), parseInt(mo) - 1, 1).toLocaleString("default", { month: "long", year: "numeric" });
+  };
+
+  const filtered = trades.filter(t => {
+    if (!t.dt || t.dt.slice(0, 7) !== filterMonth) return false;
+    if (filterTag === "aplus") return t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
+    if (filterTag === "nonaplus") return t.aplus === "No" || t.aplus === "Yes to No";
+    if (filterTag === "exec") return t.aplus === "Yes But Execution Sucked";
+    if (filterTag === "corrected") return t.aplus === "Yes to No";
+    return true;
+  }).sort((a, b) => new Date(b.dt) - new Date(a.dt));
+
+  const updateAplus = async (trade, value) => {
+    setRowSaving(s => ({ ...s, [trade.id]: "saving" }));
+    await supabase.from("trades").update({ aplus: value }).eq("id", trade.id);
+    await loadTrades();
+    setRowSaving(s => ({ ...s, [trade.id]: "saved" }));
+    setTimeout(() => setRowSaving(s => { const n = { ...s }; delete n[trade.id]; return n; }), 1500);
+  };
+
+  const tagBtn = (key, label) => (
+    <button key={key} onClick={() => setFilterTag(key)} style={{
+      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+      padding: "6px 14px", borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em",
+      textTransform: "uppercase", transition: "all 0.15s",
+      border: filterTag === key ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+      background: filterTag === key ? "var(--accent-dim)" : "var(--bg-tertiary)",
+      color: filterTag === key ? "var(--accent)" : "var(--text-secondary)",
+    }}>{label}</button>
+  );
+
+  // Close on backdrop click
+  const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
+
+  return (
+    <div onClick={handleBackdrop} style={{
+      position: "fixed", inset: 0, zIndex: 400,
+      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "20px 16px",
+    }}>
+      <div style={{
+        width: "calc(100vw - 80px)", maxWidth: 1600, maxHeight: "90vh",
+        background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
+        borderRadius: 12, display: "flex", flexDirection: "column",
+        boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
+        animation: "fadeSlideIn 0.2s ease",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "20px 24px", borderBottom: "1px solid var(--border-primary)", flexShrink: 0,
+        }}>
+          <div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "0.04em" }}>TRADE REVIEW</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>
+              {filtered.length} trade{filtered.length !== 1 ? "s" : ""} · click A+ to update inline
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Month selector */}
+            <select
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+                padding: "7px 12px", borderRadius: 4, cursor: "pointer",
+                border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)",
+                color: "var(--text-primary)", outline: "none",
+              }}
+            >
+              {allMonths.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            </select>
+            <button onClick={onClose} style={{
+              width: 32, height: 32, borderRadius: 6, border: "1px solid var(--border-primary)",
+              background: "var(--bg-tertiary)", color: "var(--text-secondary)",
+              cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>✕</button>
+          </div>
+        </div>
+
+        {/* Filter tags */}
+        <div style={{ display: "flex", gap: 6, padding: "14px 24px", borderBottom: "1px solid var(--border-primary)", flexShrink: 0, flexWrap: "wrap" }}>
+          {tagBtn("all", "All")}
+          {tagBtn("aplus", "A+ Setups")}
+          {tagBtn("nonaplus", "Non A+")}
+          {tagBtn("exec", "Execution Issues")}
+          {tagBtn("corrected", "Yes → No")}
+        </div>
+
+        {/* Table */}
+        <div style={{ overflowY: "auto", overflowX: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 48, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-tertiary)" }}>
+              No trades for this filter.
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
+              <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
+                <tr>
+                  {["Date", "Asset", "Dir", "A+ Setup", "Taken", "P&L", "Chart", "After", "Notes", "After Thoughts"].map(h => (
+                    <th key={h} style={{
+                      padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700,
+                      color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
+                      borderBottom: "1px solid var(--border-primary)", whiteSpace: "nowrap",
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(t => {
+                  const pnl = parseFloat(t.profit);
+                  const status = rowSaving[t.id];
+                  return (
+                    <tr key={t.id} style={{ borderBottom: "1px solid var(--border-primary)", transition: "background 0.1s" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "var(--bg-tertiary)"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <td style={{ padding: "12px 16px", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                        {t.dt ? new Date(t.dt).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text-primary)" }}>{t.asset || "—"}</td>
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        {t.direction === "Long" ? <span style={{ color: "var(--green)", fontWeight: 700 }}>LONG</span>
+                          : t.direction === "Short" ? <span style={{ color: "var(--red)", fontWeight: 700 }}>SHORT</span> : "—"}
+                      </td>
+
+                      {/* Inline A+ dropdown */}
+                      <td style={{ padding: "10px 16px", minWidth: 180 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <select
+                            value={t.aplus || ""}
+                            onChange={e => updateAplus(t, e.target.value)}
+                            disabled={!!status}
+                            style={{
+                              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                              padding: "5px 10px", borderRadius: 4, cursor: "pointer", outline: "none",
+                              border: `1px solid ${aplusColor(t.aplus)}40`,
+                              background: `${aplusColor(t.aplus)}10`,
+                              color: aplusColor(t.aplus),
+                              transition: "all 0.15s", maxWidth: 190,
+                            }}
+                          >
+                            <option value="">Select...</option>
+                            {APLUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                          {status === "saving" && <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>saving...</span>}
+                          {status === "saved" && <span style={{ fontSize: 12, color: "var(--green)" }}>✓</span>}
+                        </div>
+                      </td>
+
+                      <td style={{ padding: "12px 16px" }}>
+                        {t.taken === "Yes" ? <span style={{ color: "var(--green)", fontWeight: 700 }}>YES</span>
+                          : t.taken === "No" ? <span style={{ color: "var(--red)" }}>NO</span>
+                          : t.taken === "Missed" ? <span style={{ color: "var(--gold)" }}>MISSED</span>
+                          : <span style={{ color: "var(--text-tertiary)" }}>{t.taken || "—"}</span>}
+                      </td>
+
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        {t.profit != null
+                          ? <span style={{ fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)" }}>
+                              {privacyMode ? "••••" : `${pnl >= 0 ? "+" : ""}$${Math.abs(pnl).toFixed(0)}`}
+                            </span>
+                          : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
+                      </td>
+
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        {safeUrl(t.chart)
+                          ? <a href={safeUrl(t.chart)} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", border: "1px solid var(--accent)", borderRadius: 4, opacity: 0.85 }}>↗ VIEW</a>
+                          : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
+                      </td>
+                      <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                        {safeUrl(t.after_chart)
+                          ? <a href={safeUrl(t.after_chart)} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--accent)", textDecoration: "none", padding: "4px 10px", border: "1px solid var(--accent)", borderRadius: 4, opacity: 0.85 }}>↗ VIEW</a>
+                          : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-tertiary)", minWidth: 200, maxWidth: 300, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontSize: 12 }}>
+                        {t.notes || "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "var(--text-tertiary)", minWidth: 200, maxWidth: 300, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontSize: 12 }}>
+                        {t.after_thoughts || "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Footer summary */}
+        <div style={{
+          padding: "14px 24px", borderTop: "1px solid var(--border-primary)",
+          display: "flex", gap: 20, flexShrink: 0, flexWrap: "wrap",
+        }}>
+          {[
+            { label: "A+ Setups", val: filtered.filter(t => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length, color: "var(--green)" },
+            { label: "Exec Issues", val: filtered.filter(t => t.aplus === "Yes But Execution Sucked").length, color: "#a78bfa" },
+            { label: "Yes → No", val: filtered.filter(t => t.aplus === "Yes to No").length, color: "#f59e0b" },
+            { label: "Non-A+", val: filtered.filter(t => t.aplus === "No").length, color: "var(--red)" },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, color }}>{val}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STATS TAB — Trade stats, equity curve, calendar, trade history
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1090,6 +1380,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const [editing, setEditing] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [pnlMode, setPnlMode] = useState("personal");
+  const [showReview, setShowReview] = useState(false);
 
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
@@ -1334,8 +1625,20 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
       {/* Trade History Table */}
       <TCard style={{ overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 10 }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>TRADE HISTORY</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {trades.length > 0 && (
+            <button
+              onClick={() => setShowReview(true)}
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                padding: "6px 14px", borderRadius: 4, cursor: "pointer",
+                border: "1px solid var(--accent)", background: "var(--accent-dim)",
+                color: "var(--accent)", letterSpacing: "0.05em", transition: "all 0.15s",
+              }}
+            >⊞ REVIEW TRADES</button>
+          )}
           {trades.length > 0 && (
             <button
               onClick={() => {
@@ -1371,6 +1674,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               }}
             >↓ EXPORT CSV</button>
           )}
+          </div>
         </div>
         {!trades.length ? (
           <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged yet.</div>
@@ -1430,6 +1734,18 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           </div>
         )}
       </TCard>
+
+      {/* Trade Review Modal */}
+      {showReview && (
+        <TradeReviewModal
+          trades={trades}
+          supabase={supabase}
+          user={user}
+          loadTrades={loadTrades}
+          privacyMode={privacyMode}
+          onClose={() => setShowReview(false)}
+        />
+      )}
 
       {/* Edit Modal */}
       {editing && (
@@ -1557,7 +1873,9 @@ function AISummarySection({ trades }) {
     const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed").length;
     const wins = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
     const losses = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) < 0).length;
-    const aplusTaken = periodTrades.filter((t) => t.aplus === "Yes" && t.taken && t.taken !== "Missed").length;
+    const aplusTaken = periodTrades.filter((t) => (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") && t.taken && t.taken !== "Missed").length;
+    const execSucked = periodTrades.filter((t) => t.aplus === "Yes But Execution Sucked" && t.taken && t.taken !== "Missed").length;
+    const yesToNo = periodTrades.filter((t) => t.aplus === "Yes to No").length;
     const nonAplus = periodTrades.filter((t) => t.aplus === "No" && t.taken && t.taken !== "Missed").length;
     const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
     const missed = periodTrades.filter((t) => t.taken === "Missed").length;
@@ -1584,9 +1902,17 @@ RISK CONTEXT:
 PERIOD: ${label}
 TOTAL TRADES LOGGED: ${periodTrades.length}
 TRADES TAKEN: ${taken} (Wins: ${wins}, Losses: ${losses})
-A+ TRADES TAKEN: ${aplusTaken}
+A+ SETUPS TAKEN: ${aplusTaken} (includes "Yes But Execution Sucked")
+  - "Yes But Execution Sucked": ${execSucked} — setup was valid, execution was poor (left money on table)
+  - "Yes to No": ${yesToNo} — initially marked A+, corrected on review (setup wasn't actually A+)
 NON-A+ TRADES TAKEN: ${nonAplus}
 MISSED SETUPS: ${missed}
+
+A+ LABEL DEFINITIONS (important for your analysis):
+- "Yes" = A+ setup, executed cleanly
+- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor — left money on table
+- "Yes to No" = Trader initially thought it was A+, but corrected on review — setup wasn't actually valid
+- "No" = Not an A+ setup
 NET P&L: $${totalPnl.toFixed(2)} (only from trades with P&L entered)
 WIN RATE: ${taken ? Math.round((wins / taken) * 100) : 0}%
 
@@ -1603,7 +1929,7 @@ ANALYSIS INSTRUCTIONS:
    - Setups that appear in winners but are absent in losers
    If the trader doesn't mention specific setups in their notes, call that out — they should be documenting what confluence was present.
 3. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
-4. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it.
+4. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it. If "Yes But Execution Sucked" trades appear, dig into the execution failures — are they sizing wrong, exiting early, moving stops? If "Yes to No" trades appear, acknowledge the self-awareness but flag whether this is a recurring pattern of impulsive entries.
 5. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
 6. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
 7. Final Word — One honest sentence about where this trader is mentally.
@@ -3183,8 +3509,16 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
     const taken = periodTrades.filter(t => t.taken && t.taken !== "Missed").length;
     const wins = periodTrades.filter(t => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
     const pnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const execSucked = periodTrades.filter(t => t.aplus === "Yes But Execution Sucked").length;
+    const yesToNo = periodTrades.filter(t => t.aplus === "Yes to No").length;
 
     const prompt = `You are a direct, experienced trading coach reviewing a futures trader's journal for ${label}. They use an ICT-inspired fractal model, trading NQ/ES primarily in the NY session, max 2 trades/day.
+
+A+ LABEL DEFINITIONS:
+- "Yes" = A+ setup, executed cleanly
+- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor — left money on table (${execSucked} this period)
+- "Yes to No" = Trader initially thought it was A+, corrected on review — setup wasn't actually valid (${yesToNo} this period)
+- "No" = Not an A+ setup
 
 JOURNAL ENTRIES:
 ${notebookText || "(No entries for this period)"}
