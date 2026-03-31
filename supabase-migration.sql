@@ -124,6 +124,13 @@ alter table trades add column if not exists after_thoughts text;
 -- Add profit_funded column to trades (personal P&L stays in "profit", funded P&L goes here)
 alter table trades add column if not exists profit_funded numeric;
 
+-- Add tags column to trades (array of setup tags e.g. GXT, TTFM, CISD, etc.)
+alter table trades add column if not exists tags text[];
+
+-- Link trades to specific accounts
+alter table trades add column if not exists account_id_personal uuid references accounts(id) on delete set null;
+alter table trades add column if not exists account_id_funded uuid references accounts(id) on delete set null;
+
 -- Watchlist table (trade ideas)
 create table if not exists watchlist (
   id uuid default gen_random_uuid() primary key,

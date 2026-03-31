@@ -25,6 +25,65 @@ const TIMER_ITEM = { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "T
 const ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+const TRADE_TAGS = [
+  { label: "GXT",    color: "#22d3ee" },
+  { label: "TTFM",   color: "#a78bfa" },
+  { label: "CISD",   color: "#f59e0b" },
+  { label: "ICCISD", color: "#fb923c" },
+  { label: "1STG",   color: "#34d399" },
+  { label: "2STG",   color: "#60a5fa" },
+  { label: "SMT",    color: "#f472b6" },
+  { label: "PSP",    color: "#2dd4bf" },
+  { label: "SSMT",   color: "#f87171" },
+];
+
+const TagPicker = ({ selected, onChange }) => (
+  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+    {TRADE_TAGS.map(({ label, color }) => {
+      const active = selected.includes(label);
+      return (
+        <button
+          key={label}
+          type="button"
+          onClick={() => onChange(active ? selected.filter(t => t !== label) : [...selected, label])}
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 10, fontWeight: 700,
+            padding: "3px 9px", borderRadius: 4,
+            cursor: "pointer", letterSpacing: "0.08em",
+            border: `1px solid ${active ? color : "var(--border-primary)"}`,
+            background: active ? `${color}22` : "transparent",
+            color: active ? color : "var(--text-tertiary)",
+            transition: "all 0.15s",
+          }}
+        >#{label}</button>
+      );
+    })}
+  </div>
+);
+
+const TradeTagChips = ({ tags }) => {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+      {tags.map(label => {
+        const def = TRADE_TAGS.find(t => t.label === label);
+        const color = def ? def.color : "var(--text-tertiary)";
+        return (
+          <span key={label} style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
+            padding: "2px 7px", borderRadius: 3,
+            border: `1px solid ${color}`,
+            background: `${color}18`,
+            color,
+          }}>#{label}</span>
+        );
+      })}
+    </div>
+  );
+};
+
 const XP_LEVELS = [
   { name: "Developing Trader", icon: "🌱", min: 0, max: 100 },
   { name: "Consistent Trader", icon: "📈", min: 100, max: 300 },
@@ -109,6 +168,14 @@ function getPnlForMode(t, mode) {
   if (mode === "funded") return parseFloat(t.profit_funded) || 0;
   if (mode === "both") return (parseFloat(t.profit) || 0) + (parseFloat(t.profit_funded) || 0);
   return parseFloat(t.profit) || 0; // "personal" default
+}
+
+async function recalcAccountPnl(supabase, accountId, pnlField) {
+  if (!accountId) return;
+  const linkField = pnlField === "profit" ? "account_id_personal" : "account_id_funded";
+  const { data } = await supabase.from("trades").select(pnlField).eq(linkField, accountId);
+  const total = (data || []).reduce((s, t) => s + (parseFloat(t[pnlField]) || 0), 0);
+  await supabase.from("accounts").update({ current_pnl: parseFloat(total.toFixed(2)) }).eq("id", accountId);
 }
 
 function buildDayMap(trades, mode = "personal") {
@@ -977,6 +1044,16 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formAfterThoughts, setFormAfterThoughts] = useState("");
+  const [formTags, setFormTags] = useState([]);
+  const [formAccountPersonal, setFormAccountPersonal] = useState("");
+  const [formAccountFunded, setFormAccountFunded] = useState("");
+
+  // Accounts for selectors
+  const [accounts, setAccounts] = useState([]);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+  }, [user]);
 
   // Google Sheets settings
   const [showGsSettings, setShowGsSettings] = useState(false);
@@ -1030,13 +1107,18 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
       after_chart: safeUrl(formAfter) || "",
       notes: sanitizeText(formNotes),
       after_thoughts: sanitizeText(formAfterThoughts),
+      tags: formTags.length > 0 ? formTags : null,
+      account_id_personal: formAccountPersonal || null,
+      account_id_funded: formAccountFunded || null,
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (!error) {
       if (syncToSheets) syncToSheets({ ...tradeData, after: tradeData.after_chart, dtFormatted: fmtDate(formDt), preMarketJournal: plan.session_plan || "", mood: mood || "" });
+      await recalcAccountPnl(supabase, formAccountPersonal, "profit");
+      await recalcAccountPnl(supabase, formAccountFunded, "profit_funded");
       setFormAsset(""); setFormDirection(""); setFormAplus("");
       setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormChart("");
-      setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormDt(nowLocal());
+      setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
       loadTrades();
     }
   };
@@ -1098,6 +1180,22 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
           <Field label="Funded P&L ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
           </Field>
+          <Field label="Personal Account">
+            <select style={selectStyle} value={formAccountPersonal} onChange={(e) => setFormAccountPersonal(e.target.value)}>
+              <option value="">None</option>
+              {accounts.filter(a => a.account_type === "personal").map(a => (
+                <option key={a.id} value={a.id}>{a.account_name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Funded Account">
+            <select style={selectStyle} value={formAccountFunded} onChange={(e) => setFormAccountFunded(e.target.value)}>
+              <option value="">None</option>
+              {accounts.filter(a => a.account_type === "funded" || a.account_type === "eval").map(a => (
+                <option key={a.id} value={a.id}>{a.account_name} — {a.firm}</option>
+              ))}
+            </select>
+          </Field>
           <Field label="TradingView Link">
             <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
           </Field>
@@ -1109,6 +1207,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
           </Field>
           <Field label="After Trade Thoughts" full>
             <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
+            <TagPicker selected={formTags} onChange={setFormTags} />
           </Field>
         </div>
         <button onClick={logTrade} style={{
@@ -1153,6 +1252,12 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
   const [rowSaving, setRowSaving] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [rowEdits, setRowEdits] = useState({});
+  const [modalAccounts, setModalAccounts] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setModalAccounts(data); });
+  }, [user]);
 
   const allMonths = [...new Set(trades.filter(t => t.dt).map(t => t.dt.slice(0, 7)))].sort().reverse();
   if (!allMonths.includes(currentMonth)) allMonths.unshift(currentMonth);
@@ -1189,17 +1294,27 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       profit_funded: t.profit_funded != null ? String(t.profit_funded) : "",
       chart: t.chart || "", after_chart: t.after_chart || "",
       notes: t.notes || "", after_thoughts: t.after_thoughts || "",
+      tags: t.tags || [],
+      account_id_personal: t.account_id_personal || "",
+      account_id_funded: t.account_id_funded || "",
     }}));
   };
 
   const saveRow = async (id) => {
     setRowSaving(s => ({ ...s, [id]: "saving" }));
     const edits = rowEdits[id];
+    const prevTrade = trades.find(t => t.id === id);
     await supabase.from("trades").update({
       ...edits,
       profit: edits.profit !== "" ? parseFloat(edits.profit) : null,
       profit_funded: edits.profit_funded !== "" ? parseFloat(edits.profit_funded) : null,
+      account_id_personal: edits.account_id_personal || null,
+      account_id_funded: edits.account_id_funded || null,
     }).eq("id", id);
+    const affectedPersonal = new Set([prevTrade?.account_id_personal, edits.account_id_personal].filter(Boolean));
+    const affectedFunded = new Set([prevTrade?.account_id_funded, edits.account_id_funded].filter(Boolean));
+    for (const aid of affectedPersonal) await recalcAccountPnl(supabase, aid, "profit");
+    for (const aid of affectedFunded) await recalcAccountPnl(supabase, aid, "profit_funded");
     await loadTrades();
     setRowSaving(s => ({ ...s, [id]: "saved" }));
     setTimeout(() => {
@@ -1396,6 +1511,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                       </td>
                       <td style={{ padding: "12px 16px", color: "var(--text-tertiary)", minWidth: 200, maxWidth: 300, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontSize: 12 }}>
                         {t.after_thoughts || "—"}
+                        <TradeTagChips tags={t.tags} />
                       </td>
                       <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                         <button onClick={() => openExpand(t)} style={{
@@ -1463,6 +1579,30 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>After Thoughts</div>
                                   <textarea value={ed.after_thoughts} onChange={e => setField(t.id, "after_thoughts", e.target.value)} rows={3} style={{ ...inpStyle, resize: "vertical" }} placeholder="Post-trade reflection..." />
+                                </div>
+                              </div>
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Tags</div>
+                                <TagPicker selected={ed.tags || []} onChange={val => setField(t.id, "tags", val)} />
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Personal Account</div>
+                                  <select value={ed.account_id_personal || ""} onChange={e => setField(t.id, "account_id_personal", e.target.value)} style={inpStyle}>
+                                    <option value="">None</option>
+                                    {modalAccounts.filter(a => a.account_type === "personal").map(a => (
+                                      <option key={a.id} value={a.id}>{a.account_name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Funded Account</div>
+                                  <select value={ed.account_id_funded || ""} onChange={e => setField(t.id, "account_id_funded", e.target.value)} style={inpStyle}>
+                                    <option value="">None</option>
+                                    {modalAccounts.filter(a => a.account_type === "funded" || a.account_type === "eval").map(a => (
+                                      <option key={a.id} value={a.id}>{a.account_name} — {a.firm}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
                               <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1536,12 +1676,17 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   // Equity curve
   useEffect(() => {
     if (!chartRef.current) return;
-    const sorted = [...trades].filter((t) => t.dt && t.profit !== "" && t.profit != null).sort((a, b) => new Date(a.dt) - new Date(b.dt));
+    const sorted = [...trades].filter((t) => {
+      if (!t.dt) return false;
+      if (pnlMode === "funded") return t.profit_funded != null && t.profit_funded !== "";
+      if (pnlMode === "both") return (t.profit != null && t.profit !== "") || (t.profit_funded != null && t.profit_funded !== "");
+      return t.profit != null && t.profit !== "";
+    }).sort((a, b) => new Date(a.dt) - new Date(b.dt));
     const labels = [];
     const data = [];
     let cum = 0;
     sorted.forEach((t) => {
-      cum += parseFloat(t.profit) || 0;
+      cum += getPnlForMode(t, pnlMode);
       labels.push(new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }));
       data.push(parseFloat(cum.toFixed(2)));
     });
@@ -1586,7 +1731,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       },
     });
     return () => { if (chartInstance.current) chartInstance.current.destroy(); };
-  }, [trades]);
+  }, [trades, pnlMode]);
 
   const deleteTrade = async (id) => {
     if (!window.confirm("Delete this trade entry?")) return;
@@ -1604,11 +1749,15 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       profit_funded: trade.profit_funded != null ? String(trade.profit_funded) : "",
       chart: trade.chart || "", after_chart: trade.after_chart || "",
       notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
+      tags: trade.tags || [],
+      account_id_personal: trade.account_id_personal || "",
+      account_id_funded: trade.account_id_funded || "",
     });
   };
 
   const saveEdit = async () => {
     if (!editing) return;
+    const prevTrade = trades.find(t => t.id === editing);
     await supabase.from("trades").update({
       dt: editForm.dt ? new Date(editForm.dt).toISOString() : null,
       asset: editForm.asset, direction: editForm.direction,
@@ -1617,7 +1766,15 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       profit_funded: editForm.profit_funded ? parseFloat(editForm.profit_funded) : null,
       chart: editForm.chart, after_chart: editForm.after_chart, notes: editForm.notes,
       after_thoughts: editForm.after_thoughts,
+      tags: editForm.tags && editForm.tags.length > 0 ? editForm.tags : null,
+      account_id_personal: editForm.account_id_personal || null,
+      account_id_funded: editForm.account_id_funded || null,
     }).eq("id", editing);
+    // Recalc any accounts that were affected (old or new)
+    const affectedPersonal = new Set([prevTrade?.account_id_personal, editForm.account_id_personal].filter(Boolean));
+    const affectedFunded = new Set([prevTrade?.account_id_funded, editForm.account_id_funded].filter(Boolean));
+    for (const id of affectedPersonal) await recalcAccountPnl(supabase, id, "profit");
+    for (const id of affectedFunded) await recalcAccountPnl(supabase, id, "profit_funded");
     setEditing(null);
     loadTrades();
   };
@@ -1788,7 +1945,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           {trades.length > 0 && (
             <button
               onClick={() => {
-                const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Chart URL", "After Chart URL"];
+                const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Tags", "Chart URL", "After Chart URL"];
                 const rows = trades.map((t) => [
                   t.dt ? new Date(t.dt).toLocaleString() : "",
                   t.asset || "",
@@ -1800,6 +1957,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   t.profit_funded != null ? t.profit_funded : "",
                   `"${(t.notes || "").replace(/"/g, '""')}"`,
                   `"${(t.after_thoughts || "").replace(/"/g, '""')}"`,
+                  (t.tags || []).map(tag => `#${tag}`).join(" "),
                   t.chart || "",
                   t.after_chart || "",
                 ]);
@@ -1867,7 +2025,10 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                       <td style={cellStyle}>
                         {safeUrl(t.after_chart) ? <a href={safeUrl(t.after_chart)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
-                      <td style={{ ...cellStyle, maxWidth: 140, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>{t.notes || "—"}</td>
+                      <td style={{ ...cellStyle, maxWidth: 160, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.notes || "—"}</div>
+                        <TradeTagChips tags={t.tags} />
+                      </td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
                         <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--accent-secondary)", padding: "2px 6px" }}>✏️</button>
                         <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", padding: "2px 6px" }}>✕</button>
@@ -1951,6 +2112,22 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               <Field label="Funded P&L ($)">
                 <input type="number" style={inputStyle} placeholder="Leave blank if not taken on funded" value={editForm.profit_funded} onChange={(e) => setEditForm({ ...editForm, profit_funded: e.target.value })} />
               </Field>
+              <Field label="Personal Account">
+                <select style={selectStyle} value={editForm.account_id_personal || ""} onChange={(e) => setEditForm({ ...editForm, account_id_personal: e.target.value })}>
+                  <option value="">None</option>
+                  {accounts.filter(a => a.account_type === "personal").map(a => (
+                    <option key={a.id} value={a.id}>{a.account_name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Funded Account">
+                <select style={selectStyle} value={editForm.account_id_funded || ""} onChange={(e) => setEditForm({ ...editForm, account_id_funded: e.target.value })}>
+                  <option value="">None</option>
+                  {accounts.filter(a => a.account_type === "funded" || a.account_type === "eval").map(a => (
+                    <option key={a.id} value={a.id}>{a.account_name} — {a.firm}</option>
+                  ))}
+                </select>
+              </Field>
               <Field label="TradingView Link">
                 <input type="url" style={inputStyle} value={editForm.chart} onChange={(e) => setEditForm({ ...editForm, chart: e.target.value })} />
               </Field>
@@ -1962,6 +2139,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               </Field>
               <Field label="After Trade Thoughts" full>
                 <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently?" value={editForm.after_thoughts} onChange={(e) => setEditForm({ ...editForm, after_thoughts: e.target.value })} />
+                <TagPicker selected={editForm.tags || []} onChange={(val) => setEditForm({ ...editForm, tags: val })} />
               </Field>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
@@ -2024,15 +2202,46 @@ function AISummarySection({ trades }) {
     const yesToNo = periodTrades.filter((t) => t.aplus === "Yes to No").length;
     const nonAplus = periodTrades.filter((t) => t.aplus === "No" && t.taken && t.taken !== "Missed").length;
     const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const totalFundedPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
     const missed = periodTrades.filter((t) => t.taken === "Missed").length;
 
-    const tradesSummary = periodTrades.map((t) => `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Profit: ${t.profit != null ? "$" + t.profit : "blank"}, Notes: ${t.notes || "none"}, After Trade Thoughts: ${t.after_thoughts || "none"}`).join("\n");
+    // TradeSharp Score for the period
+    const tsResult = calcTradeSharpScore(periodTrades);
+    const tsSection = tsResult
+      ? `TRADESHARP SCORE: ${tsResult.composite}/100 (${tsResult.composite >= 80 ? "ELITE" : tsResult.composite >= 60 ? "SOLID" : tsResult.composite >= 40 ? "DEVELOPING" : "NEEDS WORK"})
+PILLAR BREAKDOWN:
+${tsResult.pillars.map((pl) => `  ${pl.label}: ${pl.display} (score: ${Math.round(pl.score)}/100)`).join("\n")}
+EXECUTION QUALITY: ${tsResult.execQualityPct != null ? tsResult.execQualityPct.toFixed(0) + "% of A+ setups executed cleanly" : "N/A"}`
+      : "TRADESHARP SCORE: Insufficient data for this period";
+
+    // Tag-based win/loss breakdown
+    const tagMap = {};
+    periodTrades.forEach((t) => {
+      if (t.tags && t.tags.length > 0) {
+        t.tags.forEach((tag) => {
+          if (!tagMap[tag]) tagMap[tag] = { trades: 0, wins: 0, losses: 0, pnl: 0 };
+          tagMap[tag].trades++;
+          const pv = parseFloat(t.profit);
+          if (!isNaN(pv) && pv > 0) tagMap[tag].wins++;
+          if (!isNaN(pv) && pv < 0) tagMap[tag].losses++;
+          if (!isNaN(pv)) tagMap[tag].pnl += pv;
+        });
+      }
+    });
+    const tagSection = Object.keys(tagMap).length > 0
+      ? "SETUP TAGS BREAKDOWN (from tagged trades):\n" + Object.entries(tagMap).map(([tag, s]) => `  #${tag}: ${s.trades} trades, ${s.wins}W/${s.losses}L${s.pnl !== 0 ? `, P&L: $${s.pnl.toFixed(0)}` : ""}`).join("\n")
+      : "SETUP TAGS: No tags logged yet — trader has not labeled setups with tags";
+
+    const tradesSummary = periodTrades.map((t) => {
+      const tags = t.tags && t.tags.length > 0 ? t.tags.map((tag) => `#${tag}`).join(" ") : "none";
+      return `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"}, Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"}, Tags: ${tags}, Notes: ${t.notes || "none"}, After Trade Thoughts: ${t.after_thoughts || "none"}`;
+    }).join("\n");
 
     const prompt = `You are a direct but fair trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You're honest and straightforward — you don't sugarcoat, but you're not harsh either. Think tough older brother energy. You point out weaknesses clearly because you want this trader to improve, and you genuinely acknowledge strengths when earned.
 
 TRADING MODEL & RULES:
 - Trades NQ, ES, GC, SI (index futures primarily)
-- Uses: Fractal Model (TTFM), CISD, ICCISD, SMT divergence, CIC (Crack in Correlation), liquidity framework, FVGs
+- Uses: Fractal Model (TTFM), CISD, ICCISD, SMT divergence, PSP, SSMT, CIC (Crack in Correlation), GXT, 1STG/2STG entries, liquidity framework, FVGs
 - A+ trade requires: CIC/SMT confirmation, key level/liquidity, timeframe alignment, CISD, ICCISD, TTFM alignment, correct session, good R:R, stop loss defined
 - Default rule: NY session only. Avoid London session
 - Max 2 trades per session
@@ -2043,7 +2252,8 @@ RISK CONTEXT:
 - Trades with P&L of $0–$200 are effectively breakeven — not real wins
 - Trades over $1,000 profit = solid 2R+ execution
 - Losses beyond -$500 = overexposure or moved stop
-- IMPORTANT: Many trades on funded accounts have blank P&L — this does NOT mean breakeven. It means the trader didn't enter the number. Do not count blank P&L as $0. Ignore blank P&L trades when calculating performance metrics.
+- Personal P&L = trader's personal account. Funded P&L = prop firm account. Both matter — evaluate each where available.
+- IMPORTANT: Blank P&L does NOT mean breakeven — it means the trader didn't enter the number. Ignore blank fields when calculating metrics.
 
 PERIOD: ${label}
 TOTAL TRADES LOGGED: ${periodTrades.length}
@@ -2054,39 +2264,39 @@ A+ SETUPS TAKEN: ${aplusTaken} (includes "Yes But Execution Sucked")
 NON-A+ TRADES TAKEN: ${nonAplus}
 MISSED SETUPS: ${missed}
 
-A+ LABEL DEFINITIONS (important for your analysis):
+A+ LABEL DEFINITIONS:
 - "Yes" = A+ setup, executed cleanly
-- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor — left money on table
-- "Yes to No" = Trader initially thought it was A+, but corrected on review — setup wasn't actually valid
+- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor
+- "Yes to No" = Trader initially thought it was A+, corrected on review — not actually valid
 - "No" = Not an A+ setup
-NET P&L: $${totalPnl.toFixed(2)} (only from trades with P&L entered)
+NET PERSONAL P&L: $${totalPnl.toFixed(2)} (trades with P&L entered)
+NET FUNDED P&L: $${totalFundedPnl.toFixed(2)} (funded account trades with P&L entered)
 WIN RATE: ${taken ? Math.round((wins / taken) * 100) : 0}%
 
-INDIVIDUAL TRADES (with notes):
+${tsSection}
+
+${tagSection}
+
+INDIVIDUAL TRADES:
 ${tradesSummary}
 
 ANALYSIS INSTRUCTIONS:
-1. Performance Overview — P&L, win rate, key numbers. Judge wins against the $500 risk / $1,000 target framework. Call out breakeven trades disguised as wins.
-2. Setup Pattern Recognition — Read through all trade notes and after-trade thoughts carefully. Identify which setups/confluences the trader used on each trade (SMT, 2STGSMT, SSMT, PSP, SMTFILL, CISD, ICCISD, CIC, TTFM, liquidity sweep, FVG, etc.). Then break down:
-   - Win rate per setup type (e.g. "SMT setups: 4W/1L = 80%")
-   - Which setups are making money vs losing money
-   - Which setup + session combos work best
-   - Any setups being forced (high frequency, low win rate)
-   - Setups that appear in winners but are absent in losers
-   If the trader doesn't mention specific setups in their notes, call that out — they should be documenting what confluence was present.
-3. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
-4. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it. If "Yes But Execution Sucked" trades appear, dig into the execution failures — are they sizing wrong, exiting early, moving stops? If "Yes to No" trades appear, acknowledge the self-awareness but flag whether this is a recurring pattern of impulsive entries.
-5. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
-6. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
-7. Final Word — One honest sentence about where this trader is mentally.
+1. Performance Overview — Cover both Personal and Funded P&L separately where data exists. Win rate, key numbers. Judge wins against the $500 risk / $1,000 target framework. Call out breakeven trades disguised as wins.
+2. TradeSharp Score Analysis — Reference the composite score and call out which specific pillars are dragging the score down. If Consistency is weak, say so. If A+ Discipline is high but Win Rate is low, call out the execution gap. Use the pillar scores to be precise.
+3. Setup Tag Analysis — Use the Tags field on each trade as the primary setup identifier. Break down win rate and P&L per tag (e.g. "#2STG: 3W/1L = 75%"). Identify which tagged setups are profitable vs which are bleeding. If trades have no tags, call that out — the trader should be labeling every setup.
+4. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
+5. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it. If "Yes But Execution Sucked" trades appear, dig into the execution failures — are they sizing wrong, exiting early, moving stops? If "Yes to No" trades appear, flag whether this is a recurring impulsive entry pattern.
+6. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
+7. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
+8. Final Word — One honest sentence about where this trader is mentally.
 
-Be direct, specific, and reference actual trades and their notes. Keep it under 700 words.`;
+Be direct, specific, and reference actual trades and their notes. Keep it under 800 words.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
       setOutput(data.content?.map((c) => c.text || "").join("") || "No response received.");
