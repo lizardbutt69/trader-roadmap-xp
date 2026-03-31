@@ -1026,6 +1026,8 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
               <option value="">Select...</option>
               <option>Yes</option>
               <option>No</option>
+              <option>Yes to No</option>
+              <option>Yes But Execution Sucked</option>
             </select>
           </Field>
           <Field label="Taken?">
@@ -1459,6 +1461,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   <option value="">Select...</option>
                   <option>Yes</option>
                   <option>No</option>
+                  <option>Yes to No</option>
+                  <option>Yes But Execution Sucked</option>
                 </select>
               </Field>
               <Field label="Taken?">
@@ -3206,8 +3210,10 @@ Be direct. Quote their exact words. Tough but fair.`;
       });
       const data = await res.json();
       const output = data.content?.map(c => c.text || "").join("") || "No response received.";
+      const periodLabel = period === "day" ? "TODAY" : period === "week" ? "THIS WEEK" : "THIS MONTH";
+      const timestamped = `[${periodLabel} · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}]\n\n${output}`;
       setAiOutput(output);
-      if (period === "day") save({ ai_summary: output });
+      save({ ai_summary: timestamped });
     } catch {
       setAiOutput("Failed to generate summary. Check your API key and try again.");
     } finally {
