@@ -218,11 +218,11 @@ function XPBar({ current, max, color = "#4a8fe7", height = 10 }) {
         style={{
           width: `${pct}%`,
           height: "100%",
-          background: `linear-gradient(90deg, ${color}, ${color}88)`,
+          background: `linear-gradient(90deg, ${color}cc, ${color})`,
           borderRadius: 4,
           transition: "width 0.8s cubic-bezier(.4,0,.2,1)",
           position: "relative",
-          boxShadow: "none",
+          boxShadow: pct > 0 ? `0 0 8px ${color}60` : "none",
         }}
       />
     </div>
@@ -282,6 +282,76 @@ function Chip({ label, color, icon }) {
   );
 }
 
+function LevelMapCard({ level, isActive, isCurrent, allDone, isPast, done, total, pct, onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => isActive && setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        flex: 1,
+        padding: "16px 18px",
+        paddingLeft: 15,
+        borderRadius: 8,
+        background: isCurrent
+          ? `${level.accent}10`
+          : hov
+          ? "var(--bg-tertiary)"
+          : isActive
+          ? "var(--bg-secondary)"
+          : "var(--bg-tertiary)",
+        border: isCurrent
+          ? `1px solid ${level.accent}50`
+          : allDone
+          ? `1px solid ${level.accent}40`
+          : `1px solid var(--border-primary)`,
+        borderLeft: isCurrent
+          ? `3px solid ${level.accent}`
+          : allDone
+          ? `3px solid ${level.accent}60`
+          : "3px solid transparent",
+        cursor: isActive ? "pointer" : "default",
+        opacity: isActive ? 1 : 0.5,
+        transition: "all 0.2s cubic-bezier(.4,0,.2,1)",
+        transform: hov && isActive ? "translateY(-1px)" : "none",
+        boxShadow: isCurrent
+          ? `0 0 24px ${level.accent}18, var(--card-shadow)`
+          : hov
+          ? "0 4px 20px rgba(0,0,0,0.12)"
+          : "var(--card-shadow)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <ProgressRing pct={pct} size={48} stroke={4} color={level.accent}>
+          <span style={{ fontSize: 20 }}>{allDone ? "⭐" : level.icon}</span>
+        </ProgressRing>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+              {level.name}
+            </span>
+            <Chip label={level.tier} color={level.accent} />
+            {isCurrent && <Chip label="YOU ARE HERE" color={level.accent} />}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 7 }}>{level.subtitle}</div>
+          <XPBar current={done} max={total} color={level.accent} height={5} />
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, textAlign: "right" }}>
+            {done}/{total} quests · {pct}%
+          </div>
+        </div>
+        {isActive && (
+          <div style={{
+            fontSize: 14, color: hov ? level.accent : "var(--text-tertiary)",
+            flexShrink: 0, transition: "all 0.2s",
+            transform: hov ? "translateX(2px)" : "none",
+          }}>›</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index }) {
   const done = level.achievements.filter((a) => completedIds.has(a.id)).length;
   const total = level.achievements.length;
@@ -335,19 +405,26 @@ function LevelNode({ level, completedIds, isActive, isCurrent, onClick, index })
 
 function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
   const meta = TYPE_META[ach.type];
+  const [hov, setHov] = useState(false);
   return (
     <div
       onClick={onToggle}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 14,
         padding: "14px 16px",
-        borderRadius: 6,
-        background: completed ? `${meta.color}08` : "var(--bg-tertiary)",
-        border: `1.5px solid ${completed ? `${meta.color}35` : "var(--border-primary)"}`,
+        paddingLeft: 13,
+        borderRadius: 8,
+        background: completed ? `${meta.color}08` : hov ? "var(--bg-tertiary)" : "var(--bg-secondary)",
+        border: `1px solid ${completed ? `${meta.color}30` : "var(--border-primary)"}`,
+        borderLeft: `3px solid ${completed ? meta.color : hov ? "var(--border-glow)" : "transparent"}`,
         cursor: "pointer",
-        transition: "all 0.25s",
+        transition: "all 0.2s cubic-bezier(.4,0,.2,1)",
+        transform: hov ? "translateY(-1px)" : "none",
+        boxShadow: hov ? "0 4px 16px rgba(0,0,0,0.12)" : "none",
         animation: `fadeSlideIn 0.35s ease ${delay}s both`,
       }}
     >
@@ -356,7 +433,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
         style={{
           width: 28,
           height: 28,
-          borderRadius: 4,
+          borderRadius: "50%",
           border: `2px solid ${completed ? meta.color : "var(--border-primary)"}`,
           background: completed ? meta.color : "transparent",
           display: "flex",
@@ -364,9 +441,10 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
           justifyContent: "center",
           flexShrink: 0,
           transition: "all 0.25s",
+          boxShadow: completed ? `0 0 10px ${meta.color}50` : "none",
         }}
       >
-        {completed && <span style={{ color: "var(--bg-primary)", fontSize: 14, lineHeight: 1 }}>✓</span>}
+        {completed && <span style={{ color: "#fff", fontSize: 13, lineHeight: 1, fontWeight: 700 }}>✓</span>}
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -398,17 +476,19 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
       <div
         style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700,
-          fontSize: 13,
+          fontSize: 12,
           color: completed ? meta.color : "var(--gold)",
           flexShrink: 0,
-          background: completed ? `${meta.color}12` : "var(--accent-glow)",
+          background: completed ? `${meta.color}15` : "rgba(251,191,36,0.1)",
+          border: `1px solid ${completed ? `${meta.color}35` : "rgba(251,191,36,0.25)"}`,
           padding: "4px 10px",
-          borderRadius: 4,
+          borderRadius: 20,
           whiteSpace: "nowrap",
+          letterSpacing: "0.02em",
         }}
       >
         {completed ? "✓ " : "+"}
-        {ach.xp}
+        {ach.xp} XP
       </div>
     </div>
   );
@@ -2024,63 +2104,43 @@ export default function TraderRoadmapXP() {
                   <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                     {/* Dot */}
                     <div style={{
-                      width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
+                      width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
                       background: allDone ? level.accent : isCurrent ? "var(--bg-secondary)" : isPast ? level.accent + "88" : "var(--bg-tertiary)",
                       border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "var(--border-primary)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: "none",
+                      boxShadow: isCurrent ? `0 0 0 4px ${level.accent}20, 0 0 12px ${level.accent}30` : allDone ? `0 0 8px ${level.accent}40` : "none",
                       transition: "all 0.3s",
                     }}>
-                      {allDone && <span style={{ fontSize: 11, color: "var(--bg-primary)", lineHeight: 1 }}>✓</span>}
+                      {allDone && <span style={{ fontSize: 11, color: "#fff", lineHeight: 1, fontWeight: 700 }}>✓</span>}
                       {isCurrent && !allDone && <div style={{ width: 10, height: 10, borderRadius: "50%", background: level.accent, animation: "pulse 2s infinite" }} />}
                     </div>
 
                     {/* Card */}
-                    <div
+                    <LevelMapCard
+                      level={level}
+                      isActive={isActive}
+                      isCurrent={isCurrent}
+                      allDone={allDone}
+                      isPast={isPast}
+                      done={done}
+                      total={total}
+                      pct={pct}
                       onClick={isActive ? () => { setSelectedLevel(level.id); setView("level"); } : undefined}
-                      style={{
-                        flex: 1,
-                        padding: "16px 18px",
-                        borderRadius: 6,
-                        background: isCurrent ? "var(--bg-secondary)" : isActive ? "var(--bg-secondary)" : "var(--bg-tertiary)",
-                        border: isCurrent ? `2px solid ${level.accent}` : allDone ? `2px solid ${level.accent}55` : `1.5px solid var(--border-primary)`,
-                        cursor: isActive ? "pointer" : "default",
-                        opacity: isActive ? 1 : 0.55,
-                        transition: "all 0.3s",
-                        boxShadow: "var(--card-shadow)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        <ProgressRing pct={pct} size={48} stroke={4} color={level.accent}>
-                          <span style={{ fontSize: 20 }}>{allDone ? "⭐" : level.icon}</span>
-                        </ProgressRing>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, flexWrap: "wrap" }}>
-                            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: isActive ? "var(--text-primary)" : "var(--text-tertiary)" }}>
-                              {level.name}
-                            </span>
-                            <Chip label={level.tier} color={level.accent} />
-                            {isCurrent && <Chip label="YOU ARE HERE" color={level.accent} />}
-                          </div>
-                          <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 6 }}>{level.subtitle}</div>
-                          <XPBar current={done} max={total} color={level.accent} height={6} />
-                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, textAlign: "right" }}>
-                            {done}/{total} quests · {pct}%
-                          </div>
-                        </div>
-                        {isActive && <div style={{ fontSize: 18, color: "var(--text-tertiary)", flexShrink: 0 }}>›</div>}
-                      </div>
-                    </div>
+                    />
                   </div>
 
                   {/* Connector line between nodes */}
                   {!isLast && (
                     <div style={{ display: "flex", alignItems: "stretch", gap: 16 }}>
-                      <div style={{ width: 24, display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                      <div style={{ width: 26, display: "flex", justifyContent: "center", flexShrink: 0 }}>
                         <div style={{
-                          width: 3, height: 20,
-                          background: isPast ? LEVELS[i + 1]?.accent || "var(--border-primary)" : isCurrent ? `linear-gradient(to bottom, ${level.accent}, var(--border-primary))` : "var(--bg-tertiary)",
-                          borderRadius: 3,
+                          width: 2, height: 20,
+                          background: allDone
+                            ? `linear-gradient(to bottom, ${level.accent}, ${LEVELS[i + 1]?.accent || level.accent})`
+                            : isCurrent
+                            ? `linear-gradient(to bottom, ${level.accent}80, var(--border-primary))`
+                            : "var(--border-secondary)",
+                          borderRadius: 2,
                           transition: "background 0.3s",
                         }} />
                       </div>
@@ -2104,15 +2164,17 @@ export default function TraderRoadmapXP() {
                 { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "var(--green)", icon: "✅" },
                 { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "var(--red)", icon: nextLevel?.icon || "👑" },
               ].map((s, i) => (
-                <Card key={i} style={{ padding: 20, animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                    <span style={{ fontSize: 18 }}>{s.icon}</span>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</span>
+                <Card key={i} style={{ padding: 0, overflow: "hidden", animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
+                  <div style={{ height: 3, background: s.color, opacity: 0.7 }} />
+                  <div style={{ padding: "16px 18px" }}>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+                      {s.icon} {s.label}
+                    </div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 20, color: s.color, marginBottom: 3, letterSpacing: "-0.02em" }}>
+                      {s.value}
+                    </div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
                   </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 18, color: s.color, marginBottom: 2 }}>
-                    {s.value}
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
                 </Card>
               ))}
             </div>
@@ -2131,49 +2193,67 @@ export default function TraderRoadmapXP() {
               onClick={() => { setView("roadmap"); setSelectedLevel(null); }}
               style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 13,
+                fontSize: 12,
                 color: "var(--text-tertiary)",
-                background: "transparent",
-                border: "none",
+                background: "var(--bg-secondary)",
+                border: "1px solid var(--border-primary)",
                 cursor: "pointer",
-                marginBottom: 16,
+                marginBottom: 20,
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
                 fontWeight: 600,
-                letterSpacing: "0.05em",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                padding: "7px 14px",
+                borderRadius: 6,
+                transition: "all 0.15s",
               }}
             >
-              ← BACK TO ROADMAP
+              ← Roadmap
             </button>
 
-            <Card style={{ padding: 24, marginBottom: 20, background: "var(--bg-secondary)", border: `1.5px solid ${selectedData.accent}35` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                <span style={{ fontSize: 38 }}>{selectedData.icon}</span>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
-                      {selectedData.name}
-                    </span>
-                    <Chip label={selectedData.tier} color={selectedData.accent} />
+            <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden", border: `1px solid ${selectedData.accent}35` }}>
+              {/* Accent top bar */}
+              <div style={{ height: 3, background: `linear-gradient(90deg, ${selectedData.accent}, ${selectedData.accent}40)` }} />
+              <div style={{ padding: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
+                  {/* Icon in colored circle */}
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 14,
+                    background: `${selectedData.accent}18`,
+                    border: `1.5px solid ${selectedData.accent}35`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <span style={{ fontSize: 28 }}>{selectedData.icon}</span>
                   </div>
-                  <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{selectedData.subtitle}</div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 18, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+                        {selectedData.name}
+                      </span>
+                      <Chip label={selectedData.tier} color={selectedData.accent} />
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{selectedData.subtitle}</div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 14 }}>
-                {selectedData.description}
-              </div>
-              <XPBar
-                current={selectedData.achievements.filter((a) => completed.has(a.id)).length}
-                max={selectedData.achievements.length}
-                color={selectedData.accent}
-              />
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
-                {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} complete
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 16 }}>
+                  {selectedData.description}
+                </div>
+                <XPBar
+                  current={selectedData.achievements.filter((a) => completed.has(a.id)).length}
+                  max={selectedData.achievements.length}
+                  color={selectedData.accent}
+                  height={8}
+                />
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
+                  {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} quests complete
+                </div>
               </div>
             </Card>
 
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, color: "var(--text-tertiary)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.12em" }}>
               Quests
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
