@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
@@ -170,6 +170,34 @@ function getPnlForMode(t, mode) {
   return parseFloat(t.profit) || 0; // "personal" default
 }
 
+function calcTradingXP(trades, dayMap) {
+  let xp = 0;
+  trades.forEach((t) => {
+    xp += 10;
+    if (t.aplus === "Yes") xp += 15;
+    if (parseFloat(t.profit) > 0) xp += 20;
+    if (t.notes && t.notes.length > 10) xp += 5;
+  });
+  Object.values(dayMap).forEach((d) => { if (d.pnl > 0) xp += 25; });
+  return xp;
+}
+
+function validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter }) {
+  if (!formDt || !formAsset) return "Please fill in Date & Time and Asset at minimum.";
+  if (!VALID_ASSETS.has(formAsset)) return "Invalid asset selected.";
+  if (formDirection && !VALID_DIRECTIONS.has(formDirection)) return "Invalid direction.";
+  if (formAplus && !VALID_APLUS.has(formAplus)) return "Invalid A+ value.";
+  if (formTaken && !VALID_TAKEN.has(formTaken)) return "Invalid Taken value.";
+  if (formBias && !VALID_BIAS.has(formBias)) return "Invalid bias value.";
+  if (formProfit && isNaN(parseFloat(formProfit))) return "Personal P&L must be a number.";
+  if (formProfitFunded && isNaN(parseFloat(formProfitFunded))) return "Funded P&L must be a number.";
+  if (formChart && !safeUrl(formChart)) return "Invalid chart URL. Must be a valid https:// link.";
+  if (formAfter && !safeUrl(formAfter)) return "Invalid after-trade URL. Must be a valid https:// link.";
+  const parsedDt = new Date(formDt);
+  if (isNaN(parsedDt.getTime())) return "Invalid date.";
+  return null;
+}
+
 async function recalcAccountPnl(supabase, accountId, pnlField) {
   if (!accountId) return;
   const linkField = pnlField === "profit" ? "account_id_personal" : "account_id_funded";
@@ -329,7 +357,7 @@ function calcTradeSharpScore(trades) {
 }
 
 function TradeSharpScore({ trades, month }) {
-  const result = calcTradeSharpScore(trades);
+  const result = useMemo(() => calcTradeSharpScore(trades), [trades]);
   if (!result) {
     return (
       <TCard style={{ padding: 28, marginBottom: 24, textAlign: "center" }}>
@@ -1009,11 +1037,10 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 // JOURNAL TAB — Pre-Trade Plan + Log a Trade
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, setGsUrl, privacyMode }) {
+export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl }) {
   // Plan state (loaded silently for Sheets trade sync)
   const [plan, setPlan] = useState({ session_plan: "" });
   const [mood, setMood] = useState(null);
-  const [customMood, setCustomMood] = useState("");
 
   // Load today's mood
   useEffect(() => {
@@ -1055,10 +1082,6 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
     supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
   }, [user]);
 
-  // Google Sheets settings
-  const [showGsSettings, setShowGsSettings] = useState(false);
-
-  const today = new Date();
   const todayStr = todayKey();
 
   // Load today's plan
@@ -1075,24 +1098,10 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
     })();
   }, [user, todayStr]);
 
-  const saveGsUrl = () => {
-    try { localStorage.setItem("gsUrl", gsUrl); } catch (e) {}
-    setShowGsSettings(false);
-  };
-
   const logTrade = async () => {
-    if (!formDt || !formAsset) { alert("Please fill in Date & Time and Asset at minimum."); return; }
-    if (!VALID_ASSETS.has(formAsset)) { alert("Invalid asset selected."); return; }
-    if (formDirection && !VALID_DIRECTIONS.has(formDirection)) { alert("Invalid direction."); return; }
-    if (formAplus && !VALID_APLUS.has(formAplus)) { alert("Invalid A+ value."); return; }
-    if (formTaken && !VALID_TAKEN.has(formTaken)) { alert("Invalid Taken value."); return; }
-    if (formBias && !VALID_BIAS.has(formBias)) { alert("Invalid bias value."); return; }
-    if (formProfit && isNaN(parseFloat(formProfit))) { alert("Personal P&L must be a number."); return; }
-    if (formProfitFunded && isNaN(parseFloat(formProfitFunded))) { alert("Funded P&L must be a number."); return; }
-    if (formChart && !safeUrl(formChart)) { alert("Invalid chart URL. Must be a valid https:// link."); return; }
-    if (formAfter && !safeUrl(formAfter)) { alert("Invalid after-trade URL. Must be a valid https:// link."); return; }
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
+    if (err) { alert(err); return; }
     const parsedDt = new Date(formDt);
-    if (isNaN(parsedDt.getTime())) { alert("Invalid date."); return; }
     const tradeData = {
       user_id: user.id,
       dt: parsedDt.toISOString(),
@@ -1223,6 +1232,195 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, s
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// QUICK LOG MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function QuickLogModal({ supabase, user, onClose }) {
+  const [formDt, setFormDt] = useState(nowLocal());
+  const [formAsset, setFormAsset] = useState("");
+  const [formDirection, setFormDirection] = useState("");
+  const [formAplus, setFormAplus] = useState("");
+  const [formTaken, setFormTaken] = useState("");
+  const [formBias, setFormBias] = useState("");
+  const [formProfit, setFormProfit] = useState("");
+  const [formProfitFunded, setFormProfitFunded] = useState("");
+  const [formChart, setFormChart] = useState("");
+  const [formAfter, setFormAfter] = useState("");
+  const [formNotes, setFormNotes] = useState("");
+  const [formAfterThoughts, setFormAfterThoughts] = useState("");
+  const [formTags, setFormTags] = useState([]);
+  const [formAccountPersonal, setFormAccountPersonal] = useState("");
+  const [formAccountFunded, setFormAccountFunded] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("accounts").select("id,firm,account_name,account_type").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+  }, [user]);
+
+  const logTrade = async () => {
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
+    if (err) { alert(err); return; }
+    const parsedDt = new Date(formDt);
+    setSaving(true);
+    const tradeData = {
+      user_id: user.id,
+      dt: parsedDt.toISOString(),
+      asset: formAsset, direction: formDirection, aplus: formAplus,
+      taken: formTaken, bias: formBias,
+      profit: formProfit ? parseFloat(formProfit) : null,
+      profit_funded: formProfitFunded ? parseFloat(formProfitFunded) : null,
+      chart: safeUrl(formChart) || "",
+      after_chart: safeUrl(formAfter) || "",
+      notes: sanitizeText(formNotes),
+      after_thoughts: sanitizeText(formAfterThoughts),
+      tags: formTags.length > 0 ? formTags : null,
+      account_id_personal: formAccountPersonal || null,
+      account_id_funded: formAccountFunded || null,
+    };
+    const { error } = await supabase.from("trades").insert(tradeData);
+    setSaving(false);
+    if (!error) {
+      await recalcAccountPnl(supabase, formAccountPersonal, "profit");
+      await recalcAccountPnl(supabase, formAccountFunded, "profit_funded");
+      setSaved(true);
+      setTimeout(() => onClose(), 900);
+    }
+  };
+
+  const inputStyle = {
+    fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: "9px 11px", fontSize: 13,
+    background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", borderRadius: 4,
+    color: "var(--text-primary)", outline: "none", boxSizing: "border-box",
+  };
+  const selectStyle = { ...inputStyle, cursor: "pointer" };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+      backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+      zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20, animation: "fadeSlideIn 0.2s ease",
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="quick-log-modal" style={{
+        background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
+        borderRadius: 10, width: "100%", maxWidth: 640,
+        maxHeight: "90vh", overflowY: "auto",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "18px 24px", borderBottom: "1px solid var(--border-primary)",
+          position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1,
+        }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            + QUICK LOG TRADE
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Form */}
+        <div style={{ padding: "20px 24px 24px" }}>
+          <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <Field label="Date & Time">
+              <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
+            </Field>
+            <Field label="Asset">
+              <select style={selectStyle} value={formAsset} onChange={(e) => setFormAsset(e.target.value)}>
+                <option value="">Select...</option>
+                {ASSETS.map((a) => <option key={a}>{a}</option>)}
+              </select>
+            </Field>
+            <Field label="Direction">
+              <select style={selectStyle} value={formDirection} onChange={(e) => setFormDirection(e.target.value)}>
+                <option value="">Select...</option>
+                <option>Long</option>
+                <option>Short</option>
+              </select>
+            </Field>
+            <Field label="A+ Trade?">
+              <select style={selectStyle} value={formAplus} onChange={(e) => setFormAplus(e.target.value)}>
+                <option value="">Select...</option>
+                <option>Yes</option>
+                <option>No</option>
+                <option>Yes to No</option>
+                <option>Yes But Execution Sucked</option>
+              </select>
+            </Field>
+            <Field label="Taken?">
+              <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
+                <option value="">Select...</option>
+                <option>Missed</option>
+                <option>Personal</option>
+                <option>Eval</option>
+                <option>PA &amp; Funded</option>
+                <option>Crypto</option>
+                <option>Funded Account</option>
+              </select>
+            </Field>
+            <Field label="My Bias">
+              <select style={selectStyle} value={formBias} onChange={(e) => setFormBias(e.target.value)}>
+                <option value="">Select...</option>
+                <option>Bullish</option>
+                <option>Bearish</option>
+              </select>
+            </Field>
+            <Field label="Personal P&L ($)">
+              <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+            </Field>
+            <Field label="Funded P&L ($)">
+              <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+            </Field>
+            <Field label="Personal Account">
+              <select style={selectStyle} value={formAccountPersonal} onChange={(e) => setFormAccountPersonal(e.target.value)}>
+                <option value="">None</option>
+                {accounts.filter(a => a.account_type === "personal").map(a => (
+                  <option key={a.id} value={a.id}>{a.account_name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Funded Account">
+              <select style={selectStyle} value={formAccountFunded} onChange={(e) => setFormAccountFunded(e.target.value)}>
+                <option value="">None</option>
+                {accounts.filter(a => a.account_type === "funded" || a.account_type === "eval").map(a => (
+                  <option key={a.id} value={a.id}>{a.account_name} — {a.firm}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="TradingView Link">
+              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
+            </Field>
+            <Field label="After Trade Link" full>
+              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formAfter} onChange={(e) => setFormAfter(e.target.value)} />
+            </Field>
+            <Field label="Trade Notes" full>
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="Entry reason, observations, mistakes..." value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
+            </Field>
+            <Field label="After Trade Thoughts" full>
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="What did I learn? What would I do differently?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
+              <TagPicker selected={formTags} onChange={setFormTags} />
+            </Field>
+          </div>
+          <button onClick={logTrade} disabled={saving || saved} style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 13, fontSize: 13, fontWeight: 700,
+            border: saved ? "1px solid var(--green)" : "1px solid var(--accent)", borderRadius: 4,
+            cursor: saving || saved ? "not-allowed" : "pointer",
+            background: "transparent",
+            color: saved ? "var(--green)" : "var(--accent)",
+            letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
+          }}>
+            {saving ? "SAVING..." : saved ? "✓ LOGGED" : "+ LOG TRADE"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TRADE REVIEW MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1236,13 +1434,6 @@ const aplusColor = (v) => {
   return "var(--text-tertiary)";
 };
 
-const aplusShort = (v) => {
-  if (v === "Yes") return "YES ✓";
-  if (v === "No") return "NO";
-  if (v === "Yes to No") return "Y→N";
-  if (v === "Yes But Execution Sucked") return "YES / BAD EXEC";
-  return "—";
-};
 
 function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacyMode }) {
   const now = new Date();
@@ -1346,7 +1537,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px 16px",
     }}>
-      <div style={{
+      <div className="review-modal-inner" style={{
         width: "calc(100vw - 80px)", maxWidth: 1600, maxHeight: "90vh",
         background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
         borderRadius: 12, display: "flex", flexDirection: "column",
@@ -1700,7 +1891,6 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
     const redFill = isDark ? "rgba(239,68,68,0.08)" : "rgba(220,38,38,0.08)";
 
     // Create gradient fill that switches color at zero line
-    const ctx = chartRef.current.getContext("2d");
     const segmentColor = (c) => c.p0.parsed.y >= 0 && c.p1.parsed.y >= 0 ? green : c.p0.parsed.y < 0 && c.p1.parsed.y < 0 ? red : c.p1.parsed.y >= 0 ? green : red;
     const segmentFill = (c) => c.p0.parsed.y >= 0 && c.p1.parsed.y >= 0 ? greenFill : c.p0.parsed.y < 0 && c.p1.parsed.y < 0 ? redFill : c.p1.parsed.y >= 0 ? greenFill : redFill;
     const pointColors = data.map((v) => v >= 0 ? green : red);
@@ -2171,12 +2361,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
 function AISummarySection({ trades }) {
   const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem("aiApiKey") || ""; } catch { return ""; } });
-  const [showKeyInput, setShowKeyInput] = useState(false);
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState("");
   const [period, setPeriod] = useState("");
-
-  const saveKey = (k) => { setApiKey(k); try { localStorage.setItem("aiApiKey", k); } catch {} };
 
   const generate = async (p) => {
     const now = new Date();
@@ -2194,16 +2381,23 @@ function AISummarySection({ trades }) {
     if (!apiKey) { setOutput("No API key set. Add your Anthropic API key in Profile settings."); setPeriod(label); return; }
 
     setPeriod(label); setLoading(true); setOutput("");
-    const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed").length;
-    const wins = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
-    const losses = periodTrades.filter((t) => t.taken && t.taken !== "Missed" && parseFloat(t.profit) < 0).length;
-    const aplusTaken = periodTrades.filter((t) => (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") && t.taken && t.taken !== "Missed").length;
-    const execSucked = periodTrades.filter((t) => t.aplus === "Yes But Execution Sucked" && t.taken && t.taken !== "Missed").length;
-    const yesToNo = periodTrades.filter((t) => t.aplus === "Yes to No").length;
-    const nonAplus = periodTrades.filter((t) => t.aplus === "No" && t.taken && t.taken !== "Missed").length;
-    const totalPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
-    const totalFundedPnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
-    const missed = periodTrades.filter((t) => t.taken === "Missed").length;
+    let taken = 0, wins = 0, losses = 0, aplusTaken = 0, execSucked = 0, yesToNo = 0, nonAplus = 0, missed = 0, totalPnl = 0, totalFundedPnl = 0;
+    periodTrades.forEach((t) => {
+      const isTaken = t.taken && t.taken !== "Missed";
+      const pv = parseFloat(t.profit);
+      const pfv = parseFloat(t.profit_funded);
+      if (!isNaN(pv)) totalPnl += pv;
+      if (!isNaN(pfv)) totalFundedPnl += pfv;
+      if (t.taken === "Missed") { missed++; return; }
+      if (!isTaken) return;
+      taken++;
+      if (!isNaN(pv) && pv > 0) wins++;
+      if (!isNaN(pv) && pv < 0) losses++;
+      if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") aplusTaken++;
+      if (t.aplus === "Yes But Execution Sucked") execSucked++;
+      if (t.aplus === "Yes to No") yesToNo++;
+      if (t.aplus === "No") nonAplus++;
+    });
 
     // TradeSharp Score for the period
     const tsResult = calcTradeSharpScore(periodTrades);
@@ -2346,9 +2540,7 @@ function BadgesSection({ trades, dayMap }) {
   const bestDay = Object.values(dayMap).reduce((b, d) => d.pnl > b ? d.pnl : b, 0);
 
   // XP calc for Elite badge
-  let xp = 0;
-  trades.forEach((t) => { xp += 10; if (t.aplus === "Yes") xp += 15; if (parseFloat(t.profit) > 0) xp += 20; if (t.notes && t.notes.length > 10) xp += 5; });
-  Object.values(dayMap).forEach((d) => { if (d.pnl > 0) xp += 25; });
+  const xp = calcTradingXP(trades, dayMap);
 
   const badges = [
     { icon: "🔥", name: "On Fire", desc: "3 green days in a row", unlocked: maxGreen >= 3 },
@@ -2449,16 +2641,9 @@ function WeeklyChallengesSection({ trades }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function TradingStatsView({ trades, privacyMode }) {
-  const dayMap = buildDayMap(trades);
+  const dayMap = useMemo(() => buildDayMap(trades), [trades]);
 
-  const calcXP = () => {
-    let xp = 0;
-    trades.forEach((t) => { xp += 10; if (t.aplus === "Yes") xp += 15; if (parseFloat(t.profit) > 0) xp += 20; if (t.notes && t.notes.length > 10) xp += 5; });
-    Object.values(dayMap).forEach((d) => { if (d.pnl > 0) xp += 25; });
-    return xp;
-  };
-
-  const xp = calcXP();
+  const xp = useMemo(() => calcTradingXP(trades, dayMap), [trades, dayMap]);
   let level = XP_LEVELS[0];
   for (const l of XP_LEVELS) { if (xp >= l.min) level = l; }
   const isMax = level.max === Infinity;
@@ -3329,7 +3514,6 @@ export function NewsView() {
 
 // ─── WATCHLIST VIEW ─────────────────────────────────────────────────────────
 
-const WATCHLIST_ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
 const WATCHLIST_TFS = ["Weekly", "Daily", "4HR", "1HR", "30m", "15m", "5m", "3m"];
 const WATCHLIST_STATUSES = [
   { value: "watching", label: "Watching", color: "var(--accent-secondary)" },
@@ -3709,14 +3893,6 @@ function YTThumbnail({ url, title }) {
 // ═══════════════════════════════════════════════════════════════════════════
 // NOTEBOOK VIEW
 // ═══════════════════════════════════════════════════════════════════════════
-
-const MOOD_OPTIONS = [
-  { val: 1, emoji: "😤", label: "Rough" },
-  { val: 2, emoji: "😕", label: "Off" },
-  { val: 3, emoji: "😐", label: "Neutral" },
-  { val: 4, emoji: "😊", label: "Good" },
-  { val: 5, emoji: "🔥", label: "Locked In" },
-];
 
 const NOTEBOOK_SECTIONS = [
   { key: "recap", label: "TRADE RECAP", placeholder: "How did the session go? Did price do what you expected? Walk through what happened, trade by trade if needed." },

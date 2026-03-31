@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -630,6 +630,7 @@ export default function TraderRoadmapXP() {
   const [profile, setProfile] = useState({ display_name: "", avatar_url: "" });
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showTilt, setShowTilt] = useState(false);
+  const [showQuickLog, setShowQuickLog] = useState(false);
   const [editName, setEditName] = useState("");
   const [editGsUrl, setEditGsUrl] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
@@ -875,6 +876,12 @@ export default function TraderRoadmapXP() {
       .tilt-modal h2 { font-size: 16px !important; }
       .trade-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .trade-table table { min-width: 600px; }
+      .quick-log-modal { max-width: 100% !important; border-radius: 8px !important; margin: 8px !important; max-height: calc(100vh - 16px) !important; }
+      .review-modal-inner { width: calc(100vw - 16px) !important; max-width: 100% !important; border-radius: 8px !important; max-height: 96vh !important; }
+      .review-modal-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .review-modal-table table { min-width: 700px; }
+      .tag-picker { gap: 4px !important; }
+      .log-form-btn { font-size: 11px !important; padding: "0 8px" !important; }
       .edu-grid { grid-template-columns: 1fr !important; }
       .edu-cat-chips { gap: 4px !important; }
       .edu-cat-chips button { padding: 4px 10px !important; font-size: 9px !important; }
@@ -1463,6 +1470,11 @@ export default function TraderRoadmapXP() {
         );
       })()}
 
+      {/* ── Quick Log Modal ── */}
+      {showQuickLog && (
+        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} />
+      )}
+
       {/* ── Tilt Alert Modal ── */}
       {showTilt && (
         <div
@@ -2044,6 +2056,15 @@ export default function TraderRoadmapXP() {
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button onClick={() => setShowQuickLog(true)} title="Quick log trade" style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                display: "flex", alignItems: "center", gap: 5,
+                height: 32, padding: "0 12px", borderRadius: 6,
+                background: "var(--accent-dim)", border: "1px solid var(--accent)",
+                color: "var(--accent)", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", letterSpacing: "0.07em", textTransform: "uppercase",
+                flexShrink: 0, transition: "all 0.15s",
+              }}>+ LOG</button>
               {[
                 { icon: privacyMode ? "◉" : "◎", title: privacyMode ? "Privacy On" : "Privacy Mode", onClick: () => setPrivacyMode(p => !p), active: privacyMode, color: "var(--accent)" },
                 { icon: dark ? "☀" : "☾", title: dark ? "Light mode" : "Dark mode", onClick: () => setDark(d => !d), active: false, color: null },
