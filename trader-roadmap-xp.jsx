@@ -604,16 +604,6 @@ export default function TraderRoadmapXP() {
     }
   }, [nyClock]);
 
-  // Focus Mode timer
-  useEffect(() => {
-    if (showFocus && focusSecs > 0) {
-      focusTimerRef.current = setInterval(() => setFocusSecs(s => s - 1), 1000);
-    } else {
-      clearInterval(focusTimerRef.current);
-    }
-    return () => clearInterval(focusTimerRef.current);
-  }, [showFocus]);
-
   // Privacy mode
   const [privacyMode, setPrivacyMode] = useState(() => { try { return localStorage.getItem("privacyMode") === "true"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("privacyMode", privacyMode); } catch {} }, [privacyMode]);
@@ -644,6 +634,17 @@ export default function TraderRoadmapXP() {
   const [showFocus, setShowFocus] = useState(false);
   const [focusSecs, setFocusSecs] = useState(180);
   const focusTimerRef = useRef(null);
+
+  // Focus Mode timer — must be after showFocus/focusSecs/focusTimerRef declarations
+  useEffect(() => {
+    if (showFocus && focusSecs > 0) {
+      focusTimerRef.current = setInterval(() => setFocusSecs(s => s - 1), 1000);
+    } else {
+      clearInterval(focusTimerRef.current);
+    }
+    return () => clearInterval(focusTimerRef.current);
+  }, [showFocus]);
+
   const [editName, setEditName] = useState("");
   const [editGsUrl, setEditGsUrl] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
