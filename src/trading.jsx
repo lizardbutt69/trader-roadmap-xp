@@ -1220,7 +1220,6 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
       mood: mood || "",
     });
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
-    await recalcAccountPnl(supabase, formAccountFunded, "profit_funded");
     setFormAsset(""); setFormDirection(""); setFormAplus("");
     setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormChart("");
     setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
@@ -1388,7 +1387,6 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
       mood: "",
     });
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
-    await recalcAccountPnl(supabase, formAccountFunded, "profit_funded");
     setSaved(true);
     setTimeout(() => onClose(), 900);
   };
@@ -1606,9 +1604,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       account_id_funded: edits.account_id_funded || null,
     }).eq("id", id);
     const affectedPersonal = new Set([prevTrade?.account_id_personal, edits.account_id_personal].filter(Boolean));
-    const affectedFunded = new Set([prevTrade?.account_id_funded, edits.account_id_funded].filter(Boolean));
     for (const aid of affectedPersonal) await recalcAccountPnl(supabase, aid, "profit");
-    for (const aid of affectedFunded) await recalcAccountPnl(supabase, aid, "profit_funded");
     await loadTrades();
     setRowSaving(s => ({ ...s, [id]: "saved" }));
     setTimeout(() => {
@@ -2071,9 +2067,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
     }).eq("id", editing);
     // Recalc any accounts that were affected (old or new)
     const affectedPersonal = new Set([prevTrade?.account_id_personal, editForm.account_id_personal].filter(Boolean));
-    const affectedFunded = new Set([prevTrade?.account_id_funded, editForm.account_id_funded].filter(Boolean));
     for (const id of affectedPersonal) await recalcAccountPnl(supabase, id, "profit");
-    for (const id of affectedFunded) await recalcAccountPnl(supabase, id, "profit_funded");
     setEditing(null);
     loadTrades();
   };
