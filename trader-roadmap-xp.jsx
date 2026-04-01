@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, TradeCardView } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal } from "./src/trading.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -604,6 +604,16 @@ export default function TraderRoadmapXP() {
     }
   }, [nyClock]);
 
+  // Focus Mode timer
+  useEffect(() => {
+    if (showFocus && focusSecs > 0) {
+      focusTimerRef.current = setInterval(() => setFocusSecs(s => s - 1), 1000);
+    } else {
+      clearInterval(focusTimerRef.current);
+    }
+    return () => clearInterval(focusTimerRef.current);
+  }, [showFocus]);
+
   // Privacy mode
   const [privacyMode, setPrivacyMode] = useState(() => { try { return localStorage.getItem("privacyMode") === "true"; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem("privacyMode", privacyMode); } catch {} }, [privacyMode]);
@@ -631,6 +641,9 @@ export default function TraderRoadmapXP() {
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [showTilt, setShowTilt] = useState(false);
   const [showQuickLog, setShowQuickLog] = useState(false);
+  const [showFocus, setShowFocus] = useState(false);
+  const [focusSecs, setFocusSecs] = useState(180);
+  const focusTimerRef = useRef(null);
   const [editName, setEditName] = useState("");
   const [editGsUrl, setEditGsUrl] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
@@ -1548,6 +1561,37 @@ export default function TraderRoadmapXP() {
         </div>
       )}
 
+      {/* ── Focus Mode Modal ── */}
+      {showFocus && (
+        <div
+          onClick={() => { clearInterval(focusTimerRef.current); setShowFocus(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 18, padding: "44px 40px", maxWidth: 420, width: "100%", boxShadow: "0 0 60px rgba(34,211,238,0.10)", display: "flex", flexDirection: "column", alignItems: "center", gap: 28, textAlign: "center" }}
+          >
+            <TradeSharpLogo size={52} />
+            <div style={{ fontSize: 56, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: 3, color: "var(--accent)", lineHeight: 1, fontFamily: "ui-monospace, monospace" }}>
+              {String(Math.floor(focusSecs / 60)).padStart(2, "0")}:{String(focusSecs % 60).padStart(2, "0")}
+            </div>
+            <div style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.85, fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", flexDirection: "column", gap: 4 }}>
+              <p style={{ margin: 0 }}>You don't need to catch every move.</p>
+              <p style={{ margin: 0 }}>You need to catch <em>your</em> move.</p>
+              <p style={{ margin: 0 }}>The market will do what it does.</p>
+              <p style={{ margin: "8px 0 0" }}>Your only job is to wait for the one thing you recognize — and execute it cleanly.</p>
+              <p style={{ margin: "16px 0 0", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.02em" }}>Not faster. Not smarter. Just disciplined.</p>
+            </div>
+            <button
+              onClick={() => { clearInterval(focusTimerRef.current); setShowFocus(false); }}
+              style={{ padding: "11px 32px", borderRadius: 6, background: "var(--accent)", border: "none", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}
+            >
+              I'm Ready
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Profile Editor Modal ── */}
       {showProfileEditor && (
         <div
@@ -1746,7 +1790,6 @@ export default function TraderRoadmapXP() {
               { key: "accounts", label: "Accounts", icon: "⊞", reset: false },
               { key: "stats", label: "Stats", icon: "◧", reset: false },
               { key: "education", label: "Education", icon: "◈", reset: false },
-              { key: "cards", label: "Trade Cards", icon: "✦", reset: false },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -1774,6 +1817,25 @@ export default function TraderRoadmapXP() {
                 {tab.label}
               </button>
             ))}
+          </div>
+
+          {/* Focus Mode trigger */}
+          <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border-primary)" }}>
+            <button
+              onClick={() => { setFocusSecs(180); setShowFocus(true); }}
+              title="Focus Mode"
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 10,
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "9px 12px", borderRadius: 6,
+                color: "var(--text-secondary)",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+                transition: "all 0.15s",
+              }}
+            >
+              <TradeSharpLogo size={18} />
+              <span style={{ fontWeight: 500 }}>Focus Mode</span>
+            </button>
           </div>
 
           {/* User Profile */}
@@ -1944,7 +2006,6 @@ export default function TraderRoadmapXP() {
                   { key: "accounts", label: "Accounts", icon: "⊞" },
                   { key: "stats", label: "Stats", icon: "◧" },
                   { key: "education", label: "Education", icon: "◈" },
-                  { key: "cards", label: "Trade Cards", icon: "✦" },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -2058,7 +2119,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "cards" ? "Trade Cards" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2328,10 +2389,6 @@ export default function TraderRoadmapXP() {
           <EducationView supabase={supabase} user={user} />
         )}
 
-        {/* TRADE CARDS VIEW */}
-        {view === "cards" && (
-          <TradeCardView trades={trades} />
-        )}
           </div>{/* close main-content */}
 
           {/* Footer */}
