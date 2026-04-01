@@ -2073,7 +2073,7 @@ export default function TraderRoadmapXP() {
               }}>+ LOG</button>
               {[
                 { icon: privacyMode ? "◉" : "◎", title: privacyMode ? "Privacy On" : "Privacy Mode", onClick: () => setPrivacyMode(p => !p), active: privacyMode, color: "var(--accent)" },
-                { icon: dark ? "☀" : "☾", title: dark ? "Light mode" : "Dark mode", onClick: () => setDark(d => !d), active: false, color: null },
+                { icon: dark ? "☀" : "☾", title: dark ? "Light mode" : "Dark mode", onClick: () => setDark(d => !d), active: dark, color: null },
                 { icon: "⚠", title: "Tilt Protocol", onClick: () => setShowTilt(true), active: false, color: "var(--red)" },
               ].map(({ icon, title, onClick, active, color }) => (
                 <button key={title} onClick={onClick} title={title} style={{

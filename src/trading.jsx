@@ -689,14 +689,17 @@ const selectStyle = { ...inputStyle, cursor: "pointer" };
 // CHECKLIST TAB — Only the A+ checklist
 // ═══════════════════════════════════════════════════════════════════════════
 
+function makeModelId() { return "m_" + Math.random().toString(36).slice(2, 9); }
+
 export function ChecklistView({ supabase, user, embedded = false }) {
-  const [customItems, setCustomItems] = useState(null); // null = loading
+  const [models, setModels] = useState(null); // null = loading
+  const [activeModelId, setActiveModelId] = useState(null);
   const [checked, setChecked] = useState([]);
   const [timerActive, setTimerActive] = useState(false);
   const [timerSecs, setTimerSecs] = useState(10);
   const timerRef = useRef(null);
 
-  // Edit mode
+  // Edit mode (customize items)
   const [editing, setEditing] = useState(false);
   const [editItems, setEditItems] = useState([]);
   const [newLabel, setNewLabel] = useState("");
@@ -704,7 +707,13 @@ export function ChecklistView({ supabase, user, embedded = false }) {
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
 
-  // Load custom items from Supabase (fall back to defaults)
+  // Model management
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameVal, setRenameVal] = useState("");
+  const [addingModel, setAddingModel] = useState(false);
+  const [newModelName, setNewModelName] = useState("");
+
+  // ── Load from Supabase — handle old format migration ──
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -713,15 +722,43 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         .select("items")
         .eq("user_id", user.id)
         .maybeSingle();
-      const items = data?.items || DEFAULT_CHECKLIST_ITEMS;
-      setCustomItems(items);
-      setChecked(new Array(items.length + 1).fill(false)); // +1 for timer item
+      let loaded;
+      if (data?.items?.v === 2 && Array.isArray(data.items.models)) {
+        loaded = data.items.models;
+      } else if (Array.isArray(data?.items)) {
+        // Migrate old single-list format → "GxT" model
+        loaded = [{ id: makeModelId(), name: "GxT", items: data.items }];
+      } else {
+        loaded = [{ id: makeModelId(), name: "GxT", items: DEFAULT_CHECKLIST_ITEMS }];
+      }
+      setModels(loaded);
+      setActiveModelId(loaded[0].id);
+      setChecked(new Array(loaded[0].items.length + 1).fill(false));
     })();
   }, [user]);
 
-  // Build full list: custom items + timer always last
-  const allItems = customItems ? [...customItems, TIMER_ITEM] : [...DEFAULT_CHECKLIST_ITEMS, TIMER_ITEM];
+  const saveModels = async (updated) => {
+    await supabase.from("checklist_items").upsert(
+      { user_id: user.id, items: { v: 2, models: updated } },
+      { onConflict: "user_id" }
+    );
+  };
+
+  const activeModel = models?.find(m => m.id === activeModelId) || models?.[0];
+  const allItems = activeModel ? [...activeModel.items, TIMER_ITEM] : [...DEFAULT_CHECKLIST_ITEMS, TIMER_ITEM];
   const totalCount = allItems.length;
+
+  // Reset checked when switching models
+  const switchModel = (id) => {
+    if (id === activeModelId) return;
+    setActiveModelId(id);
+    const m = models.find(m => m.id === id);
+    setChecked(new Array((m?.items.length || 0) + 1).fill(false));
+    if (timerRef.current) clearInterval(timerRef.current);
+    setTimerActive(false);
+    setTimerSecs(10);
+    setEditing(false);
+  };
 
   const toggleCheck = (i) => {
     if (allItems[i].timer) { startTimer(i); return; }
@@ -754,33 +791,57 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-  // ── Edit mode handlers ──
+  // ── Model management ──
+  const startRename = (m) => { setRenamingId(m.id); setRenameVal(m.name); };
+  const commitRename = async () => {
+    const trimmed = renameVal.trim();
+    if (!trimmed || !renamingId) { setRenamingId(null); return; }
+    const updated = models.map(m => m.id === renamingId ? { ...m, name: trimmed } : m);
+    setModels(updated);
+    setRenamingId(null);
+    await saveModels(updated);
+  };
+
+  const addModel = async () => {
+    const name = newModelName.trim();
+    if (!name) return;
+    const newM = { id: makeModelId(), name, items: [] };
+    const updated = [...models, newM];
+    setModels(updated);
+    setAddingModel(false);
+    setNewModelName("");
+    switchModel(newM.id);
+    await saveModels(updated);
+  };
+
+  const deleteModel = async (id) => {
+    if (models.length <= 1) { alert("You need at least one model."); return; }
+    if (!window.confirm("Delete this model and all its checklist items?")) return;
+    const updated = models.filter(m => m.id !== id);
+    setModels(updated);
+    if (activeModelId === id) switchModel(updated[0].id);
+    await saveModels(updated);
+  };
+
+  // ── Edit items (customize active model) ──
   const openEdit = () => {
-    setEditItems((customItems || DEFAULT_CHECKLIST_ITEMS).map((item) => ({ ...item })));
+    setEditItems((activeModel?.items || DEFAULT_CHECKLIST_ITEMS).map(item => ({ ...item })));
     setEditing(true);
     setNewLabel("");
     setNewSub("");
   };
 
-  const cancelEdit = () => {
-    setEditing(false);
-    setEditItems([]);
-    setNewLabel("");
-    setNewSub("");
-  };
+  const cancelEdit = () => { setEditing(false); setEditItems([]); setNewLabel(""); setNewSub(""); };
 
   const addItem = () => {
     const label = newLabel.trim();
     if (!label) return;
-    if (editItems.length >= 20) { alert("Maximum 20 custom items."); return; }
+    if (editItems.length >= 20) { alert("Maximum 20 items."); return; }
     setEditItems([...editItems, { label, sub: newSub.trim() }]);
-    setNewLabel("");
-    setNewSub("");
+    setNewLabel(""); setNewSub("");
   };
 
-  const removeItem = (i) => {
-    setEditItems(editItems.filter((_, idx) => idx !== i));
-  };
+  const removeItem = (i) => setEditItems(editItems.filter((_, idx) => idx !== i));
 
   const moveItem = (from, to) => {
     if (to < 0 || to >= editItems.length) return;
@@ -802,24 +863,18 @@ export function ChecklistView({ supabase, user, embedded = false }) {
   const saveItems = async () => {
     if (!user) return;
     setSaving(true);
-    await supabase.from("checklist_items").upsert(
-      { user_id: user.id, items: editItems },
-      { onConflict: "user_id" }
-    );
-    setCustomItems(editItems);
+    const updated = models.map(m => m.id === activeModelId ? { ...m, items: editItems } : m);
+    setModels(updated);
     setChecked(new Array(editItems.length + 1).fill(false));
     setEditing(false);
     setSaving(false);
-  };
-
-  const resetToDefaults = () => {
-    setEditItems(DEFAULT_CHECKLIST_ITEMS.map((item) => ({ ...item })));
+    await saveModels(updated);
   };
 
   const count = checked.filter(Boolean).length;
   const allChecked = checked.length === totalCount && count === totalCount;
 
-  if (customItems === null) {
+  if (models === null) {
     return (
       <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
         <TCard style={{ padding: 28, textAlign: "center" }}>
@@ -835,11 +890,12 @@ export function ChecklistView({ supabase, user, embedded = false }) {
       <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
         <TCard style={{ padding: 28 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>CUSTOMIZE CHECKLIST</div>
+            <div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>CUSTOMIZE — {activeModel?.name}</div>
+            </div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>{editItems.length} / 20 items</div>
           </div>
 
-          {/* Existing items — draggable */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {editItems.map((item, i) => (
               <div
@@ -852,34 +908,24 @@ export function ChecklistView({ supabase, user, embedded = false }) {
                   display: "flex", alignItems: "center", gap: 12,
                   background: dragIdx === i ? "var(--accent-glow)" : "var(--bg-tertiary)",
                   border: `1px solid ${dragIdx === i ? "var(--accent-dim)" : "var(--border-primary)"}`,
-                  borderRadius: 6, padding: "12px 16px",
-                  cursor: "grab", transition: "all 0.15s", userSelect: "none",
+                  borderRadius: 6, padding: "12px 16px", cursor: "grab", transition: "all 0.15s", userSelect: "none",
                 }}
               >
-                {/* Drag handle */}
                 <div style={{ color: "var(--text-tertiary)", fontSize: 16, cursor: "grab", flexShrink: 0 }}>⠿</div>
-                {/* Reorder buttons */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
                   <button onClick={() => moveItem(i, i - 1)} disabled={i === 0} style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", fontSize: 10, color: i === 0 ? "var(--border-primary)" : "var(--text-tertiary)", padding: 0, lineHeight: 1 }}>▲</button>
                   <button onClick={() => moveItem(i, i + 1)} disabled={i === editItems.length - 1} style={{ background: "none", border: "none", cursor: i === editItems.length - 1 ? "default" : "pointer", fontSize: 10, color: i === editItems.length - 1 ? "var(--border-primary)" : "var(--text-tertiary)", padding: 0, lineHeight: 1 }}>▼</button>
                 </div>
-                {/* Content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</div>
                   {item.sub && <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.sub}</div>}
                 </div>
-                {/* Delete */}
-                <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--text-tertiary)", flexShrink: 0, padding: "0 4px" }} title="Remove">✕</button>
+                <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--text-tertiary)", flexShrink: 0, padding: "0 4px" }}>✕</button>
               </div>
             ))}
           </div>
 
-          {/* Timer item (locked, always last) */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 12,
-            background: "var(--bg-tertiary)", border: "1px dashed var(--border-primary)",
-            borderRadius: 6, padding: "12px 16px", marginBottom: 20, opacity: 0.6,
-          }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--bg-tertiary)", border: "1px dashed var(--border-primary)", borderRadius: 6, padding: "12px 16px", marginBottom: 20, opacity: 0.6 }}>
             <div style={{ fontSize: 16, flexShrink: 0 }}>🔒</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{TIMER_ITEM.label}</div>
@@ -888,54 +934,21 @@ export function ChecklistView({ supabase, user, embedded = false }) {
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", flexShrink: 0 }}>ALWAYS LAST</div>
           </div>
 
-          {/* Add new item */}
           <div style={{ background: "var(--bg-tertiary)", borderRadius: 6, padding: 16, border: "1px solid var(--border-primary)", marginBottom: 20 }}>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>ADD NEW ITEM</div>
-            <input
-              type="text"
-              placeholder="Condition name (required)"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              maxLength={200}
-              onKeyDown={(e) => e.key === "Enter" && addItem()}
-              style={{ ...inputStyle, marginBottom: 8 }}
-            />
-            <input
-              type="text"
-              placeholder="Description (optional)"
-              value={newSub}
-              onChange={(e) => setNewSub(e.target.value)}
-              maxLength={300}
-              onKeyDown={(e) => e.key === "Enter" && addItem()}
-              style={{ ...inputStyle, marginBottom: 10 }}
-            />
+            <input type="text" placeholder="Condition name (required)" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} maxLength={200} onKeyDown={(e) => e.key === "Enter" && addItem()} style={{ ...inputStyle, marginBottom: 8 }} />
+            <input type="text" placeholder="Description (optional)" value={newSub} onChange={(e) => setNewSub(e.target.value)} maxLength={300} onKeyDown={(e) => e.key === "Enter" && addItem()} style={{ ...inputStyle, marginBottom: 10 }} />
             <button onClick={addItem} disabled={!newLabel.trim()} style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 10, fontSize: 12, fontWeight: 600,
               background: "transparent", border: `1px solid ${newLabel.trim() ? "var(--green)" : "var(--border-primary)"}`,
               color: newLabel.trim() ? "var(--green)" : "var(--text-tertiary)",
-              borderRadius: 4, cursor: newLabel.trim() ? "pointer" : "default",
-              letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
+              borderRadius: 4, cursor: newLabel.trim() ? "pointer" : "default", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
             }}>+ ADD ITEM</button>
           </div>
 
-          {/* Actions */}
           <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={resetToDefaults} style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: 12, fontSize: 12, fontWeight: 600,
-              background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-tertiary)",
-              borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
-            }}>RESET DEFAULTS</button>
-            <button onClick={cancelEdit} style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: 12, fontSize: 12, fontWeight: 600,
-              background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-secondary)",
-              borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
-            }}>CANCEL</button>
-            <button onClick={saveItems} disabled={saving || editItems.length === 0} style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: 12, fontSize: 12, fontWeight: 700,
-              background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)",
-              borderRadius: 4, cursor: saving ? "not-allowed" : "pointer", letterSpacing: "0.08em", textTransform: "uppercase",
-              boxShadow: "none", transition: "all 0.2s",
-            }}>{saving ? "SAVING..." : "SAVE CHECKLIST"}</button>
+            <button onClick={cancelEdit} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: 12, fontSize: 12, fontWeight: 600, background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase" }}>CANCEL</button>
+            <button onClick={saveItems} disabled={saving || editItems.length === 0} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 2, padding: 12, fontSize: 12, fontWeight: 700, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: saving ? "not-allowed" : "pointer", letterSpacing: "0.08em", textTransform: "uppercase", boxShadow: "none", transition: "all 0.2s" }}>{saving ? "SAVING..." : "SAVE CHECKLIST"}</button>
           </div>
         </TCard>
       </div>
@@ -951,13 +964,84 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         subtitle="Run through every criterion before you execute. Discipline is the edge."
       />}
       <TCard style={{ padding: 28 }}>
-        {/* Header with edit button */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>A+ CHECKLIST</div>
+
+        {/* ── Model tabs ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+          {models.map((m) => {
+            const isActive = m.id === activeModelId;
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {renamingId === m.id ? (
+                  <input
+                    autoFocus
+                    value={renameVal}
+                    onChange={(e) => setRenameVal(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                    maxLength={30}
+                    style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                      padding: "5px 10px", borderRadius: 20, border: "1.5px solid var(--accent)",
+                      background: "var(--accent-dim)", color: "var(--accent)", outline: "none", width: 100,
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => switchModel(m.id)}
+                    style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+                      padding: "5px 14px", borderRadius: 20, cursor: "pointer", transition: "all 0.15s",
+                      border: `1.5px solid ${isActive ? "var(--accent)" : "var(--border-primary)"}`,
+                      background: isActive ? "var(--accent-dim)" : "transparent",
+                      color: isActive ? "var(--accent)" : "var(--text-tertiary)",
+                      letterSpacing: "0.04em",
+                    }}
+                  >{m.name}</button>
+                )}
+                {isActive && renamingId !== m.id && (
+                  <button onClick={() => startRename(m)} title="Rename model" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✎</button>
+                )}
+                {!isActive && models.length > 1 && (
+                  <button onClick={() => deleteModel(m.id)} title="Delete model" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✕</button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add new model */}
+          {addingModel ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input
+                autoFocus
+                placeholder="Model name..."
+                value={newModelName}
+                onChange={(e) => setNewModelName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addModel(); if (e.key === "Escape") { setAddingModel(false); setNewModelName(""); } }}
+                maxLength={30}
+                style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+                  padding: "5px 10px", borderRadius: 20, border: "1.5px solid var(--border-primary)",
+                  background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none", width: 120,
+                }}
+              />
+              <button onClick={addModel} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 20, border: "1px solid var(--green)", background: "transparent", color: "var(--green)", cursor: "pointer" }}>ADD</button>
+              <button onClick={() => { setAddingModel(false); setNewModelName(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)" }}>✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingModel(true)} style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+              padding: "5px 12px", borderRadius: 20, border: "1px dashed var(--border-primary)",
+              background: "transparent", color: "var(--text-tertiary)", cursor: "pointer", transition: "all 0.15s",
+              letterSpacing: "0.04em",
+            }}>+ New Model</button>
+          )}
+
+          {/* Customize active model */}
           <button onClick={openEdit} style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, padding: "6px 14px",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, padding: "5px 12px",
             background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-tertiary)",
-            borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s",
+            borderRadius: 20, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase",
+            transition: "all 0.2s", marginLeft: "auto",
           }}>CUSTOMIZE</button>
         </div>
 
@@ -969,66 +1053,69 @@ export function ChecklistView({ supabase, user, embedded = false }) {
           <span style={{ color: "var(--green)", fontWeight: 600 }}>{count}</span> / {totalCount} confirmed
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {allItems.map((item, i) => (
-            <div
-              key={i}
-              onClick={() => toggleCheck(i)}
-              style={{
-                display: "flex", alignItems: "center", gap: 16,
-                background: checked[i] ? "var(--accent-glow)" : "var(--bg-tertiary)",
-                border: `1.5px solid ${checked[i] ? "var(--accent-dim)" : "var(--border-primary)"}`,
-                borderRadius: 6, padding: "16px 20px", cursor: "pointer",
-                transition: "all 0.2s", userSelect: "none",
-                boxShadow: checked[i] ? "0 0 0 1px var(--accent-dim)" : "none",
-              }}
-            >
-              <div style={{
-                width: 26, height: 26, borderRadius: 4,
-                border: `2px solid ${checked[i] ? "var(--green)" : "var(--border-primary)"}`,
-                background: checked[i] ? "var(--green)" : "transparent",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, fontSize: 14, color: "var(--bg-primary)", transition: "all 0.2s",
-              }}>
-                {checked[i] && "✓"}
+        {activeModel?.items.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
+            No items yet. Click <strong style={{ color: "var(--accent)" }}>CUSTOMIZE</strong> to add your checklist conditions.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {allItems.map((item, i) => (
+              <div
+                key={i}
+                onClick={() => toggleCheck(i)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 16,
+                  background: checked[i] ? "var(--accent-glow)" : "var(--bg-tertiary)",
+                  border: `1.5px solid ${checked[i] ? "var(--accent-dim)" : "var(--border-primary)"}`,
+                  borderRadius: 6, padding: "16px 20px", cursor: "pointer",
+                  transition: "all 0.2s", userSelect: "none",
+                  boxShadow: checked[i] ? "0 0 0 1px var(--accent-dim)" : "none",
+                }}
+              >
+                <div style={{
+                  width: 26, height: 26, borderRadius: 4,
+                  border: `2px solid ${checked[i] ? "var(--green)" : "var(--border-primary)"}`,
+                  background: checked[i] ? "var(--green)" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, fontSize: 14, color: "var(--bg-primary)", transition: "all 0.2s",
+                }}>
+                  {checked[i] && "✓"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 500, color: checked[i] ? "var(--green)" : "var(--text-primary)" }}>{item.label}</div>
+                  {item.sub && <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 3 }}>{item.sub}</div>}
+                  {item.timer && !checked[i] && (
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 10, fontSize: 13, color: timerActive ? "var(--gold)" : "var(--text-tertiary)" }}>
+                      {timerActive ? `⏱ Think about it... ${timerSecs}s` : "Click to start 10 second timer..."}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: checked[i] ? "var(--green)" : "var(--text-primary)" }}>{item.label}</div>
-                {item.sub && <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginTop: 3 }}>{item.sub}</div>}
-                {item.timer && !checked[i] && (
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 10, fontSize: 13, color: timerActive ? "var(--gold)" : "var(--text-tertiary)" }}>
-                    {timerActive ? `⏱ Think about it... ${timerSecs}s` : "Click to start 10 second timer..."}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
-        {/* Result */}
-        <div style={{
-          marginTop: 28, borderRadius: 6, padding: 22, textAlign: "center",
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          fontWeight: allChecked ? 700 : 400, fontSize: allChecked ? 14 : 13,
-          letterSpacing: allChecked ? "0.1em" : "0.05em",
-          textTransform: "uppercase",
-          background: allChecked ? "var(--accent-glow)" : "var(--bg-tertiary)",
-          border: `1.5px solid ${allChecked ? "var(--accent-dim)" : "var(--border-primary)"}`,
-          color: allChecked ? "var(--green)" : "var(--text-tertiary)",
-          boxShadow: allChecked ? "0 0 0 1px var(--accent-dim)" : "none",
-          animation: allChecked ? "subtleGlow 2s ease infinite" : "none",
-        }}>
-          {allChecked ? "A+ TRADE CONFIRMED — TAKE IT" : "Check off all conditions to confirm your setup."}
-        </div>
-
-        <button onClick={resetChecklist} style={{
-          display: "block", width: "100%", marginTop: 18, padding: 14,
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          background: "transparent", border: "1.5px solid var(--border-primary)", color: "var(--text-tertiary)",
-          borderRadius: 4, fontSize: 13, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em",
-        }}>
-          RESET FOR NEXT TRADE
-        </button>
+        {activeModel?.items.length > 0 && (<>
+          <div style={{
+            marginTop: 28, borderRadius: 6, padding: 22, textAlign: "center",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontWeight: allChecked ? 700 : 400, fontSize: allChecked ? 14 : 13,
+            letterSpacing: allChecked ? "0.1em" : "0.05em", textTransform: "uppercase",
+            background: allChecked ? "var(--accent-glow)" : "var(--bg-tertiary)",
+            border: `1.5px solid ${allChecked ? "var(--accent-dim)" : "var(--border-primary)"}`,
+            color: allChecked ? "var(--green)" : "var(--text-tertiary)",
+            boxShadow: allChecked ? "0 0 0 1px var(--accent-dim)" : "none",
+            animation: allChecked ? "subtleGlow 2s ease infinite" : "none",
+          }}>
+            {allChecked ? "A+ TRADE CONFIRMED — TAKE IT" : "Check off all conditions to confirm your setup."}
+          </div>
+          <button onClick={resetChecklist} style={{
+            display: "block", width: "100%", marginTop: 18, padding: 14,
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            background: "transparent", border: "1.5px solid var(--border-primary)", color: "var(--text-tertiary)",
+            borderRadius: 4, fontSize: 13, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.08em",
+          }}>RESET FOR NEXT TRADE</button>
+        </>)}
       </TCard>
     </div>
   );
@@ -2924,75 +3011,116 @@ export function AccountsView({ supabase, user, privacyMode }) {
         {accounts.map((acc) => {
           const statusMeta = getStatusMeta(acc.status);
           const pnl = acc.current_pnl != null ? Number(acc.current_pnl) : null;
+          const isEditing = editing === acc.id;
           return (
-            <TCard key={acc.id} style={{ padding: 24, borderLeft: `4px solid ${statusMeta.color}` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
-                <Badge label={statusMeta.label} color={statusMeta.color} />
-              </div>
-              <div className="acct-card-stats" style={{ display: "flex", gap: 28, fontSize: 14, flexWrap: "wrap", marginBottom: 14 }}>
-                {acc.account_size != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Account Size</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.account_size)}</div>
+            <TCard key={acc.id} style={{ padding: 24, borderLeft: `4px solid ${isEditing ? "var(--accent)" : statusMeta.color}` }}>
+              {isEditing ? (
+                <>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, color: "var(--accent)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    EDITING: {acc.account_name || acc.firm}
                   </div>
-                )}
-                {pnl != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Current P&L</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)", fontSize: 15 }}>{privacyMode ? MASK : `${pnl >= 0 ? "+" : "-"}${fmtMoney(pnl)}`}</div>
+                  <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+                    <Field label="Firm Name"><input style={inputStyle} placeholder="e.g. Apex, Topstep" value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} /></Field>
+                    <Field label="Account Size ($)"><input type="number" style={inputStyle} placeholder="e.g. 50000" value={form.account_size} onChange={(e) => setForm({ ...form, account_size: e.target.value })} /></Field>
+                    <Field label="Type">
+                      <select style={selectStyle} value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })}>
+                        <option value="">Select...</option>
+                        {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Status">
+                      <select style={selectStyle} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                        <option value="">Select...</option>
+                        {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </Field>
                   </div>
-                )}
-                {acc.profit_target != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Profit Target</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.profit_target)}</div>
+                  <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+                    <Field label="Profit Target ($)"><input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} /></Field>
+                    <Field label="Current P&L ($)"><input type="number" style={inputStyle} placeholder="e.g. 1500" value={form.current_pnl} onChange={(e) => setForm({ ...form, current_pnl: e.target.value })} /></Field>
+                    <Field label="Max Drawdown ($)"><input type="number" style={inputStyle} placeholder="e.g. 2500" value={form.max_drawdown} onChange={(e) => setForm({ ...form, max_drawdown: e.target.value })} /></Field>
+                    <Field label="Daily Loss Limit ($)"><input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} /></Field>
+                    <Field label="Payout Eligible (%)"><input type="number" style={inputStyle} placeholder="e.g. 80" min="0" max="100" value={form.payout_pct} onChange={(e) => setForm({ ...form, payout_pct: e.target.value })} /></Field>
                   </div>
-                )}
-                {acc.max_drawdown != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Max Drawdown</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.max_drawdown)}</div>
+                  <div style={{ marginBottom: 14 }}>
+                    <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }} placeholder="Withdrawal dates, rules, notes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
                   </div>
-                )}
-                {acc.daily_loss_limit != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Daily Loss Limit</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.daily_loss_limit)}</div>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={resetForm} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 12, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
+                    <button onClick={saveAccount} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 12, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer" }}>SAVE CHANGES</button>
                   </div>
-                )}
-                {acc.payout_pct != null && (
-                  <div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Payout %</div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{Number(acc.payout_pct)}%</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
+                    <Badge label={statusMeta.label} color={statusMeta.color} />
                   </div>
-                )}
-                {(() => {
-                  const accPnl = acc.current_pnl != null ? Number(acc.current_pnl) : 0;
-                  const accPct = acc.payout_pct != null ? Number(acc.payout_pct) : 0;
-                  const eligible = accPnl > 0 && accPct > 0 ? accPnl * accPct / 100 : 0;
-                  return eligible > 0 ? (
-                    <div>
-                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Eligible Payout</div>
-                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--green)", fontSize: 15 }}>{fmtMoney(eligible)}</div>
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-              {acc.notes && (
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
+                  <div className="acct-card-stats" style={{ display: "flex", gap: 28, fontSize: 14, flexWrap: "wrap", marginBottom: 14 }}>
+                    {acc.account_size != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Account Size</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.account_size)}</div>
+                      </div>
+                    )}
+                    {pnl != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Current P&L</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)", fontSize: 15 }}>{privacyMode ? MASK : `${pnl >= 0 ? "+" : "-"}${fmtMoney(pnl)}`}</div>
+                      </div>
+                    )}
+                    {acc.profit_target != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Profit Target</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.profit_target)}</div>
+                      </div>
+                    )}
+                    {acc.max_drawdown != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Max Drawdown</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.max_drawdown)}</div>
+                      </div>
+                    )}
+                    {acc.daily_loss_limit != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Daily Loss Limit</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.daily_loss_limit)}</div>
+                      </div>
+                    )}
+                    {acc.payout_pct != null && (
+                      <div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Payout %</div>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{Number(acc.payout_pct)}%</div>
+                      </div>
+                    )}
+                    {(() => {
+                      const accPnl = acc.current_pnl != null ? Number(acc.current_pnl) : 0;
+                      const accPct = acc.payout_pct != null ? Number(acc.payout_pct) : 0;
+                      const eligible = accPnl > 0 && accPct > 0 ? accPnl * accPct / 100 : 0;
+                      return eligible > 0 ? (
+                        <div>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Eligible Payout</div>
+                          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--green)", fontSize: 15 }}>{fmtMoney(eligible)}</div>
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
+                  {acc.notes && (
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
+                    <button onClick={() => openEdit(acc)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
+                    <button onClick={() => deleteAccount(acc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>✕ Delete</button>
+                  </div>
+                </>
               )}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
-                <button onClick={() => openEdit(acc)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
-                <button onClick={() => deleteAccount(acc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>✕ Delete</button>
-              </div>
             </TCard>
           );
         })}
       </div>
 
-      {/* Add / Edit Form — always visible */}
-      <TCard style={{ padding: 28 }}>
+      {/* Add Account Form — only shown when not editing an existing account */}
+      {!editing && <TCard style={{ padding: 28 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           {editing ? "EDIT ACCOUNT" : "ADD ACCOUNT"}
         </div>
@@ -3046,7 +3174,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
             {editing ? "SAVE CHANGES" : "+ ADD ACCOUNT"}
           </button>
         </div>
-      </TCard>
+      </TCard>}
 
       {/* ─── PAYOUT LOG ─────────────────────────────────────────────────── */}
       <div style={{ marginTop: 32 }}>
@@ -4195,7 +4323,7 @@ Be direct. Quote their exact words. Tough but fair.`;
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 14 }}>PRE-TRADE PLAN</div>
             <div className="pretrade-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <Field label="Daily Bias">
-                <select style={selectStyle} value={plan.bias} onChange={(e) => setPlan(p => ({ ...p, bias: e.target.value }))}>
+                <select style={{ ...selectStyle, fontSize: 12 }} value={plan.bias} onChange={(e) => setPlan(p => ({ ...p, bias: e.target.value }))}>
                   <option value="">Select...</option>
                   <option>Bullish</option>
                   <option>Bearish</option>
@@ -4203,7 +4331,7 @@ Be direct. Quote their exact words. Tough but fair.`;
                 </select>
               </Field>
               <Field label="Max Trades">
-                <select style={selectStyle} value={plan.max_trades} onChange={(e) => setPlan(p => ({ ...p, max_trades: e.target.value }))}>
+                <select style={{ ...selectStyle, fontSize: 12 }} value={plan.max_trades} onChange={(e) => setPlan(p => ({ ...p, max_trades: e.target.value }))}>
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
@@ -4212,7 +4340,7 @@ Be direct. Quote their exact words. Tough but fair.`;
             </div>
             <Field label="Session Plan">
               <textarea
-                style={{ ...inputStyle, resize: "vertical", overflow: "auto", minHeight: 80, lineHeight: 1.7 }}
+                style={{ ...inputStyle, resize: "vertical", overflow: "auto", minHeight: 140, lineHeight: 1.7, fontSize: 12 }}
                 placeholder="What's your plan for today's NY session? Setups, confluences, anything to avoid..."
                 value={plan.session_plan}
                 onChange={(e) => setPlan(p => ({ ...p, session_plan: e.target.value }))}
@@ -4223,7 +4351,7 @@ Be direct. Quote their exact words. Tough but fair.`;
               <Field label="How are you feeling?">
                 <input
                   type="text"
-                  style={{ ...inputStyle }}
+                  style={{ ...inputStyle, fontSize: 12 }}
                   placeholder="e.g. focused, tired, anxious, in the zone..."
                   value={moodText}
                   onChange={(e) => setMoodText(e.target.value)}
@@ -4247,7 +4375,7 @@ Be direct. Quote their exact words. Tough but fair.`;
                 style={{
                   width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-primary)",
                   borderRadius: 6, padding: "12px 14px", resize: "vertical", overflow: "auto",
-                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-primary)",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-primary)",
                   lineHeight: 1.75, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
                 }}
               />
