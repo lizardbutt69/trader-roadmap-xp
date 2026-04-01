@@ -1638,7 +1638,7 @@ export default function TraderRoadmapXP() {
                 borderRadius: 8, color: "var(--text-primary)",
                 fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
                 lineHeight: 1.7, padding: "12px 14px", resize: "none",
-                minHeight: 200, outline: "none", transition: "border-color 0.15s",
+                minHeight: 320, outline: "none", transition: "border-color 0.15s",
               }}
               onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
               onBlur={(e) => e.target.style.borderColor = "var(--border-primary)"}
