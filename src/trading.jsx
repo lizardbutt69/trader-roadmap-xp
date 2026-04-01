@@ -2226,11 +2226,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       )}
 
       {/* Trade History Table */}
-      <TCard style={{ overflow: "hidden" }}>
+      <TCard style={{ overflow: "hidden", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 10 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>TRADE HISTORY</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>TRADE HISTORY</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", opacity: 0.6 }}>{new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}</div>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          {trades.length > 0 && (
+          {monthTrades.length > 0 && (
             <button
               onClick={() => setShowReview(true)}
               style={{
@@ -2241,11 +2244,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               }}
             >⊞ REVIEW TRADES</button>
           )}
-          {trades.length > 0 && (
+          {monthTrades.length > 0 && (
             <button
               onClick={() => {
                 const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Tags", "Chart URL", "After Chart URL"];
-                const rows = trades.map((t) => [
+                const rows = monthTrades.map((t) => [
                   t.dt ? new Date(t.dt).toLocaleString() : "",
                   t.asset || "",
                   t.direction || "",
@@ -2265,7 +2268,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `tradesharp-history-${new Date().toISOString().slice(0, 10)}.csv`;
+                a.download = `tradesharp-${new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" }).replace(" ", "-").toLowerCase()}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
@@ -2279,8 +2282,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           )}
           </div>
         </div>
-        {!trades.length ? (
-          <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged yet.</div>
+        {!monthTrades.length ? (
+          <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged for {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}.</div>
         ) : (
           <div className="trade-table" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }}>
@@ -2292,7 +2295,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                 </tr>
               </thead>
               <tbody>
-                {trades.map((t) => {
+                {monthTrades.map((t) => {
                   const p = parseFloat(t.profit);
                   const pf = parseFloat(t.profit_funded);
                   const cellStyle = { padding: "10px 12px", borderTop: "1px solid var(--border-primary)", whiteSpace: "nowrap", fontSize: 12 };
