@@ -634,6 +634,17 @@ export default function TraderRoadmapXP() {
   const [showFocus, setShowFocus] = useState(false);
   const [focusSecs, setFocusSecs] = useState(180);
   const focusTimerRef = useRef(null);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [sessionNotes, setSessionNotes] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sessionNotes") || "{}");
+      return saved.date === new Date().toISOString().slice(0, 10) ? saved.text : "";
+    } catch { return ""; }
+  });
+  const saveSessionNotes = (text) => {
+    setSessionNotes(text);
+    try { localStorage.setItem("sessionNotes", JSON.stringify({ date: todayKey, text })); } catch {}
+  };
 
   // Focus Mode timer — must be after showFocus/focusSecs/focusTimerRef declarations
   useEffect(() => {
@@ -1818,6 +1829,30 @@ export default function TraderRoadmapXP() {
                 {tab.label}
               </button>
             ))}
+          </div>
+
+          {/* Session Notes */}
+          <div style={{ padding: "12px 12px 8px", borderTop: "1px solid var(--border-primary)" }}>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+              color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
+              marginBottom: 8,
+            }}>Session Notes</div>
+            <textarea
+              value={sessionNotes}
+              onChange={(e) => saveSessionNotes(e.target.value)}
+              placeholder="How's the session going? Any thoughts..."
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                borderRadius: 6, color: "var(--text-primary)",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12,
+                lineHeight: 1.6, padding: "8px 10px", resize: "none",
+                minHeight: 72, outline: "none", transition: "border-color 0.15s",
+              }}
+              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+              onBlur={(e) => e.target.style.borderColor = "var(--border-primary)"}
+            />
           </div>
 
           {/* Focus Mode trigger */}
