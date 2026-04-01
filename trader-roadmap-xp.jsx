@@ -635,6 +635,7 @@ export default function TraderRoadmapXP() {
   const [focusSecs, setFocusSecs] = useState(180);
   const focusTimerRef = useRef(null);
   const todayKey = new Date().toISOString().slice(0, 10);
+  const [showSessionNotes, setShowSessionNotes] = useState(false);
   const [sessionNotes, setSessionNotes] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sessionNotes") || "{}");
@@ -1604,6 +1605,64 @@ export default function TraderRoadmapXP() {
         </div>
       )}
 
+      {/* ── Session Notes Modal ── */}
+      {showSessionNotes && (
+        <div
+          onClick={() => setShowSessionNotes(false)}
+          style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 16, padding: "28px 28px 24px", maxWidth: 480, width: "100%", boxShadow: "0 0 60px rgba(34,211,238,0.08)", display: "flex", flexDirection: "column", gap: 16 }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Session Notes</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}</div>
+              </div>
+              <button
+                onClick={() => setShowSessionNotes(false)}
+                style={{ background: "transparent", border: "none", color: "var(--text-tertiary)", fontSize: 20, cursor: "pointer", padding: "4px 8px", borderRadius: 4, lineHeight: 1 }}
+              >×</button>
+            </div>
+            {/* Textarea */}
+            <textarea
+              autoFocus
+              value={sessionNotes}
+              onChange={(e) => saveSessionNotes(e.target.value)}
+              placeholder="How's today's session going? What are you seeing in the market? Any thoughts, observations, or mental notes..."
+              style={{
+                width: "100%", boxSizing: "border-box",
+                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                borderRadius: 8, color: "var(--text-primary)",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+                lineHeight: 1.7, padding: "12px 14px", resize: "none",
+                minHeight: 200, outline: "none", transition: "border-color 0.15s",
+              }}
+              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+              onBlur={(e) => e.target.style.borderColor = "var(--border-primary)"}
+            />
+            {/* Footer */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>Resets automatically each new day</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {sessionNotes && (
+                  <button
+                    onClick={() => saveSessionNotes("")}
+                    style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "7px 14px", borderRadius: 4, cursor: "pointer", border: "1px solid var(--border-primary)", background: "transparent", color: "var(--text-tertiary)", letterSpacing: "0.04em" }}
+                  >Clear</button>
+                )}
+                <button
+                  onClick={() => setShowSessionNotes(false)}
+                  style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "7px 18px", borderRadius: 4, cursor: "pointer", border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.05em" }}
+                >Done</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Profile Editor Modal ── */}
       {showProfileEditor && (
         <div
@@ -1831,28 +1890,24 @@ export default function TraderRoadmapXP() {
             ))}
           </div>
 
-          {/* Session Notes */}
-          <div style={{ padding: "12px 12px 8px", borderTop: "1px solid var(--border-primary)" }}>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
-              color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
-              marginBottom: 8,
-            }}>Session Notes</div>
-            <textarea
-              value={sessionNotes}
-              onChange={(e) => saveSessionNotes(e.target.value)}
-              placeholder="How's the session going? Any thoughts..."
+          {/* Session Notes trigger */}
+          <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border-primary)" }}>
+            <button
+              onClick={() => setShowSessionNotes(true)}
+              title="Session Notes"
               style={{
-                width: "100%", boxSizing: "border-box",
-                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                borderRadius: 6, color: "var(--text-primary)",
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12,
-                lineHeight: 1.6, padding: "8px 10px", resize: "none",
-                minHeight: 72, outline: "none", transition: "border-color 0.15s",
+                width: "100%", display: "flex", alignItems: "center", gap: 10,
+                background: "transparent", border: "none", cursor: "pointer",
+                padding: "9px 12px", borderRadius: 6,
+                color: "var(--text-secondary)",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+                transition: "all 0.15s",
               }}
-              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-primary)"}
-            />
+            >
+              <span style={{ fontSize: 17, lineHeight: 1 }}>📝</span>
+              <span style={{ fontWeight: 500 }}>Session Notes</span>
+              {sessionNotes && <span style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />}
+            </button>
           </div>
 
           {/* Focus Mode trigger */}
