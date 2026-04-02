@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./src/supabase.js";
 import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal } from "./src/trading.jsx";
+import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -509,6 +510,11 @@ function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl,
   };
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="TRADE JOURNAL"
+        title="Track every session, grow every week."
+        subtitle="Log your trades, review your equity curve, and hold yourself accountable to the process."
+      />
       {/* Collapsible Checklist */}
       <div style={{ marginBottom: 20 }}>
         <button
@@ -828,6 +834,20 @@ export default function TraderRoadmapXP() {
     setProofNote("");
     setProofLink("");
   };
+  const handleMissionComplete = async (id, note, link) => {
+    if (!user) return;
+    const { error } = await supabase.from("quest_completions").insert({
+      user_id: user.id, quest_id: id, note, link,
+    });
+    if (!error) {
+      setCompleted((prev) => {
+        const n = new Map(prev);
+        n.set(id, { note, link, completedAt: new Date().toISOString() });
+        return n;
+      });
+    }
+  };
+
   const undoQuest = async (id) => {
     if (!user) return;
     setSaving(true);
@@ -2398,191 +2418,13 @@ export default function TraderRoadmapXP() {
           <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} displayName={displayName} privacyMode={privacyMode} />
         )}
 
-        {/* MAP VIEW — Trail Style */}
-        {view === "roadmap" && !selectedLevel && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            <PageBanner
-              label="TRADER ROADMAP"
-              title="From breakeven to independence."
-              subtitle="Complete quests, earn XP, and level up through 5 stages of your trading journey."
-            />
-            {LEVELS.map((level, i) => {
-              const isActive = currentXP >= level.xpRequired || i === 0;
-              const isCurrent = level.id === currentLevel.id;
-              const done = level.achievements.filter((a) => completed.has(a.id)).length;
-              const total = level.achievements.length;
-              const allDone = done === total;
-              const pct = Math.round((done / total) * 100);
-              const isPast = currentXP >= level.xpRequired && !isCurrent;
-              const isLast = i === LEVELS.length - 1;
-
-              return (
-                <div key={level.id} style={{ animation: `fadeSlideIn 0.4s ease ${i * 0.1}s both` }}>
-                  {/* Node row: dot + card */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                    {/* Dot */}
-                    <div style={{
-                      width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
-                      background: allDone ? level.accent : isCurrent ? "var(--bg-secondary)" : isPast ? level.accent + "88" : "var(--bg-tertiary)",
-                      border: `3px solid ${allDone ? level.accent : isCurrent ? level.accent : isPast ? level.accent + "66" : "var(--border-primary)"}`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: isCurrent ? `0 0 0 4px ${level.accent}20, 0 0 12px ${level.accent}30` : allDone ? `0 0 8px ${level.accent}40` : "none",
-                      transition: "all 0.3s",
-                    }}>
-                      {allDone && <span style={{ fontSize: 11, color: "#fff", lineHeight: 1, fontWeight: 700 }}>✓</span>}
-                      {isCurrent && !allDone && <div style={{ width: 10, height: 10, borderRadius: "50%", background: level.accent, animation: "pulse 2s infinite" }} />}
-                    </div>
-
-                    {/* Card */}
-                    <LevelMapCard
-                      level={level}
-                      isActive={isActive}
-                      isCurrent={isCurrent}
-                      allDone={allDone}
-                      isPast={isPast}
-                      done={done}
-                      total={total}
-                      pct={pct}
-                      onClick={isActive ? () => { setSelectedLevel(level.id); setView("level"); } : undefined}
-                    />
-                  </div>
-
-                  {/* Connector line between nodes */}
-                  {!isLast && (
-                    <div style={{ display: "flex", alignItems: "stretch", gap: 16 }}>
-                      <div style={{ width: 26, display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                        <div style={{
-                          width: 2, height: 20,
-                          background: allDone
-                            ? `linear-gradient(to bottom, ${level.accent}, ${LEVELS[i + 1]?.accent || level.accent})`
-                            : isCurrent
-                            ? `linear-gradient(to bottom, ${level.accent}80, var(--border-primary))`
-                            : "var(--border-secondary)",
-                          borderRadius: 2,
-                          transition: "background 0.3s",
-                        }} />
-                      </div>
-                      <div style={{ flex: 1 }} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* QUEST STATS + TRADING PERFORMANCE (shown on roadmap tab, map sub-view) */}
-        {view === "roadmap" && !selectedLevel && (
-          <div style={{ marginTop: 28 }}>
-            {/* Quest Progress Summary */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 24 }}>
-              {[
-                { label: "Total XP", value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`, color: "var(--gold)", icon: "⚡" },
-                { label: "Level", value: `${currentLevel.id} / 5`, sub: currentLevel.name, color: currentLevel.accent, icon: currentLevel.icon },
-                { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "var(--green)", icon: "✅" },
-                { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "var(--red)", icon: nextLevel?.icon || "👑" },
-              ].map((s, i) => (
-                <Card key={i} style={{ padding: 0, overflow: "hidden", animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both`, background: `linear-gradient(145deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 100%)` }}>
-                  <div style={{ height: 3, background: s.color, opacity: 0.7 }} />
-                  <div style={{ padding: "16px 18px" }}>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
-                      {s.icon} {s.label}
-                    </div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 20, color: s.color, marginBottom: 3, letterSpacing: "-0.02em" }}>
-                      {s.value}
-                    </div>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>{s.sub}</div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-          </div>
-        )}
-
-        {/* LEVEL DETAIL VIEW */}
-        {view === "level" && selectedData && (
-          <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-            <button
-              onClick={() => { setView("roadmap"); setSelectedLevel(null); }}
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 12,
-                color: "var(--text-tertiary)",
-                background: "var(--bg-secondary)",
-                border: "1px solid var(--border-primary)",
-                cursor: "pointer",
-                marginBottom: 20,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                padding: "7px 14px",
-                borderRadius: 6,
-                transition: "all 0.15s",
-              }}
-            >
-              ← Roadmap
-            </button>
-
-            <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden", border: `1px solid ${selectedData.accent}35`, background: `linear-gradient(160deg, ${selectedData.accent}08 0%, rgba(255,255,255,0.02) 60%)` }}>
-              {/* Accent top bar */}
-              <div style={{ height: 3, background: `linear-gradient(90deg, ${selectedData.accent}, ${selectedData.accent}40)` }} />
-              <div style={{ padding: 24 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14 }}>
-                  {/* Icon in colored circle */}
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 14,
-                    background: `${selectedData.accent}18`,
-                    border: `1.5px solid ${selectedData.accent}35`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0,
-                  }}>
-                    <span style={{ fontSize: 28 }}>{selectedData.icon}</span>
-                  </div>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: 18, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-                        {selectedData.name}
-                      </span>
-                      <Chip label={selectedData.tier} color={selectedData.accent} />
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{selectedData.subtitle}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.65, marginBottom: 16 }}>
-                  {selectedData.description}
-                </div>
-                <XPBar
-                  current={selectedData.achievements.filter((a) => completed.has(a.id)).length}
-                  max={selectedData.achievements.length}
-                  color={selectedData.accent}
-                  height={8}
-                />
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textAlign: "right", marginTop: 6 }}>
-                  {selectedData.achievements.filter((a) => completed.has(a.id)).length}/{selectedData.achievements.length} quests complete
-                </div>
-              </div>
-            </Card>
-
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, color: "var(--text-tertiary)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-              Quests
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {selectedData.achievements.map((a, i) => (
-                <AchievementRow
-                  key={a.id}
-                  ach={a}
-                  completed={completed.has(a.id)}
-                  proof={completed.get(a.id)}
-                  onToggle={() => handleToggle(a.id)}
-                  delay={i * 0.05}
-                />
-              ))}
-            </div>
-          </div>
+        {/* ROADMAP VIEW */}
+        {view === "roadmap" && (
+          <RoadmapModern
+            completed={completed}
+            onMissionComplete={handleMissionComplete}
+            onMissionView={(mission, proof) => setViewingProof(mission.id)}
+          />
         )}
 
         {/* JOURNAL VIEW (with collapsible checklist) */}

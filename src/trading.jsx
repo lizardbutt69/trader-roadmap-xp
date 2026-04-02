@@ -3662,9 +3662,9 @@ export function NewsView() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await fetch(`/api/news?category=general`);
+        const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
         setNewsItems(data.slice(0, 20));
         setNewsError(null);
       } catch (e) {
