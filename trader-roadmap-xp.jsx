@@ -6,8 +6,8 @@ import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsV
 
 const LIGHT_THEME = {
   "--bg-primary": "#f8f9fc",
-  "--bg-secondary": "#ffffff",
-  "--bg-tertiary": "#f0f1f6",
+  "--bg-secondary": "rgba(255,255,255,0.80)",
+  "--bg-tertiary": "rgba(240,241,246,0.85)",
   "--bg-input": "#f0f1f6",
   "--border-primary": "#dddfe8",
   "--border-secondary": "#e8eaf0",
@@ -22,11 +22,12 @@ const LIGHT_THEME = {
   "--accent-glow": "rgba(8,145,178,0.05)",
   "--accent-glow-strong": "rgba(8,145,178,0.12)",
   "--accent-secondary": "#6366f1",
-  "--card-shadow": "0 1px 3px rgba(0,0,0,0.04)",
-  "--card-glow": "0 1px 3px rgba(0,0,0,0.04)",
-  "--glass-blur": "none",
-  "--bg-glass": "#ffffff",
-  "--bg-glass-hover": "#f5f6fa",
+  "--card-shadow": "0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
+  "--card-glow": "0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
+  "--card-bg": "linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.78) 100%)",
+  "--glass-blur": "blur(12px)",
+  "--bg-glass": "rgba(255,255,255,0.80)",
+  "--bg-glass-hover": "rgba(255,255,255,0.92)",
   "--green": "#059669",
   "--red": "#e11d48",
   "--gold": "#d97706",
@@ -55,7 +56,8 @@ const DARK_THEME = {
   "--accent-glow-strong": "rgba(34,211,238,0.18)",
   "--accent-secondary": "#818cf8",
   "--card-shadow": "0 2px 16px rgba(0,0,0,0.25)",
-  "--card-glow": "0 2px 20px rgba(0,0,0,0.2)",
+  "--card-glow": "0 2px 20px rgba(0,0,0,0.25), 0 0 16px rgba(34,211,238,0.05)",
+  "--card-bg": "linear-gradient(145deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 100%)",
   "--glass-blur": "blur(20px)",
   "--green": "#34d399",
   "--red": "#fb7185",
@@ -238,7 +240,7 @@ function Card({ children, style = {}, onClick, hoverable = false, className = ""
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background: "var(--bg-secondary)",
+        background: "var(--card-bg, var(--bg-secondary))",
         backdropFilter: "var(--glass-blur)",
         WebkitBackdropFilter: "var(--glass-blur)",
         borderRadius: 10,
@@ -1297,7 +1299,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
@@ -1423,7 +1425,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
@@ -2343,7 +2345,7 @@ export default function TraderRoadmapXP() {
                 { label: "Quests", value: `${completed.size} / ${ALL_ACH.length}`, sub: `${Math.round((completed.size / ALL_ACH.length) * 100)}% done`, color: "var(--green)", icon: "✅" },
                 { label: "Next Goal", value: nextLevel ? nextLevel.name : "MAX!", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP away` : "You made it", color: nextLevel?.accent || "var(--red)", icon: nextLevel?.icon || "👑" },
               ].map((s, i) => (
-                <Card key={i} style={{ padding: 0, overflow: "hidden", animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both` }}>
+                <Card key={i} style={{ padding: 0, overflow: "hidden", animation: `fadeSlideIn 0.3s ease ${i * 0.06}s both`, background: `linear-gradient(145deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.02) 100%)` }}>
                   <div style={{ height: 3, background: s.color, opacity: 0.7 }} />
                   <div style={{ padding: "16px 18px" }}>
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
@@ -2392,7 +2394,7 @@ export default function TraderRoadmapXP() {
               ← Roadmap
             </button>
 
-            <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden", border: `1px solid ${selectedData.accent}35` }}>
+            <Card style={{ padding: 0, marginBottom: 20, overflow: "hidden", border: `1px solid ${selectedData.accent}35`, background: `linear-gradient(160deg, ${selectedData.accent}08 0%, rgba(255,255,255,0.02) 60%)` }}>
               {/* Accent top bar */}
               <div style={{ height: 3, background: `linear-gradient(90deg, ${selectedData.accent}, ${selectedData.accent}40)` }} />
               <div style={{ padding: 24 }}>

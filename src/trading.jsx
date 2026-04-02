@@ -633,7 +633,7 @@ export function PageBanner({ label, title, subtitle }) {
 function TCard({ children, style = {}, className = "", onClick }) {
   return (
     <div className={`card-pad ${className}`} onClick={onClick} style={{
-      background: "var(--bg-secondary)",
+      background: "var(--card-bg, var(--bg-secondary))",
       backdropFilter: "var(--glass-blur)",
       WebkitBackdropFilter: "var(--glass-blur)",
       borderRadius: 10,
@@ -963,7 +963,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         title="Only A+ setups deserve your capital."
         subtitle="Run through every criterion before you execute. Discipline is the edge."
       />}
-      <TCard style={{ padding: 28 }}>
+      <TCard style={{ padding: 28, background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.02) 100%)" }}>
 
         {/* ── Model tabs ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
@@ -2113,7 +2113,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       </div>
 
       {/* Equity Curve */}
-      <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden" }}>
+      <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden", background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.03) 100%)" }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>
           EQUITY CURVE
         </div>
@@ -2759,7 +2759,7 @@ export function TradingStatsView({ trades, privacyMode }) {
 
   return (
     <div>
-      <TCard style={{ padding: 28, marginBottom: 24 }}>
+      <TCard style={{ padding: 28, marginBottom: 24, border: "1px solid rgba(167,139,250,0.2)", background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(167,139,250,0.04) 100%)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{level.name}</div>
@@ -2768,19 +2768,19 @@ export function TradingStatsView({ trades, privacyMode }) {
           <div style={{ fontSize: 40 }}>{level.icon}</div>
         </div>
         <div style={{ background: "var(--bg-tertiary)", borderRadius: 4, height: 10, overflow: "hidden", marginBottom: 8, border: "1px solid var(--border-primary)" }}>
-          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, var(--purple), #c060ff)", transition: "width 0.5s", width: `${pct}%`, boxShadow: "none" }} />
+          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, var(--purple), #c060ff)", transition: "width 0.5s", width: `${pct}%`, boxShadow: "0 0 10px rgba(167,139,250,0.5)" }} />
         </div>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", textAlign: "right" }}>
           {isMax ? "Max level reached!" : `${xp - level.min} / ${level.max - level.min} XP to next level`}
         </div>
       </TCard>
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <TCard style={{ padding: 22, textAlign: "center" }}>
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(251,191,36,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(251,191,36,0.15)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--gold)" }}>{greenStreak}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Green Day Streak</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>Best: {bestGreen} days</div>
         </TCard>
-        <TCard style={{ padding: 22, textAlign: "center" }}>
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(52,211,153,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(52,211,153,0.15)" }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--green)" }}>{aplusStreak}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>A+ Trade Streak</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>Best: {bestAplus} trades</div>
@@ -2977,21 +2977,21 @@ export function AccountsView({ supabase, user, privacyMode }) {
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
         <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
         <StatBox value={passedCount} label="Passed" color="var(--green)" />
-        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Current P&L</div>
         </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalEligiblePayout > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalEligiblePayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Eligible Payout</div>
         </TCard>
       </div>
       <div className="acct-summary-2" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(52,211,153,0.12)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPaidOut > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>YTD Paid Out</div>
         </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(251,191,36,0.07) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(251,191,36,0.12)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPending > 0 ? "var(--gold)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Pending</div>
         </TCard>
@@ -3271,9 +3271,13 @@ export function AccountsView({ supabase, user, privacyMode }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ProgressBar({ pct, color, height = 8 }) {
+  const glowColor = color === "var(--green)" ? "rgba(52,211,153,0.35)"
+    : color === "var(--red)" ? "rgba(251,113,133,0.3)"
+    : color === "var(--gold)" ? "rgba(251,191,36,0.3)"
+    : "rgba(34,211,238,0.25)";
   return (
     <div style={{ background: "var(--bg-tertiary)", borderRadius: 5, height, overflow: "hidden", border: "1px solid var(--border-primary)" }}>
-      <div style={{ height: "100%", borderRadius: 5, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, transition: "width 0.5s" }} />
+      <div style={{ height: "100%", borderRadius: 5, background: color, width: `${Math.min(100, Math.max(0, pct))}%`, transition: "width 0.5s", boxShadow: pct > 0 ? `0 0 8px ${glowColor}` : "none" }} />
     </div>
   );
 }
@@ -3384,20 +3388,20 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
 
       {/* Today's Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", borderColor: todayPnl < 0 ? "rgba(239,68,68,0.3)" : undefined }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", borderColor: todayPnl < 0 ? "rgba(239,68,68,0.3)" : undefined, background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: todayPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${todayPnl >= 0 ? "+" : ""}$${todayPnl.toFixed(0)}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Today's P&L</div>
         </TCard>
-        <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" />
-        <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" />
-        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
+        <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: weekPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${weekPnl >= 0 ? "+" : ""}$${weekPnl.toFixed(0)}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Week P&L</div>
         </TCard>
       </div>
 
       {/* Week Progress */}
-      <TCard style={{ padding: 24, marginBottom: 24 }}>
+      <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
           WEEK PROGRESS
         </div>
@@ -3412,8 +3416,9 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
                 <div style={{
                   width: "100%", maxWidth: 56, height: Math.max(4, h), borderRadius: 4,
                   background: d.count === 0 ? "var(--bg-tertiary)" : d.pnl >= 0 ? "var(--green)" : "var(--red)",
-                  opacity: d.count === 0 ? 0.3 : 0.8, transition: "height 0.3s",
+                  opacity: d.count === 0 ? 0.3 : 0.85, transition: "height 0.3s",
                   border: d.isToday ? "2px solid var(--accent)" : "none",
+                  boxShadow: d.count > 0 ? `0 0 10px ${d.pnl >= 0 ? "rgba(52,211,153,0.4)" : "rgba(251,113,133,0.35)"}` : "none",
                 }} />
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: d.isToday ? "var(--accent)" : "var(--text-tertiary)", marginTop: 6, fontWeight: d.isToday ? 700 : 500 }}>{d.label}</div>
               </div>
@@ -3424,7 +3429,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
 
       {/* Account Health */}
       {activeAccounts.length > 0 && (
-        <TCard style={{ padding: 24, marginBottom: 24 }}>
+        <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
             ACCOUNT HEALTH
           </div>
@@ -4405,7 +4410,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
           </button>
 
           {/* AI Coaching Summary */}
-          <TCard style={{ padding: 24 }}>
+          <TCard style={{ padding: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.03) 100%)", border: "1px solid rgba(34,211,238,0.1)" }}>
             <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
               <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
