@@ -637,6 +637,8 @@ export default function TraderRoadmapXP() {
   const [focusSecs, setFocusSecs] = useState(180);
   const focusTimerRef = useRef(null);
   const todayKey = new Date().toISOString().slice(0, 10);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [ripples, setRipples] = useState([]);
   const [showSessionNotes, setShowSessionNotes] = useState(false);
   const [sessionNotes, setSessionNotes] = useState(() => {
     try {
@@ -992,35 +994,102 @@ export default function TraderRoadmapXP() {
       { icon: "🔗", title: "Google Sheets Sync", desc: "Auto-sync every trade and plan to your Google Sheet for backup, custom analysis, or sharing with mentors." },
     ];
 
+    const handleMouseMove = (e) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleClick = (e) => {
+      const newRipple = { id: Date.now(), x: e.clientX, y: e.clientY };
+      setRipples(prev => [...prev, newRipple]);
+      setTimeout(() => setRipples(prev => prev.filter(r => r.id !== newRipple.id)), 1000);
+    };
+
     return (
-      <div style={{ minHeight: "100vh", background: "#06070a", fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: "hidden" }}>
+      <div 
+        style={{ minHeight: "100vh", background: "#06070a", fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: "hidden", position: "relative" }}
+        onMouseMove={handleMouseMove}
+        onClick={handleClick}
+      >
         <style>{globalStyles}{`
+          @keyframes wordAppear {
+            0% { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+            50% { opacity: 0.7; transform: translateY(5px); filter: blur(1px); }
+            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+          }
+          @keyframes pulseGlow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+          }
+          @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-8px) rotate(2deg); }
+            50% { transform: translateY(-4px) rotate(-1deg); }
+            75% { transform: translateY(-12px) rotate(1deg); }
+          }
+          @keyframes gridDraw {
+            0% { stroke-dashoffset: 1000; opacity: 0; }
+            50% { opacity: 0.2; }
+            100% { stroke-dashoffset: 0; opacity: 0.08; }
+          }
           .auth-input:focus {
             border-color: #22d3ee !important;
-            box-shadow: 0 0 0 2px rgba(34,211,238,0.12) !important;
+            box-shadow: 0 0 0 2px rgba(34,211,238,0.15) !important;
           }
           .landing-btn:hover {
-            background: rgba(34,211,238,0.06) !important;
-            transform: translateY(-1px);
+            background: rgba(34,211,238,0.08) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(34,211,238,0.15);
           }
-          .landing-btn { transition: all 0.25s ease !important; }
+          .landing-btn { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; }
           .feature-card {
-            transition: all 0.25s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: default;
           }
           .feature-card:hover {
-            border-color: #2a2d3a !important;
-            transform: translateY(-2px);
+            border-color: rgba(34,211,238,0.3) !important;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(34,211,238,0.05);
           }
           .landing-nav {
             position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-            background: rgba(6,7,10,0.88); backdrop-filter: blur(20px);
-            border-bottom: 1px solid #1c1e2a;
+            background: rgba(6,7,10,0.85); backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid rgba(28,30,42,0.8);
           }
           .landing-section { scroll-margin-top: 80px; }
-          @keyframes heroFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-6px); }
+          .word-animate {
+            display: inline-block;
+            opacity: 0;
+            animation: wordAppear 0.8s ease-out forwards;
+          }
+          .hero-title-word:hover {
+            color: #22d3ee !important;
+            text-shadow: 0 0 20px rgba(34,211,238,0.4);
+            transition: all 0.3s ease;
+          }
+          .ripple-effect {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: rgba(34,211,238,0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: pulseGlow 1s ease-out forwards;
+            z-index: 9999;
+          }
+          .floating-element {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(34,211,238,0.15), transparent);
+            animation: float 6s ease-in-out infinite;
+            pointer-events: none;
+          }
+          .stat-value {
+            background: linear-gradient(135deg, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
           }
           @media (max-width: 768px) {
             .features-grid { grid-template-columns: 1fr !important; }
@@ -1032,9 +1101,59 @@ export default function TraderRoadmapXP() {
           }
         `}</style>
 
+        {/* Mouse gradient follower */}
+        <div 
+          style={{
+            position: "fixed",
+            pointerEvents: "none",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(34,211,238,0.06), rgba(34,211,238,0.02), transparent 70%)",
+            transform: "translate(-50%, -50%)",
+            willChange: "left, top",
+            transition: "left 70ms linear, top 70ms linear",
+            width: "400px",
+            height: "400px",
+            left: mousePos.x,
+            top: mousePos.y,
+            zIndex: 0,
+          }}
+        />
+
+        {/* Animated grid background */}
+        <svg 
+          style={{ position: "fixed", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(100,116,139,0.08)" strokeWidth="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+          <line x1="0" y1="30%" x2="100%" y2="30%" stroke="rgba(34,211,238,0.06)" strokeWidth="0.5" strokeDasharray="5 5" style={{ animation: "gridDraw 3s ease-out forwards", animationDelay: "0.5s" }} />
+          <line x1="0" y1="70%" x2="100%" y2="70%" stroke="rgba(34,211,238,0.06)" strokeWidth="0.5" strokeDasharray="5 5" style={{ animation: "gridDraw 3s ease-out forwards", animationDelay: "1s" }} />
+          <line x1="25%" y1="0" x2="25%" y2="100%" stroke="rgba(34,211,238,0.06)" strokeWidth="0.5" strokeDasharray="5 5" style={{ animation: "gridDraw 3s ease-out forwards", animationDelay: "1.5s" }} />
+          <line x1="75%" y1="0" x2="75%" y2="100%" stroke="rgba(34,211,238,0.06)" strokeWidth="0.5" strokeDasharray="5 5" style={{ animation: "gridDraw 3s ease-out forwards", animationDelay: "2s" }} />
+          <circle cx="25%" cy="30%" r="2" fill="rgba(34,211,238,0.3)" style={{ animation: "pulseGlow 3s ease-in-out infinite" }} />
+          <circle cx="75%" cy="30%" r="2" fill="rgba(34,211,238,0.3)" style={{ animation: "pulseGlow 3s ease-in-out infinite", animationDelay: "0.5s" }} />
+          <circle cx="25%" cy="70%" r="2" fill="rgba(34,211,238,0.3)" style={{ animation: "pulseGlow 3s ease-in-out infinite", animationDelay: "1s" }} />
+          <circle cx="75%" cy="70%" r="2" fill="rgba(34,211,238,0.3)" style={{ animation: "pulseGlow 3s ease-in-out infinite", animationDelay: "1.5s" }} />
+        </svg>
+
+        {/* Floating decorative elements */}
+        <div className="floating-element" style={{ top: "20%", left: "10%", width: "60px", height: "60px", animationDelay: "0s" }} />
+        <div className="floating-element" style={{ top: "60%", left: "85%", width: "40px", height: "40px", animationDelay: "1s" }} />
+        <div className="floating-element" style={{ top: "40%", left: "5%", width: "30px", height: "30px", animationDelay: "2s" }} />
+        <div className="floating-element" style={{ top: "80%", left: "90%", width: "50px", height: "50px", animationDelay: "0.5s" }} />
+
+        {/* Click ripples */}
+        {ripples.map(ripple => (
+          <div key={ripple.id} className="ripple-effect" style={{ left: ripple.x, top: ripple.y }} />
+        ))}
+
         {/* ── Nav ── */}
-        <nav className="landing-nav">
-          <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+        <nav className="landing-nav" style={{ zIndex: 10 }}>
+          <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, position: "relative" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <TradeSharpLogo size={32} />
               <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", letterSpacing: 3, textTransform: "uppercase" }}>TRADESHARP</span>
@@ -1045,29 +1164,38 @@ export default function TraderRoadmapXP() {
               <a href="#auth-section" style={{ fontFamily: mono, fontSize: 11, color: "#52546a", textDecoration: "none", letterSpacing: "0.1em", textTransform: "uppercase", transition: "color 0.2s" }}
                 onMouseOver={(e) => e.target.style.color = accent} onMouseOut={(e) => e.target.style.color = "#52546a"}>Get Started</a>
               <button onClick={() => document.getElementById("auth-section")?.scrollIntoView({ behavior: "smooth" })}
-                style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, padding: "8px 18px", background: "transparent", border: `1px solid ${accentDim}`, color: accent, borderRadius: 4, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s" }}
+                style={{ fontFamily: mono, fontSize: 11, fontWeight: 600, padding: "8px 18px", background: "transparent", border: `1px solid ${accentDim}`, color: accent, borderRadius: 20, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase", transition: "all 0.2s" }}
               >Sign In</button>
             </div>
           </div>
         </nav>
 
         {/* ── Hero ── */}
-        <section style={{ paddingTop: 140, paddingBottom: 100, position: "relative" }}>
-          {/* Subtle radial glow */}
-          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", height: "100%", background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.04) 0%, transparent 50%)", pointerEvents: "none" }} />
+        <section style={{ paddingTop: 160, paddingBottom: 120, position: "relative", zIndex: 1 }}>
+          {/* Radial glow background */}
+          <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "100%", height: "100%", background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.06) 0%, rgba(34,211,238,0.02) 30%, transparent 60%)", pointerEvents: "none" }} />
 
           <div className="hero-content" style={{ ...sectionStyle, display: "flex", alignItems: "center", gap: 60, position: "relative" }}>
             <div className="hero-text" style={{ flex: 1 }}>
-              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 20, opacity: 0.8 }}>
-                TRADING PERFORMANCE SYSTEM
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 24, opacity: 0.8 }}>
+                <span className="word-animate" style={{ animationDelay: "0ms" }}>Trading</span>
+                <span className="word-animate" style={{ animationDelay: "100ms" }}>Performance</span>
+                <span className="word-animate" style={{ animationDelay: "200ms" }}>System</span>
               </div>
-              <h1 style={{ fontFamily: mono, fontSize: 44, fontWeight: 700, color: "#e8e8ed", lineHeight: 1.15, marginBottom: 20, letterSpacing: "-0.5px" }}>
-                Trade with<br />
-                <span style={{ color: accent }}>Precision.</span><br />
-                Journal with<br />
-                <span style={{ color: accent }}>Purpose.</span>
+              <h1 style={{ fontFamily: mono, fontSize: 48, fontWeight: 700, color: "#e8e8ed", lineHeight: 1.15, marginBottom: 24, letterSpacing: "-0.5px" }}>
+                <span className="word-animate hero-title-word" style={{ animationDelay: "300ms" }}>Trade</span>
+                {" "}
+                <span className="word-animate hero-title-word" style={{ animationDelay: "400ms" }}>with</span>
+                <br />
+                <span className="word-animate hero-title-word" style={{ animationDelay: "500ms", color: accent }}>Precision.</span>
+                <br />
+                <span className="word-animate hero-title-word" style={{ animationDelay: "600ms" }}>Journal</span>
+                {" "}
+                <span className="word-animate hero-title-word" style={{ animationDelay: "700ms" }}>with</span>
+                <br />
+                <span className="word-animate hero-title-word" style={{ animationDelay: "800ms", color: accent }}>Purpose.</span>
               </h1>
-              <p className="hero-sub" style={{ fontSize: 18, color: "#8b8d9e", lineHeight: 1.7, marginBottom: 36, maxWidth: 480 }}>
+              <p className="hero-sub" style={{ fontSize: 18, color: "#8b8d9e", lineHeight: 1.7, marginBottom: 40, maxWidth: 500 }}>
                 The all-in-one trading journal built for futures traders who take their edge seriously. A+ checklist, AI-powered reviews, P&L tracking, and RPG-style progression.
               </p>
               <div className="cta-row" style={{ display: "flex", gap: 14 }}>
@@ -1077,8 +1205,8 @@ export default function TraderRoadmapXP() {
                   style={{
                     fontFamily: mono, fontSize: 13, fontWeight: 700, padding: "14px 32px",
                     background: "transparent", border: `1.5px solid ${accent}`, color: accent,
-                    borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
-                    boxShadow: "none",
+                    borderRadius: 20, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
+                    boxShadow: "0 0 20px rgba(34,211,238,0.1)",
                   }}
                 >GET STARTED FREE</button>
                 <button
@@ -1086,21 +1214,21 @@ export default function TraderRoadmapXP() {
                   onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}
                   style={{
                     fontFamily: mono, fontSize: 13, fontWeight: 600, padding: "14px 32px",
-                    background: "transparent", border: "1px solid rgba(255,255,255,0.08)", color: "#8b8d9e",
-                    borderRadius: 4, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
+                    background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "#8b8d9e",
+                    borderRadius: 20, cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase",
                   }}
                 >SEE FEATURES</button>
               </div>
             </div>
-            <div style={{ flex: "0 0 auto", animation: "heroFloat 4s ease-in-out infinite" }}>
-              <TradeSharpLogo size={200} />
+            <div style={{ flex: "0 0 auto", animation: "heroFloat 5s ease-in-out infinite" }}>
+              <TradeSharpLogo size={220} />
             </div>
           </div>
         </section>
 
         {/* ── Stats Banner ── */}
-        <section style={{ borderTop: "1px solid #1c1e2a", borderBottom: "1px solid #1c1e2a", padding: "40px 0", background: "rgba(34,211,238,0.02)" }}>
-          <div style={{ ...sectionStyle, display: "flex", justifyContent: "center", gap: 60, flexWrap: "wrap" }}>
+        <section style={{ borderTop: "1px solid rgba(28,30,42,0.8)", borderBottom: "1px solid rgba(28,30,42,0.8)", padding: "48px 0", background: "rgba(34,211,238,0.015)" }}>
+          <div style={{ ...sectionStyle, display: "flex", justifyContent: "center", gap: 72, flexWrap: "wrap" }}>
             {[
               ["10-Point", "A+ Checklist"],
               ["AI-Powered", "Trade Reviews"],
@@ -1108,30 +1236,34 @@ export default function TraderRoadmapXP() {
               ["5-Stage", "Progression Map"],
             ].map(([val, label], i) => (
               <div key={i} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: accent, marginBottom: 4 }}>{val}</div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: "#52546a", letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</div>
+                <div className="stat-value" style={{ fontFamily: mono, fontSize: 24, fontWeight: 700, marginBottom: 6 }}>{val}</div>
+                <div style={{ fontFamily: mono, fontSize: 11, color: "#52546a", letterSpacing: "0.12em", textTransform: "uppercase" }}>{label}</div>
               </div>
             ))}
           </div>
         </section>
 
         {/* ── Features ── */}
-        <section id="features" className="landing-section" style={{ padding: "100px 0" }}>
+        <section id="features" className="landing-section" style={{ padding: "120px 0", position: "relative", zIndex: 1 }}>
           <div style={sectionStyle}>
-            <div style={{ textAlign: "center", marginBottom: 60 }}>
-              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>FEATURES</div>
-              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px", marginBottom: 12 }}>Everything You Need to Level Up</h2>
-              <p style={{ fontSize: 16, color: "#52546a", maxWidth: 540, margin: "0 auto" }}>Built by a trader, for traders. Every feature exists because the process demanded it.</p>
+            <div style={{ textAlign: "center", marginBottom: 64 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 16 }}>FEATURES</div>
+              <h2 style={{ fontFamily: mono, fontSize: 32, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px", marginBottom: 16 }}>Everything You Need to Level Up</h2>
+              <p style={{ fontSize: 16, color: "#52546a", maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>Built by a trader, for traders. Every feature exists because the process demanded it.</p>
             </div>
             <div className="features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
               {features.map((f, i) => (
                 <div key={i} className="feature-card" style={{
-                  background: "rgba(12,13,18,0.9)", borderRadius: 8, padding: 28,
+                  background: "rgba(12,13,18,0.8)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  borderRadius: 16,
+                  padding: 32,
                   border: `1px solid ${accentDim}`,
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
                 }}>
-                  <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-                  <h3 style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", marginBottom: 8, letterSpacing: "0.03em" }}>{f.title}</h3>
+                  <div style={{ fontSize: 32, marginBottom: 16, display: "inline-block", padding: 12, background: accentDim, borderRadius: 12 }}>{f.icon}</div>
+                  <h3 style={{ fontFamily: mono, fontSize: 16, fontWeight: 700, color: "#e8e8ed", marginBottom: 10, letterSpacing: "0.02em" }}>{f.title}</h3>
                   <p style={{ fontSize: 14, color: "#8b8d9e", lineHeight: 1.7 }}>{f.desc}</p>
                 </div>
               ))}
@@ -1140,22 +1272,22 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── How It Works ── */}
-        <section style={{ padding: "80px 0", borderTop: "1px solid #1c1e2a" }}>
+        <section style={{ padding: "100px 0", borderTop: "1px solid rgba(28,30,42,0.8)", position: "relative", zIndex: 1 }}>
           <div style={sectionStyle}>
-            <div style={{ textAlign: "center", marginBottom: 50 }}>
-              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>HOW IT WORKS</div>
-              <h2 style={{ fontFamily: mono, fontSize: 28, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px" }}>Your Daily Trading Workflow</h2>
+            <div style={{ textAlign: "center", marginBottom: 60 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: accent, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 16 }}>HOW IT WORKS</div>
+              <h2 style={{ fontFamily: mono, fontSize: 32, fontWeight: 700, color: "#e8e8ed", letterSpacing: "-0.3px" }}>Your Daily Trading Workflow</h2>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 32, flexWrap: "wrap" }}>
               {[
                 ["01", "Plan", "Set your bias, key levels, and session plan before the market opens."],
                 ["02", "Confirm", "Run every setup through the 10-point A+ checklist. No shortcuts."],
                 ["03", "Log", "Record the trade with P&L, charts, and honest notes about what happened."],
                 ["04", "Review", "Let the AI coach analyze your patterns, then level up your progression."],
               ].map(([num, title, desc], i) => (
-                <div key={i} style={{ flex: "1 1 220px", maxWidth: 240, textAlign: "center" }}>
-                  <div style={{ fontFamily: mono, fontSize: 36, fontWeight: 700, color: accentDim, marginBottom: 12 }}>{num}</div>
-                  <div style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: "#e8e8ed", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
+                <div key={i} style={{ flex: "1 1 220px", maxWidth: 260, textAlign: "center", padding: 24, borderRadius: 16, background: "rgba(12,13,18,0.5)", border: `1px solid rgba(28,30,42,0.8)` }}>
+                  <div style={{ fontFamily: mono, fontSize: 40, fontWeight: 700, color: accentDim, marginBottom: 16, lineHeight: 1 }}>{num}</div>
+                  <div style={{ fontFamily: mono, fontSize: 15, fontWeight: 700, color: "#e8e8ed", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</div>
                   <p style={{ fontSize: 13, color: "#52546a", lineHeight: 1.7 }}>{desc}</p>
                 </div>
               ))}
@@ -1164,26 +1296,29 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── Auth / Get Started ── */}
-        <section id="auth-section" className="landing-section" style={{ padding: "100px 0", borderTop: "1px solid #1c1e2a" }}>
-          <div style={{ ...sectionStyle, maxWidth: 440 }}>
-            <div style={{ textAlign: "center", marginBottom: 36 }}>
-              <div style={{ display: "inline-block", marginBottom: 16 }}><TradeSharpLogo size={56} /></div>
-              <h2 style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: "#e8e8ed", letterSpacing: "0.05em", marginBottom: 8 }}>
+        <section id="auth-section" className="landing-section" style={{ padding: "120px 0", borderTop: "1px solid rgba(28,30,42,0.8)", position: "relative", zIndex: 1 }}>
+          <div style={{ ...sectionStyle, maxWidth: 460 }}>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <div style={{ display: "inline-block", marginBottom: 20, animation: "heroFloat 4s ease-in-out infinite" }}><TradeSharpLogo size={64} /></div>
+              <h2 style={{ fontFamily: mono, fontSize: 24, fontWeight: 700, color: "#e8e8ed", letterSpacing: "0.05em", marginBottom: 12 }}>
                 {authMode === "signup" ? "Create Your Account" : "Welcome Back"}
               </h2>
-              <p style={{ fontSize: 14, color: "#52546a" }}>
+              <p style={{ fontSize: 14, color: "#52546a", lineHeight: 1.5 }}>
                 {authMode === "signup" ? "Start journaling your trades in under 60 seconds." : "Sign in to pick up where you left off."}
               </p>
             </div>
 
             <div style={{
-              background: "#0c0d12", borderRadius: 8,
-              border: "1px solid #1c1e2a",
-              padding: 32,
-              boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+              background: "rgba(12,13,18,0.9)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderRadius: 20,
+              border: "1px solid rgba(28,30,42,0.8)",
+              padding: 36,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03)",
             }}>
               <form onSubmit={handleAuth}>
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 20 }}>
                   <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#52546a", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Email</label>
                   <input
                     className="auth-input"
@@ -1193,14 +1328,14 @@ export default function TraderRoadmapXP() {
                     required
                     placeholder="you@example.com"
                     style={{
-                      width: "100%", padding: "12px 14px", fontSize: 14,
-                      border: `1px solid ${accentDim}`, borderRadius: 4,
-                      outline: "none", background: "#141520",
+                      width: "100%", padding: "14px 16px", fontSize: 14,
+                      border: `1px solid rgba(28,30,42,0.8)`, borderRadius: 12,
+                      outline: "none", background: "rgba(20,21,32,0.8)",
                       color: "#e8e8ed", fontFamily: mono, transition: "all 0.2s ease",
                     }}
                   />
                 </div>
-                <div style={{ marginBottom: 24 }}>
+                <div style={{ marginBottom: 28 }}>
                   <label style={{ fontFamily: mono, fontSize: 10, fontWeight: 600, color: "#52546a", display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Password</label>
                   <input
                     className="auth-input"
@@ -1211,17 +1346,17 @@ export default function TraderRoadmapXP() {
                     minLength={authMode === "signup" ? 12 : 1}
                     placeholder={authMode === "signup" ? "Min 12 characters" : "••••••••"}
                     style={{
-                      width: "100%", padding: "12px 14px", fontSize: 14,
-                      border: `1px solid ${accentDim}`, borderRadius: 4,
-                      outline: "none", background: "#141520",
+                      width: "100%", padding: "14px 16px", fontSize: 14,
+                      border: `1px solid rgba(28,30,42,0.8)`, borderRadius: 12,
+                      outline: "none", background: "rgba(20,21,32,0.8)",
                       color: "#e8e8ed", fontFamily: mono, transition: "all 0.2s ease",
                     }}
                   />
                 </div>
                 {authError && (
                   <div style={{
-                    fontSize: 12, color: "#fb7185", marginBottom: 16, padding: "10px 14px",
-                    background: "rgba(251,113,133,0.06)", borderRadius: 4, border: "1px solid rgba(251,113,133,0.15)",
+                    fontSize: 12, color: "#fb7185", marginBottom: 20, padding: "12px 16px",
+                    background: "rgba(251,113,133,0.08)", borderRadius: 12, border: "1px solid rgba(251,113,133,0.2)",
                     fontFamily: mono,
                   }}>
                     {authError}
@@ -1231,20 +1366,22 @@ export default function TraderRoadmapXP() {
                   className="landing-btn"
                   type="submit"
                   style={{
-                    width: "100%", fontSize: 13, fontWeight: 700, padding: "14px 20px",
+                    width: "100%", fontSize: 14, fontWeight: 700, padding: "16px 24px",
                     background: "transparent", border: `1.5px solid ${accent}`, color: accent,
-                    borderRadius: 4, cursor: "pointer",
-                    boxShadow: "none",
+                    borderRadius: 12, cursor: "pointer",
+                    boxShadow: "0 0 20px rgba(34,211,238,0.1)",
                     fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase",
                   }}
                 >
                   {authMode === "signup" ? "Create Account" : "Sign In"}
                 </button>
               </form>
-              <div style={{ textAlign: "center", marginTop: 20 }}>
+              <div style={{ textAlign: "center", marginTop: 24 }}>
                 <button
                   onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setAuthError(""); }}
-                  style={{ fontSize: 12, color: "#52546a", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: mono }}
+                  style={{ fontSize: 12, color: "#52546a", background: "none", border: "none", cursor: "pointer", fontWeight: 500, fontFamily: mono, transition: "color 0.2s" }}
+                  onMouseOver={(e) => e.target.style.color = accent}
+                  onMouseOut={(e) => e.target.style.color = "#52546a"}
                 >
                   {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
                 </button>
@@ -1254,7 +1391,7 @@ export default function TraderRoadmapXP() {
         </section>
 
         {/* ── Footer ── */}
-        <footer style={{ borderTop: "1px solid #1c1e2a", padding: "40px 0" }}>
+        <footer style={{ borderTop: "1px solid rgba(28,30,42,0.8)", padding: "48px 0", position: "relative", zIndex: 1 }}>
           <div style={{ ...sectionStyle, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <TradeSharpLogo size={24} />

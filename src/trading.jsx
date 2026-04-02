@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
+import MotivationalQuotesBar from "./components/MotivationalQuotesBar";
 
 // ─── PRIVACY HELPER ─────────────────────────────────────────────────────────
 const MASK = "$•••••";
@@ -3519,6 +3520,9 @@ export function NewsView() {
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+
+      {/* Motivational Quotes Bar */}
+      <MotivationalQuotesBar />
 
       {/* Live News Stream */}
       <TCard style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
