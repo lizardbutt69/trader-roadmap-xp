@@ -20,11 +20,12 @@ export default async function handler(req, res) {
 
   try {
     const r = await fetch(`https://finnhub.io/api/v1/news?category=${encodeURIComponent(category)}&token=${FINNHUB_KEY}`);
-    if (!r.ok) throw new Error(`Finnhub ${r.status}`);
-    const data = await r.json();
+    const text = await r.text();
+    if (!r.ok) return res.status(500).json({ error: `Finnhub ${r.status}`, detail: text });
+    const data = JSON.parse(text);
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
     return res.status(200).json(data);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: e.message, stack: e.stack });
   }
 }

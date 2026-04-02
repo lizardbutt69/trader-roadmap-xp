@@ -3663,8 +3663,8 @@ export function NewsView() {
     const fetchNews = async () => {
       try {
         const res = await fetch(`/api/news?category=general`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
         setNewsItems(data.slice(0, 20));
         setNewsError(null);
       } catch (e) {
