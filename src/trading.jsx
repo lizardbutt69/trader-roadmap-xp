@@ -3491,56 +3491,6 @@ const LIVE_CHANNELS = [
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
 ];
 
-function FinancialJuiceFeed() {
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const load = () => {
-      if (window.twttr?.widgets) {
-        window.twttr.widgets.load(ref.current);
-      }
-    };
-    if (window.twttr?.widgets) {
-      load();
-    } else {
-      const existing = document.getElementById("twitter-wjs");
-      if (existing) { existing.addEventListener("load", load); return; }
-      const script = document.createElement("script");
-      script.id = "twitter-wjs";
-      script.src = "https://platform.twitter.com/widgets.js";
-      script.async = true;
-      script.charset = "utf-8";
-      script.onload = load;
-      document.body.appendChild(script);
-    }
-  }, []);
-
-  return (
-    <TCard style={{ marginTop: 20, padding: "24px 28px", overflow: "hidden" }}>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border-primary)",
-      }}>
-        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1d9bf0", animation: "hudPulse 2s ease-in-out infinite" }} />
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          @FinancialJuice
-        </span>
-      </div>
-      <div ref={ref} style={{ maxHeight: 480, overflowY: "auto" }}>
-        <a
-          className="twitter-timeline"
-          data-theme="dark"
-          data-chrome="noheader nofooter noborders transparent"
-          data-tweet-limit="10"
-          href="https://twitter.com/financialjuice"
-        >
-          Tweets by @financialjuice
-        </a>
-      </div>
-    </TCard>
-  );
-}
 
 export function NewsView() {
   const [channel, setChannel] = useState("bloomberg");
@@ -3626,7 +3576,6 @@ export function NewsView() {
         <div ref={calendarRef} style={{ minHeight: 500 }} />
       </TCard>
 
-      <FinancialJuiceFeed />
     </div>
   );
 }
