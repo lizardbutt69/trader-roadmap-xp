@@ -4174,7 +4174,11 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
     const { data: entries } = await supabase.from("notebook_entries").select("*").eq("user_id", user.id).gte("entry_date", startDate).order("entry_date");
     const { data: moodRows } = await supabase.from("daily_moods").select("mood_date, mood").eq("user_id", user.id).gte("mood_date", startDate);
     const moodByDate = Object.fromEntries((moodRows || []).map(r => [r.mood_date, r.mood]));
-    const periodTrades = trades.filter(t => t.dt && t.dt.split("T")[0] >= startDate);
+    const periodTrades = trades.filter(t => {
+      if (!t.dt) return false;
+      const tradeDate = new Date(t.dt).toISOString().split("T")[0];
+      return tradeDate >= startDate;
+    });
 
     const notebookText = (entries || []).map(e => {
       const mood = moodByDate[e.entry_date] || "(not set)";
@@ -4191,29 +4195,33 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
     const execSucked = periodTrades.filter(t => t.aplus === "Yes But Execution Sucked").length;
     const yesToNo = periodTrades.filter(t => t.aplus === "Yes to No").length;
 
-    const prompt = `You are a direct, experienced trading coach reviewing a futures trader's journal for ${label}. They use an ICT-inspired fractal model, trading NQ/ES primarily in the NY session, max 2 trades/day.
+    const prompt = `You are an experienced trading mentor reviewing a futures trader's journal for ${label}. They trade an ICT-inspired fractal model across multiple instruments — NQ, ES, YM, GC, SI, Oil, and correlated pairs — primarily in the NY session, max 2 trades/day. The model applies to any instrument where the setup is valid; asset selection is not a concern.
 
-A+ LABEL DEFINITIONS:
+A+ LABEL DEFINITIONS (read these carefully before commenting on trade quality):
 - "Yes" = A+ setup, executed cleanly
 - "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor — left money on table (${execSucked} this period)
 - "Yes to No" = Trader initially thought it was A+, corrected on review — setup wasn't actually valid (${yesToNo} this period)
 - "No" = Not an A+ setup
+- "Missed" = Seen but not taken
+
+IMPORTANT: The trade data below is the ground truth. If trades are logged, they happened. Do not say the trader didn't trade if the log shows otherwise.
 
 JOURNAL ENTRIES:
 ${notebookText || "(No entries for this period)"}
 
 TRADE DATA: ${periodTrades.length} logged | ${taken} taken | ${wins} wins | Net P&L: $${pnl.toFixed(2)}
-${tradeLines || "(No trades)"}
+${tradeLines || "(No trades logged for this period)"}
 
-Write a focused coaching summary (300–500 words):
-1. Gameplan vs Reality — did they trade their plan?
-2. Self-awareness — are their EOD reflections honest and specific, or vague?
-3. Inner dialogue — pay close attention to the exact words and phrases they use to describe their mood and mental state. What patterns show up? Are they self-critical, avoidant, confident, scattered? Quote their own language back to them. This is how they talk to themselves going into trades — it matters.
-4. Language vs outcome — does the way they described feeling before a session correlate with how they traded? Note any recurring words tied to good or bad sessions.
-5. Patterns across entries — habits, recurring mistakes, or strengths.
+Write a focused coaching summary (300–500 words). Tone: mentor who has seen it all — direct and honest, will call things out plainly, but never dismissive. You can be blunt, just not cruel. Think less drill sergeant, more seasoned pro who genuinely wants to see this trader level up.
+
+1. Gameplan vs Reality — did they trade their plan? Use the trade log as evidence.
+2. Self-awareness — are their EOD reflections honest and specific, or vague and defensive?
+3. Inner dialogue — pay close attention to the exact words and phrases they use to describe their mood and mental state. What patterns show up? Quote their own language back to them.
+4. Language vs outcome — does how they described their mindset before a session correlate with how they traded? Call out any recurring patterns.
+5. Patterns across entries — habits, recurring mistakes, or genuine strengths worth reinforcing.
 6. 2–3 specific, actionable focuses for the next session.
 
-Be direct. Quote their exact words. Tough but fair.`;
+Quote their exact words where relevant. Be honest, be real, but keep it constructive.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
