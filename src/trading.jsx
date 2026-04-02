@@ -2086,6 +2086,46 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const wr = taken ? Math.round((wins / taken) * 100) : 0;
   const pnl = monthTrades.reduce((s, t) => s + getPnlForMode(t, pnlMode), 0);
 
+  // Extended stats
+  const takenTrades = monthTrades.filter(t => t.taken && t.taken !== "Missed");
+  const grossWins = takenTrades.filter(t => getPnlForMode(t, pnlMode) > 0).reduce((s, t) => s + getPnlForMode(t, pnlMode), 0);
+  const grossLosses = takenTrades.filter(t => getPnlForMode(t, pnlMode) < 0).reduce((s, t) => s + Math.abs(getPnlForMode(t, pnlMode)), 0);
+  const profitFactor = grossLosses === 0 ? (grossWins > 0 ? "∞" : "—") : (grossWins / grossLosses).toFixed(2);
+
+  const bestAsset = (() => {
+    const assetTrades = takenTrades.filter(t => t.asset);
+    if (!assetTrades.length) return "—";
+    const map = {};
+    assetTrades.forEach(t => { map[t.asset] = (map[t.asset] || 0) + getPnlForMode(t, pnlMode); });
+    return Object.entries(map).sort((a, b) => b[1] - a[1])[0][0];
+  })();
+
+  const bestDay = (() => {
+    const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    if (!takenTrades.length) return "—";
+    const map = {};
+    takenTrades.forEach(t => {
+      const d = new Date(t.dt).getDay();
+      if (!map[d]) map[d] = { sum: 0, count: 0 };
+      map[d].sum += getPnlForMode(t, pnlMode);
+      map[d].count++;
+    });
+    const [idx] = Object.entries(map).sort((a, b) => (b[1].sum / b[1].count) - (a[1].sum / a[1].count))[0];
+    return DAY_NAMES[idx];
+  })();
+
+  const bestDirection = (() => {
+    if (!takenTrades.length) return "—";
+    const long = takenTrades.filter(t => t.direction === "Bullish");
+    const short = takenTrades.filter(t => t.direction === "Bearish");
+    const longWR = long.length ? long.filter(t => getPnlForMode(t, pnlMode) > 0).length / long.length : -1;
+    const shortWR = short.length ? short.filter(t => getPnlForMode(t, pnlMode) > 0).length / short.length : -1;
+    if (longWR === -1 && shortWR === -1) return "—";
+    if (longWR === -1) return "Short";
+    if (shortWR === -1) return "Long";
+    return longWR >= shortWR ? "Long" : "Short";
+  })();
+
   // Calendar
   const calPrev = () => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); };
   const calNext = () => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); };
@@ -2111,6 +2151,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
         <StatBox value={aplus} label="A+ Setups" color="var(--green)" />
         <StatBox value={`${wr}%`} label="Win Rate" color={wr >= 50 ? "var(--green)" : "var(--red)"} />
         <StatBox value={privacyMode ? MASK : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}`} label="Net P&L" color={pnl >= 0 ? "var(--green)" : "var(--red)"} />
+      </div>
+
+      {/* Extended Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+        <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <StatBox value={bestDirection} label="Best Direction" color="var(--green)" style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
       </div>
 
       {/* Equity Curve */}
@@ -2758,6 +2806,51 @@ export function TradingStatsView({ trades, privacyMode }) {
 
   const { greenStreak, bestGreen, aplusStreak, bestAplus } = calcStreaks(trades);
 
+  const profitFactor = useMemo(() => {
+    const taken = trades.filter(t => t.taken);
+    const wins = taken.filter(t => t.profit > 0).reduce((s, t) => s + t.profit, 0);
+    const losses = taken.filter(t => t.profit < 0).reduce((s, t) => s + Math.abs(t.profit), 0);
+    if (losses === 0) return wins > 0 ? "∞" : "—";
+    return (wins / losses).toFixed(2);
+  }, [trades]);
+
+  const bestAsset = useMemo(() => {
+    const taken = trades.filter(t => t.taken && t.asset);
+    if (!taken.length) return { name: "—", pnl: 0 };
+    const map = {};
+    taken.forEach(t => { map[t.asset] = (map[t.asset] || 0) + (t.profit || 0); });
+    const [name, pnl] = Object.entries(map).sort((a, b) => b[1] - a[1])[0];
+    return { name, pnl };
+  }, [trades]);
+
+  const bestDay = useMemo(() => {
+    const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const taken = trades.filter(t => t.taken);
+    if (!taken.length) return { name: "—", avg: 0 };
+    const map = {};
+    taken.forEach(t => {
+      const d = new Date(t.dt).getDay();
+      if (!map[d]) map[d] = { sum: 0, count: 0 };
+      map[d].sum += t.profit || 0;
+      map[d].count++;
+    });
+    const [dayIdx, stats] = Object.entries(map).sort((a, b) => (b[1].sum / b[1].count) - (a[1].sum / a[1].count))[0];
+    return { name: DAY_NAMES[dayIdx], avg: stats.sum / stats.count };
+  }, [trades]);
+
+  const bestDirection = useMemo(() => {
+    const taken = trades.filter(t => t.taken);
+    if (!taken.length) return { name: "—", winRate: 0 };
+    const long = taken.filter(t => t.direction === "Bullish");
+    const short = taken.filter(t => t.direction === "Bearish");
+    const longWR = long.length ? long.filter(t => t.profit > 0).length / long.length : -1;
+    const shortWR = short.length ? short.filter(t => t.profit > 0).length / short.length : -1;
+    if (longWR === -1 && shortWR === -1) return { name: "—", winRate: 0 };
+    if (longWR === -1) return { name: "Short", winRate: shortWR };
+    if (shortWR === -1) return { name: "Long", winRate: longWR };
+    return longWR >= shortWR ? { name: "Long", winRate: longWR } : { name: "Short", winRate: shortWR };
+  }, [trades]);
+
   return (
     <div>
       <TCard style={{ padding: 28, marginBottom: 24, border: "1px solid rgba(167,139,250,0.2)", background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(167,139,250,0.04) 100%)" }}>
@@ -2785,6 +2878,42 @@ export function TradingStatsView({ trades, privacyMode }) {
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--green)" }}>{aplusStreak}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>A+ Trade Streak</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>Best: {bestAplus} trades</div>
+        </TCard>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
+        {/* Profit Factor */}
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(34,211,238,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(34,211,238,0.15)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--accent)" }}>{profitFactor}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Profit Factor</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>Wins ÷ Losses</div>
+        </TCard>
+
+        {/* Best Performing Asset */}
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(139,92,246,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(139,92,246,0.15)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--purple)" }}>{bestAsset.name}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Best Asset</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: bestAsset.pnl >= 0 ? "var(--green)" : "var(--red)", marginTop: 8 }}>
+            {bestAsset.name === "—" ? "No data" : (privacyMode ? "••••" : `${bestAsset.pnl >= 0 ? "+" : ""}$${bestAsset.pnl.toFixed(0)}`)}
+          </div>
+        </TCard>
+
+        {/* Best Session Day */}
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(251,191,36,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(251,191,36,0.15)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--gold)" }}>{bestDay.name}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Best Session Day</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: bestDay.avg >= 0 ? "var(--green)" : "var(--red)", marginTop: 8 }}>
+            {bestDay.name === "—" ? "No data" : (privacyMode ? "••••" : `Avg ${bestDay.avg >= 0 ? "+" : ""}$${bestDay.avg.toFixed(0)}`)}
+          </div>
+        </TCard>
+
+        {/* Best Trade Direction */}
+        <TCard style={{ padding: 22, textAlign: "center", background: "linear-gradient(145deg, rgba(52,211,153,0.08) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(52,211,153,0.15)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--green)" }}>{bestDirection.name}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 6 }}>Best Direction</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>
+            {bestDirection.name === "—" ? "No data" : `${(bestDirection.winRate * 100).toFixed(0)}% win rate`}
+          </div>
         </TCard>
       </div>
     </div>
