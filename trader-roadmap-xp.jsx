@@ -2497,10 +2497,6 @@ export default function TraderRoadmapXP() {
               ))}
             </div>
 
-            {/* Trading Performance */}
-            {trades.length > 0 && (
-              <TradingStatsView trades={trades} privacyMode={privacyMode} />
-            )}
           </div>
         )}
 

@@ -3621,10 +3621,22 @@ const LIVE_CHANNELS = [
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
 ];
 
+const FINNHUB_KEY = "d776c6pr01qp6afkd4ngd776c6pr01qp6afkd4o0";
+
+function timeAgo(unixTs) {
+  const diff = Math.floor(Date.now() / 1000) - unixTs;
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
 export function NewsView() {
   const [channel, setChannel] = useState("bloomberg");
   const calendarRef = useRef(null);
+  const [newsItems, setNewsItems] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsError, setNewsError] = useState(null);
 
   const activeSrc = LIVE_CHANNELS.find((c) => c.key === channel)?.src || LIVE_CHANNELS[0].src;
 
@@ -3645,6 +3657,25 @@ export function NewsView() {
       countryFilter: "us",
     });
     calendarRef.current.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setNewsItems(data.slice(0, 20));
+        setNewsError(null);
+      } catch (e) {
+        setNewsError(e.message);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    fetchNews();
+    const interval = setInterval(fetchNews, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -3697,6 +3728,82 @@ export function NewsView() {
         </div>
       </TCard>
 
+      {/* Finnhub Market News Feed */}
+      <TCard style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{
+          padding: "12px 20px", borderBottom: "1px solid var(--border-primary)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22d3ee", animation: "hudPulse 2s ease-in-out infinite" }} />
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              MARKET NEWS
+            </span>
+          </div>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            via Finnhub · updates every 60s
+          </span>
+        </div>
+        <div style={{ maxHeight: 480, overflowY: "auto" }}>
+          {newsLoading && (
+            <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
+              Loading news...
+            </div>
+          )}
+          {newsError && (
+            <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--red)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
+              Failed to load news: {newsError}
+            </div>
+          )}
+          {!newsLoading && !newsError && newsItems.map((item) => (
+            <a
+              key={item.id}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", gap: 14, padding: "14px 20px",
+                borderBottom: "1px solid var(--border-primary)",
+                textDecoration: "none", transition: "background 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "var(--bg-tertiary)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              {item.image && (
+                <img
+                  src={item.image}
+                  alt=""
+                  onError={e => { e.currentTarget.style.display = "none"; }}
+                  style={{ width: 72, height: 52, objectFit: "cover", borderRadius: 4, flexShrink: 0, opacity: 0.9 }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                  color: "var(--text-primary)", lineHeight: 1.4, marginBottom: 6,
+                  overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                }}>
+                  {item.headline}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "0.06em",
+                    color: "var(--accent)", background: "var(--accent-glow-strong)",
+                    padding: "2px 7px", borderRadius: 3,
+                  }}>
+                    {item.source}
+                  </span>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {timeAgo(item.datetime)}
+                  </span>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </TCard>
+
       {/* Economic Calendar — TradingView */}
       <TCard style={{ padding: 0, overflow: "hidden" }}>
         <div style={{
@@ -3708,6 +3815,7 @@ export function NewsView() {
         </div>
         <div ref={calendarRef} style={{ minHeight: 500 }} />
       </TCard>
+
 
     </div>
   );
