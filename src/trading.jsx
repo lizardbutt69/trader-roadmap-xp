@@ -2116,8 +2116,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
   const bestDirection = (() => {
     if (!takenTrades.length) return "—";
-    const long = takenTrades.filter(t => t.direction === "Bullish");
-    const short = takenTrades.filter(t => t.direction === "Bearish");
+    const long = takenTrades.filter(t => t.direction === "Long");
+    const short = takenTrades.filter(t => t.direction === "Short");
     const longWR = long.length ? long.filter(t => getPnlForMode(t, pnlMode) > 0).length / long.length : -1;
     const shortWR = short.length ? short.filter(t => getPnlForMode(t, pnlMode) > 0).length / short.length : -1;
     if (longWR === -1 && shortWR === -1) return "—";
@@ -2841,8 +2841,8 @@ export function TradingStatsView({ trades, privacyMode }) {
   const bestDirection = useMemo(() => {
     const taken = trades.filter(t => t.taken);
     if (!taken.length) return { name: "—", winRate: 0 };
-    const long = taken.filter(t => t.direction === "Bullish");
-    const short = taken.filter(t => t.direction === "Bearish");
+    const long = taken.filter(t => t.direction === "Long");
+    const short = taken.filter(t => t.direction === "Short");
     const longWR = long.length ? long.filter(t => t.profit > 0).length / long.length : -1;
     const shortWR = short.length ? short.filter(t => t.profit > 0).length / short.length : -1;
     if (longWR === -1 && shortWR === -1) return { name: "—", winRate: 0 };
