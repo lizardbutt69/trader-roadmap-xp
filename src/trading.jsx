@@ -3492,85 +3492,52 @@ const LIVE_CHANNELS = [
 ];
 
 function FinancialJuiceFeed() {
-  const [tweets, setTweets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const fetchTweets = async () => {
-    try {
-      const res = await fetch("/api/tweets");
-      const data = await res.json();
-      if (data.data) {
-        setTweets(data.data);
-        setError(null);
-      } else {
-        setError("No tweets returned");
-      }
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const ref = useRef(null);
 
   useEffect(() => {
-    fetchTweets();
-    const interval = setInterval(fetchTweets, 60000);
-    return () => clearInterval(interval);
+    if (!ref.current) return;
+    const load = () => {
+      if (window.twttr?.widgets) {
+        window.twttr.widgets.load(ref.current);
+      }
+    };
+    if (window.twttr?.widgets) {
+      load();
+    } else {
+      const existing = document.getElementById("twitter-wjs");
+      if (existing) { existing.addEventListener("load", load); return; }
+      const script = document.createElement("script");
+      script.id = "twitter-wjs";
+      script.src = "https://platform.twitter.com/widgets.js";
+      script.async = true;
+      script.charset = "utf-8";
+      script.onload = load;
+      document.body.appendChild(script);
+    }
   }, []);
 
-  const formatTime = (iso) => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) +
-      " · " + d.toLocaleDateString([], { month: "short", day: "numeric" });
-  };
-
   return (
-    <TCard style={{ marginTop: 20, padding: "24px 28px" }}>
+    <TCard style={{ marginTop: 20, padding: "24px 28px", overflow: "hidden" }}>
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
+        display: "flex", alignItems: "center", gap: 10,
         marginBottom: 18, paddingBottom: 14, borderBottom: "1px solid var(--border-primary)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1d9bf0", animation: "hudPulse 2s ease-in-out infinite" }} />
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            @FinancialJuice
-          </span>
-        </div>
-        <button
-          onClick={fetchTweets}
-          style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600,
-            padding: "4px 10px", border: "1px solid var(--border-primary)", borderRadius: 4,
-            background: "transparent", color: "var(--text-tertiary)", cursor: "pointer",
-            textTransform: "uppercase", letterSpacing: "0.05em",
-          }}
-        >
-          Refresh
-        </button>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#1d9bf0", animation: "hudPulse 2s ease-in-out infinite" }} />
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          @FinancialJuice
+        </span>
       </div>
-
-      {loading ? (
-        <div style={{ color: "var(--text-tertiary)", fontSize: 13, textAlign: "center", padding: "20px 0" }}>Loading...</div>
-      ) : error ? (
-        <div style={{ color: "#ef4444", fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{error}</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 0, maxHeight: 400, overflowY: "auto" }}>
-          {tweets.map((tweet, i) => (
-            <div key={tweet.id} style={{
-              padding: "12px 4px",
-              borderBottom: i < tweets.length - 1 ? "1px solid var(--border-secondary)" : "none",
-            }}>
-              <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6, marginBottom: 6 }}>
-                {tweet.text}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                {formatTime(tweet.created_at)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div ref={ref} style={{ maxHeight: 480, overflowY: "auto" }}>
+        <a
+          className="twitter-timeline"
+          data-theme="dark"
+          data-chrome="noheader nofooter noborders transparent"
+          data-tweet-limit="10"
+          href="https://twitter.com/financialjuice"
+        >
+          Tweets by @financialjuice
+        </a>
+      </div>
     </TCard>
   );
 }
