@@ -29,9 +29,9 @@ function TradeSharpLogo({ size = 32 }) {
 
 const FEATURES = [
   {
-    icon: "⭐",
-    title: "RPG Quest Roadmap",
-    desc: "5 stages from Foundation to Independent. Track 26 achievements with XP, level-ups, and tier progression.",
+    icon: "🗺️",
+    title: "Mission Roadmap",
+    desc: "Track and level up every stage of your trading journey — from Funded Trader to full-time Independent.",
     accent: "#22d3ee",
   },
   {
@@ -59,18 +59,18 @@ const FEATURES = [
     accent: "#f472b6",
   },
   {
-    icon: "🔒",
-    title: "Privacy Mode",
-    desc: "Mask all dollar figures with one click. Safe for streaming, screenshots, and sharing your screen.",
+    icon: "🤖",
+    title: "AI Performance Coach",
+    desc: "Get brutally honest AI-powered summaries of your trading patterns, psychological leaks, and rule violations — monthly.",
     accent: "#fb923c",
   },
 ];
 
 const STAGES = [
   { id: 1, name: "Foundation", subtitle: "Build the Process", icon: "📐", color: "#56b886", xp: "0 XP" },
-  { id: 2, name: "The Grinder", subtitle: "Pass Evals & Get Funded", icon: "⚙️", color: "#d4b862", xp: "375 XP" },
-  { id: 3, name: "Funded Warrior", subtitle: "Consistent Payouts", icon: "🛡️", color: "#5b8dd9", xp: "1,150 XP" },
-  { id: 4, name: "Architect", subtitle: "Personal Capital Online", icon: "🏛️", color: "#9b7de8", xp: "2,275 XP" },
+  { id: 2, name: "Evaluation", subtitle: "Pass Evals & Get Funded", icon: "⚙️", color: "#d4b862", xp: "375 XP" },
+  { id: 3, name: "Funded", subtitle: "Consistent Payouts", icon: "🛡️", color: "#5b8dd9", xp: "1,150 XP" },
+  { id: 4, name: "Scaling", subtitle: "Personal Capital Online", icon: "🏛️", color: "#9b7de8", xp: "2,275 XP" },
   { id: 5, name: "Independent", subtitle: "Full-Time Trader", icon: "👑", color: "#e8748a", xp: "3,575 XP" },
 ];
 
@@ -282,9 +282,9 @@ function MockDashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {[
                   { name: "Foundation", done: true, color: "#56b886" },
-                  { name: "The Grinder", done: false, active: true, color: "#d4b862" },
-                  { name: "Funded Warrior", done: false, color: "#5b8dd9" },
-                  { name: "Architect", done: false, color: "#9b7de8" },
+                  { name: "Evaluation", done: false, active: true, color: "#d4b862" },
+                  { name: "Funded", done: false, color: "#5b8dd9" },
+                  { name: "Scaling", done: false, color: "#9b7de8" },
                   { name: "Independent", done: false, color: "#e8748a" },
                 ].map((lvl, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -504,7 +504,7 @@ export default function LandingPage() {
             }}
             onMouseEnter={e => e.currentTarget.style.boxShadow = "0 0 28px rgba(34,211,238,0.35)"}
             onMouseLeave={e => e.currentTarget.style.boxShadow = "0 0 20px rgba(34,211,238,0.2)"}
-          >Start Journey →</button>
+          >Start Journaling →</button>
         </div>
       </motion.nav>
 
@@ -537,11 +537,11 @@ export default function LandingPage() {
                 letterSpacing: "-0.03em", margin: "0 0 16px",
               }}
             >
-              From Breakeven<br />
-              to <span style={{
+              Trade Like a Professional<br />
+              <span style={{
                 background: "linear-gradient(90deg, #22d3ee, #818cf8)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              }}>Independent.</span>
+              }}>Not Like Everyone Else.</span>
             </motion.h1>
 
             <motion.p
@@ -549,7 +549,7 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 0.35 }}
               style={{ fontSize: 15.5, lineHeight: 1.65, color: "#a0a3b5", margin: "0 0 28px", fontWeight: 400 }}
             >
-              A full trading workflow OS — RPG quest roadmap, A+ checklist, trade journal, and performance scoring. Built for serious futures traders.
+              A structured trading journal built to expose your mistakes, refine your edge, and actually improve your P&L.
             </motion.p>
 
             <motion.div
@@ -569,7 +569,7 @@ export default function LandingPage() {
                 }}
                 onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
                 onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-              >Start Your Journey →</button>
+              >Start Journaling →</button>
               <a href="#features" style={{
                 padding: "13px 24px", borderRadius: 8,
                 background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
@@ -862,7 +862,7 @@ export default function LandingPage() {
             }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 0 56px rgba(34,211,238,0.4), 0 8px 24px rgba(0,0,0,0.5)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 0 40px rgba(34,211,238,0.3), 0 4px 20px rgba(0,0,0,0.4)"; }}
-          >Start Your Journey →</button>
+          >Start Journaling →</button>
           <p style={{ fontSize: 12, color: "#6b6e84", marginTop: 14, position: "relative" }}>
             Free. No credit card required.
           </p>
