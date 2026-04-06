@@ -1,9 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { inject } from '@vercel/analytics'
 import LandingPage from './pages/LandingPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import TraderRoadmapXP from '../trader-roadmap-xp.jsx'
+
+inject()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
