@@ -25,24 +25,33 @@ function TradeSharpLogo({ size = 40 }) {
 
 export default function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const [mode, setMode] = useState("signin"); // "signin" | "signup" | "forgot" | "reset"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [signupDone, setSignupDone] = useState(false);
+  const [forgotDone, setForgotDone] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
   const [focused, setFocused] = useState(null);
 
-  // Redirect if already logged in
+  // Redirect if already logged in, or handle password recovery link
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) navigate("/app", { replace: true });
+      if (session?.user && mode !== "reset") navigate("/app", { replace: true });
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) navigate("/app", { replace: true });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        // User clicked the reset link in their email
+        setMode("reset");
+        setError("");
+      } else if (session?.user && mode !== "reset") {
+        navigate("/app", { replace: true });
+      }
     });
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, mode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,6 +61,22 @@ export default function AuthPage() {
       const { error: err } = await supabase.auth.signUp({ email, password });
       if (err) { setError(err.message); setLoading(false); }
       else setSignupDone(true);
+    } else if (mode === "forgot") {
+      const redirectTo = `${window.location.origin}/login`;
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      setLoading(false);
+      if (err) setError(err.message);
+      else setForgotDone(true);
+    } else if (mode === "reset") {
+      if (newPassword.length < 6) {
+        setError("Password must be at least 6 characters.");
+        setLoading(false);
+        return;
+      }
+      const { error: err } = await supabase.auth.updateUser({ password: newPassword });
+      setLoading(false);
+      if (err) setError(err.message);
+      else setResetDone(true);
     } else {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) { setError(err.message); setLoading(false); }
@@ -63,6 +88,9 @@ export default function AuthPage() {
     setMode(m);
     setError("");
     setSignupDone(false);
+    setForgotDone(false);
+    setResetDone(false);
+    setNewPassword("");
   };
 
   const inputStyle = (name) => ({
@@ -161,36 +189,41 @@ export default function AuthPage() {
             Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
           </div>
           <div style={{ fontSize: 13, color: "#6b6e84", marginTop: 4 }}>
-            {mode === "signin" ? "Sign in to your account" : "Create your account"}
+            {mode === "signin" ? "Sign in to your account"
+              : mode === "signup" ? "Create your account"
+              : mode === "forgot" ? "Reset your password"
+              : "Set a new password"}
           </div>
         </div>
 
-        {/* Mode toggle */}
-        <div style={{
-          display: "flex",
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 8,
-          padding: 3,
-          marginBottom: 28,
-        }}>
-          {[["signin", "Sign In"], ["signup", "Create Account"]].map(([m, label]) => (
-            <button
-              key={m}
-              onClick={() => switchMode(m)}
-              style={{
-                flex: 1, padding: "8px 0", borderRadius: 6,
-                border: "none", cursor: "pointer",
-                fontSize: 13, fontWeight: 600,
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                transition: "all 0.18s",
-                background: mode === m ? "rgba(34,211,238,0.12)" : "transparent",
-                color: mode === m ? "#22d3ee" : "#6b6e84",
-                boxShadow: mode === m ? "0 0 12px rgba(34,211,238,0.1)" : "none",
-              }}
-            >{label}</button>
-          ))}
-        </div>
+        {/* Mode toggle — hide on forgot/reset screens */}
+        {(mode === "signin" || mode === "signup") && (
+          <div style={{
+            display: "flex",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 8,
+            padding: 3,
+            marginBottom: 28,
+          }}>
+            {[["signin", "Sign In"], ["signup", "Create Account"]].map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: 6,
+                  border: "none", cursor: "pointer",
+                  fontSize: 13, fontWeight: 600,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  transition: "all 0.18s",
+                  background: mode === m ? "rgba(34,211,238,0.12)" : "transparent",
+                  color: mode === m ? "#22d3ee" : "#6b6e84",
+                  boxShadow: mode === m ? "0 0 12px rgba(34,211,238,0.1)" : "none",
+                }}
+              >{label}</button>
+            ))}
+          </div>
+        )}
 
         {/* Signup success */}
         {signupDone ? (
@@ -217,6 +250,164 @@ export default function AuthPage() {
               onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#a0a3b5"; }}
             >Back to Sign In</button>
           </div>
+        ) : mode === "forgot" ? (
+          /* ── Forgot Password screen ── */
+          forgotDone ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📬</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#eaebf0", marginBottom: 8 }}>
+                Check your inbox
+              </div>
+              <div style={{ fontSize: 13, color: "#6b6e84", lineHeight: 1.6 }}>
+                We sent a password reset link to{" "}
+                <span style={{ color: "#a0a3b5" }}>{email}</span>. It expires in 1 hour.
+              </div>
+              <button
+                onClick={() => switchMode("signin")}
+                style={{
+                  marginTop: 20, padding: "10px 24px", borderRadius: 7,
+                  background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#a0a3b5", fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(34,211,238,0.3)"; e.currentTarget.style.color = "#eaebf0"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#a0a3b5"; }}
+              >Back to Sign In</button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "#6b6e84", lineHeight: 1.6, marginBottom: 4 }}>
+                Enter your email and we'll send you a link to reset your password.
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#a0a3b5", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onFocus={() => setFocused("email")}
+                  onBlur={() => setFocused(null)}
+                  placeholder="you@example.com"
+                  required
+                  style={inputStyle("email")}
+                />
+              </div>
+              {error && (
+                <div style={{
+                  padding: "10px 14px", borderRadius: 7,
+                  background: "rgba(251,113,133,0.08)", border: "1px solid rgba(251,113,133,0.2)",
+                  fontSize: 13, color: "#fb7185", lineHeight: 1.5,
+                }}>{error}</div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  marginTop: 4, padding: "13px", borderRadius: 8,
+                  background: loading ? "rgba(34,211,238,0.4)" : "linear-gradient(135deg, #0891b2, #22d3ee)",
+                  border: "none", color: "#0b0d13", fontSize: 15, fontWeight: 700,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  letterSpacing: "0.01em",
+                  boxShadow: loading ? "none" : "0 0 24px rgba(34,211,238,0.25)",
+                  transition: "all 0.2s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  width: "100%",
+                }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = "0 0 36px rgba(34,211,238,0.4)"; }}
+                onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = "0 0 24px rgba(34,211,238,0.25)"; }}
+              >
+                {loading ? "Sending…" : "Send Reset Link →"}
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                style={{
+                  background: "transparent", border: "none",
+                  color: "#6b6e84", fontSize: 13, fontWeight: 500,
+                  cursor: "pointer", textAlign: "center",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  transition: "color 0.2s", padding: "4px 0",
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = "#a0a3b5"}
+                onMouseLeave={e => e.currentTarget.style.color = "#6b6e84"}
+              >← Back to Sign In</button>
+            </form>
+          )
+        ) : mode === "reset" ? (
+          /* ── Set New Password screen (user arrived from reset email) ── */
+          resetDone ? (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>✅</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#eaebf0", marginBottom: 8 }}>
+                Password updated!
+              </div>
+              <div style={{ fontSize: 13, color: "#6b6e84", lineHeight: 1.6 }}>
+                Your password has been changed. You can now sign in.
+              </div>
+              <button
+                onClick={() => switchMode("signin")}
+                style={{
+                  marginTop: 20, padding: "10px 24px", borderRadius: 7,
+                  background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#a0a3b5", fontSize: 13, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(34,211,238,0.3)"; e.currentTarget.style.color = "#eaebf0"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#a0a3b5"; }}
+              >Sign In →</button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "#6b6e84", lineHeight: 1.6, marginBottom: 4 }}>
+                Choose a new password for your account.
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#a0a3b5", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  onFocus={() => setFocused("newPassword")}
+                  onBlur={() => setFocused(null)}
+                  placeholder="Min. 6 characters"
+                  required
+                  style={inputStyle("newPassword")}
+                />
+              </div>
+              {error && (
+                <div style={{
+                  padding: "10px 14px", borderRadius: 7,
+                  background: "rgba(251,113,133,0.08)", border: "1px solid rgba(251,113,133,0.2)",
+                  fontSize: 13, color: "#fb7185", lineHeight: 1.5,
+                }}>{error}</div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  marginTop: 4, padding: "13px", borderRadius: 8,
+                  background: loading ? "rgba(34,211,238,0.4)" : "linear-gradient(135deg, #0891b2, #22d3ee)",
+                  border: "none", color: "#0b0d13", fontSize: 15, fontWeight: 700,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  letterSpacing: "0.01em",
+                  boxShadow: loading ? "none" : "0 0 24px rgba(34,211,238,0.25)",
+                  transition: "all 0.2s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  width: "100%",
+                }}
+                onMouseEnter={e => { if (!loading) e.currentTarget.style.boxShadow = "0 0 36px rgba(34,211,238,0.4)"; }}
+                onMouseLeave={e => { if (!loading) e.currentTarget.style.boxShadow = "0 0 24px rgba(34,211,238,0.25)"; }}
+              >
+                {loading ? "Saving…" : "Set New Password →"}
+              </button>
+            </form>
+          )
         ) : (
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Email */}
@@ -238,9 +429,28 @@ export default function AuthPage() {
 
             {/* Password */}
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#a0a3b5", letterSpacing: "0.06em", textTransform: "uppercase", display: "block", marginBottom: 7 }}>
-                Password
-              </label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#a0a3b5", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Password
+                </label>
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    onClick={() => switchMode("forgot")}
+                    style={{
+                      background: "transparent", border: "none",
+                      color: "#22d3ee", fontSize: 12, fontWeight: 600,
+                      cursor: "pointer", padding: 0, opacity: 0.8,
+                      fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      transition: "opacity 0.2s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "0.8"}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}
