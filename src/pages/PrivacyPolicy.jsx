@@ -50,7 +50,7 @@ export default function PrivacyPolicy() {
         </p>
 
         <Section title="1. Introduction">
-          <p>Welcome to TradeSharp ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at <strong>tradezella.xyz</strong> and our TradeSharp application (collectively, the "Service").</p>
+          <p>Welcome to TradeSharp ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website at <strong>tradesharp.xyz</strong> and our TradeSharp application (collectively, the "Service").</p>
           <p>Please read this policy carefully. If you disagree with its terms, please discontinue use of our Service.</p>
         </Section>
 
@@ -143,7 +143,7 @@ export default function PrivacyPolicy() {
           <p>If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:</p>
           <p>
             <strong>TradeSharp</strong><br />
-            Website: <strong>tradezella.xyz</strong><br />
+            Website: <strong>tradesharp.xyz</strong><br />
             Email: <a href="mailto:tradesharpxyz@gmail.com" style={{ color: '#22d3ee' }}>tradesharpxyz@gmail.com</a>
           </p>
         </Section>

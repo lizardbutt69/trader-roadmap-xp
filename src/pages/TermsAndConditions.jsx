@@ -50,7 +50,7 @@ export default function TermsAndConditions() {
         </p>
 
         <Section title="1. Agreement to Terms">
-          <p>By accessing or using the TradeSharp application and website at <strong>tradezella.xyz</strong> (the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, please do not use the Service.</p>
+          <p>By accessing or using the TradeSharp application and website at <strong>tradesharp.xyz</strong> (the "Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree to these Terms, please do not use the Service.</p>
           <p>These Terms apply to all users, visitors, and others who access or use the Service. We reserve the right to update these Terms at any time. Continued use of the Service after changes constitutes acceptance of the updated Terms.</p>
         </Section>
 
@@ -152,7 +152,7 @@ export default function TermsAndConditions() {
           <p>If you have any questions about these Terms and Conditions, please contact us:</p>
           <p>
             <strong>TradeSharp</strong><br />
-            Website: <strong>tradezella.xyz</strong><br />
+            Website: <strong>tradesharp.xyz</strong><br />
             Email: <a href="mailto:tradesharpxyz@gmail.com" style={{ color: '#22d3ee' }}>tradesharpxyz@gmail.com</a>
           </p>
         </Section>
