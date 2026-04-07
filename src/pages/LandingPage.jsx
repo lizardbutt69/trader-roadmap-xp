@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
@@ -885,6 +885,16 @@ export default function LandingPage() {
         <p style={{ fontSize: 14, color: "#6b6e84", margin: 0 }}>
           © {new Date().getFullYear()} TradeSharp. Sharpen your edge. Track your path.
         </p>
+        <div style={{ display: "flex", gap: 24 }}>
+          <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
+            onMouseEnter={e => e.target.style.color = "#22d3ee"}
+            onMouseLeave={e => e.target.style.color = "#6b6e84"}
+          >Privacy Policy</Link>
+          <Link to="/terms" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
+            onMouseEnter={e => e.target.style.color = "#22d3ee"}
+            onMouseLeave={e => e.target.style.color = "#6b6e84"}
+          >Terms & Conditions</Link>
+        </div>
       </footer>
     </div>
   );
