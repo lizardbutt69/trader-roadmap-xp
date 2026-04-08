@@ -532,7 +532,7 @@ function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl,
           }}
         >
           <span>☑ A+ Checklist</span>
-          <span style={{ fontSize: 14, color: "var(--text-tertiary)", transition: "transform 0.2s", display: "inline-block", transform: checklistOpen ? "rotate(180deg)" : "rotate(0deg)" }}>▾</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)", transition: "transform 0.2s", transform: checklistOpen ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         {checklistOpen && (
           <div style={{ border: "1px solid var(--border-primary)", borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" }}>
@@ -630,7 +630,8 @@ export default function TraderRoadmapXP() {
   // completed is a Map: quest_id -> { note, link, completedAt }
   const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
-  const [view, setView] = useState("map");
+  const [view, setView] = useState(() => localStorage.getItem("ts_active_tab") || "map");
+  const setViewAndPersist = useCallback((v) => { localStorage.setItem("ts_active_tab", v); setView(v); }, []);
   const [confirm, setConfirm] = useState(null);
   const [proofNote, setProofNote] = useState("");
   const [proofLink, setProofLink] = useState("");
@@ -657,6 +658,21 @@ export default function TraderRoadmapXP() {
     setSessionNotes(text);
     try { localStorage.setItem("sessionNotes", JSON.stringify({ date: todayKey, text })); } catch {}
   };
+
+  // Escape key — close whichever modal is open (priority order)
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key !== "Escape") return;
+      if (showProfileEditor) { setShowProfileEditor(false); return; }
+      if (confirm) { setConfirm(null); return; }
+      if (viewingProof) { setViewingProof(null); return; }
+      if (showTilt) { setShowTilt(false); return; }
+      if (showFocus) { clearInterval(focusTimerRef.current); setShowFocus(false); return; }
+      if (showSessionNotes) { setShowSessionNotes(false); return; }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showProfileEditor, confirm, viewingProof, showTilt, showFocus, showSessionNotes]);
 
   // Focus Mode timer — must be after showFocus/focusSecs/focusTimerRef declarations
   useEffect(() => {
@@ -877,7 +893,8 @@ export default function TraderRoadmapXP() {
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes subtleGlow { 0%,100% { box-shadow: 0 0 0 0 var(--accent-glow); } 50% { box-shadow: 0 0 20px 0 var(--accent-glow); } }
     * { box-sizing:border-box; margin:0; padding:0; }
-    body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; transition: background 0.3s ease, color 0.3s ease; }
+    *, *::before, *::after { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease; }
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
@@ -1585,43 +1602,54 @@ export default function TraderRoadmapXP() {
 
           {/* Nav Items */}
           <div style={{ padding: "16px 12px", flex: 1 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", padding: "0 8px 8px", marginBottom: 4 }}>Navigation</div>
             {[
-              { key: "map", label: "Dashboard", icon: "⊡", reset: false },
-              { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
-              { key: "journal", label: "Journal", icon: "⊟", reset: false },
-              { key: "notebook", label: "Notebook", icon: "✎", reset: false },
-              { key: "watchlist", label: "Watchlist", icon: "◎", reset: false },
-              { key: "accounts", label: "Accounts", icon: "⊞", reset: false },
-              { key: "stats", label: "Stats", icon: "◧", reset: false },
-              { key: "education", label: "Education", icon: "◈", reset: false },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                className="nav-tab"
-                onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  width: "100%", textAlign: "left",
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 13,
-                  fontWeight: view === tab.key ? 600 : 400,
-                  padding: "9px 12px",
-                  paddingLeft: view === tab.key ? 10 : 12,
-                  background: view === tab.key ? "var(--accent-dim)" : "transparent",
-                  border: "none",
-                  borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                  color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  marginBottom: 2,
-                }}
-              >
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, opacity: view === tab.key ? 1 : 0.5 }}>{tab.icon}</span>
-                {tab.label}
-              </button>
-            ))}
+              { key: "map", label: "Dashboard", reset: false },
+              { key: "roadmap", label: "Roadmap", reset: true },
+              { key: "journal", label: "Journal", reset: false },
+              { key: "notebook", label: "Notebook", reset: false },
+              { key: "watchlist", label: "Watchlist", reset: false },
+              { key: "accounts", label: "Accounts", reset: false },
+              { key: "stats", label: "Stats", reset: false },
+              { key: "education", label: "Education", reset: false },
+            ].map((tab) => {
+              const isActive = view === tab.key;
+              const NAV_ICONS = {
+                map: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>,
+                roadmap: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>,
+                journal: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+                notebook: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
+                watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+                accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+                stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+                education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+              };
+              return (
+                <button
+                  key={tab.key}
+                  className="nav-tab"
+                  onClick={() => { setViewAndPersist(tab.key); if (tab.reset) setSelectedLevel(null); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", textAlign: "left",
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontSize: 13,
+                    fontWeight: isActive ? 600 : 400,
+                    padding: "9px 12px",
+                    background: isActive ? "var(--accent-dim)" : "transparent",
+                    border: isActive ? "1px solid rgba(34,211,238,0.15)" : "1px solid transparent",
+                    color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    marginBottom: 2,
+                    boxShadow: isActive ? "0 2px 8px rgba(34,211,238,0.07)" : "none",
+                  }}
+                >
+                  <span style={{ display: "flex", flexShrink: 0, opacity: isActive ? 1 : 0.45 }}>{NAV_ICONS[tab.key]}</span>
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Session Notes trigger */}
@@ -1638,7 +1666,9 @@ export default function TraderRoadmapXP() {
                 transition: "all 0.15s",
               }}
             >
-              <span style={{ fontSize: 17, lineHeight: 1 }}>📝</span>
+              <span style={{ display: "flex", flexShrink: 0, opacity: 0.45 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </span>
               <span style={{ fontWeight: 500 }}>Session Notes</span>
               {sessionNotes && <span style={{ marginLeft: "auto", width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />}
             </button>
@@ -1718,7 +1748,12 @@ export default function TraderRoadmapXP() {
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              <span style={{ fontSize: 14 }}>{privacyMode ? "◉" : "◎"}</span>
+              <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                {privacyMode
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                }
+              </span>
               {privacyMode ? "Privacy On" : "Privacy Mode"}
             </button>
             <button
@@ -1732,7 +1767,12 @@ export default function TraderRoadmapXP() {
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              <span style={{ fontSize: 14 }}>{dark ? "☀" : "☾"}</span>
+              <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                {dark
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+                }
+              </span>
               {dark ? "Light mode" : "Dark mode"}
             </button>
             <button
@@ -1746,7 +1786,9 @@ export default function TraderRoadmapXP() {
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              <span style={{ fontSize: 14 }}>⚠</span>
+              <span style={{ display: "flex", flexShrink: 0, opacity: 0.7 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </span>
               Tilt Protocol
             </button>
             <button
@@ -1760,7 +1802,9 @@ export default function TraderRoadmapXP() {
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
               }}
             >
-              <span style={{ fontSize: 14 }}>↗</span>
+              <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </span>
               Sign out
             </button>
           </div>
@@ -1821,35 +1865,48 @@ export default function TraderRoadmapXP() {
 
               {/* Nav Items */}
               <div style={{ padding: "12px 10px", flex: 1 }}>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", padding: "0 8px 8px", marginBottom: 4 }}>Navigation</div>
                 {[
-                  { key: "map", label: "Dashboard", icon: "⊡" },
-                  { key: "roadmap", label: "Roadmap", icon: "◆", reset: true },
-                  { key: "journal", label: "Journal", icon: "⊟" },
-                  { key: "notebook", label: "Notebook", icon: "✎" },
-                  { key: "watchlist", label: "Watchlist", icon: "◎" },
-                  { key: "accounts", label: "Accounts", icon: "⊞" },
-                  { key: "stats", label: "Stats", icon: "◧" },
-                  { key: "education", label: "Education", icon: "◈" },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    onClick={() => { setView(tab.key); if (tab.reset) setSelectedLevel(null); setMobileMenu(false); }}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 10, width: "100%",
-                      background: view === tab.key ? "var(--accent-dim)" : "transparent",
-                      border: "none", borderLeft: view === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
-                      color: view === tab.key ? "var(--accent)" : "var(--text-secondary)",
-                      fontSize: 13, fontWeight: view === tab.key ? 600 : 400,
-                      fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 12px",
-                      borderRadius: 6, cursor: "pointer", textAlign: "left",
-                      marginBottom: 2,
-                    }}
-                  >
-                    <span style={{ fontSize: 14, opacity: view === tab.key ? 1 : 0.5, width: 18, textAlign: "center" }}>{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
+                  { key: "map", label: "Dashboard" },
+                  { key: "roadmap", label: "Roadmap", reset: true },
+                  { key: "journal", label: "Journal" },
+                  { key: "notebook", label: "Notebook" },
+                  { key: "watchlist", label: "Watchlist" },
+                  { key: "accounts", label: "Accounts" },
+                  { key: "stats", label: "Stats" },
+                  { key: "education", label: "Education" },
+                ].map((tab) => {
+                  const isActive = view === tab.key;
+                  const NAV_ICONS = {
+                    map: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>,
+                    roadmap: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>,
+                    journal: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+                    notebook: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
+                    watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+                    accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+                    stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+                    education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+                  };
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => { setViewAndPersist(tab.key); if (tab.reset) setSelectedLevel(null); setMobileMenu(false); }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10, width: "100%",
+                        background: isActive ? "var(--accent-dim)" : "transparent",
+                        border: isActive ? "1px solid rgba(34,211,238,0.15)" : "1px solid transparent",
+                        color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                        fontSize: 13, fontWeight: isActive ? 600 : 400,
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", padding: "10px 12px",
+                        borderRadius: 8, cursor: "pointer", textAlign: "left",
+                        marginBottom: 2,
+                        boxShadow: isActive ? "0 2px 8px rgba(34,211,238,0.07)" : "none",
+                      }}
+                    >
+                      <span style={{ display: "flex", flexShrink: 0, opacity: isActive ? 1 : 0.45 }}>{NAV_ICONS[tab.key]}</span>
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Profile */}
@@ -1881,7 +1938,12 @@ export default function TraderRoadmapXP() {
                   color: privacyMode ? "var(--accent)" : "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span style={{ fontSize: 13 }}>{privacyMode ? "◉" : "◎"}</span>
+                  <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                    {privacyMode
+                      ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                      : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </span>
                   {privacyMode ? "Privacy On" : "Privacy Mode"}
                 </button>
                 <button onClick={() => { setDark(d => !d); }} style={{
@@ -1891,7 +1953,12 @@ export default function TraderRoadmapXP() {
                   color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span style={{ fontSize: 13 }}>{dark ? "☀" : "☾"}</span>
+                  <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                    {dark
+                      ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                      : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+                    }
+                  </span>
                   {dark ? "Light mode" : "Dark mode"}
                 </button>
                 <button onClick={() => { setShowTilt(true); setMobileMenu(false); }} style={{
@@ -1901,7 +1968,9 @@ export default function TraderRoadmapXP() {
                   color: "var(--red)", borderRadius: 6, cursor: "pointer",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span style={{ fontSize: 13 }}>⚠</span>
+                  <span style={{ display: "flex", flexShrink: 0, opacity: 0.7 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </span>
                   Tilt Protocol
                 </button>
                 <button onClick={() => { handleSignOut(); setMobileMenu(false); }} style={{
@@ -1911,7 +1980,9 @@ export default function TraderRoadmapXP() {
                   color: "var(--text-tertiary)", borderRadius: 6, cursor: "pointer",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}>
-                  <span style={{ fontSize: 13 }}>↗</span>
+                  <span style={{ display: "flex", flexShrink: 0, opacity: 0.6 }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  </span>
                   Sign out
                 </button>
               </div>
@@ -1958,9 +2029,28 @@ export default function TraderRoadmapXP() {
                 flexShrink: 0, transition: "all 0.15s",
               }}>+ LOG</button>
               {[
-                { icon: privacyMode ? "◉" : "◎", title: privacyMode ? "Privacy On" : "Privacy Mode", onClick: () => setPrivacyMode(p => !p), active: privacyMode, color: "var(--accent)" },
-                { icon: dark ? "☀" : "☾", title: dark ? "Light mode" : "Dark mode", onClick: () => setDark(d => !d), active: dark, color: null },
-                { icon: "⚠", title: "Tilt Protocol", onClick: () => setShowTilt(true), active: false, color: "var(--red)" },
+                {
+                  title: privacyMode ? "Privacy On" : "Privacy Mode",
+                  onClick: () => setPrivacyMode(p => !p),
+                  active: privacyMode, color: "var(--accent)",
+                  icon: privacyMode
+                    ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                    : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
+                },
+                {
+                  title: dark ? "Light mode" : "Dark mode",
+                  onClick: () => setDark(d => !d),
+                  active: false, color: null,
+                  icon: dark
+                    ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                    : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>,
+                },
+                {
+                  title: "Tilt Protocol",
+                  onClick: () => setShowTilt(true),
+                  active: false, color: "var(--red)",
+                  icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+                },
               ].map(({ icon, title, onClick, active, color }) => (
                 <button key={title} onClick={onClick} title={title} style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -1968,7 +2058,7 @@ export default function TraderRoadmapXP() {
                   background: active ? "var(--accent-dim)" : "transparent",
                   border: active ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
                   color: active ? "var(--accent)" : (color || "var(--text-tertiary)"),
-                  fontSize: 14, cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
+                  cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
                 }}>{icon}</button>
               ))}
               <button
@@ -1978,10 +2068,12 @@ export default function TraderRoadmapXP() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 32, height: 32, borderRadius: 6,
                   background: "transparent", border: "1px solid var(--border-primary)",
-                  color: "var(--text-tertiary)", fontSize: 14, cursor: "pointer",
+                  color: "var(--text-tertiary)", cursor: "pointer",
                   transition: "all 0.15s", flexShrink: 0,
                 }}
-              >↗</button>
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
             </div>
           </div>
 

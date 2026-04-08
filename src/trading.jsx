@@ -1,7 +1,70 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 import MotivationalQuotesBar from "./components/MotivationalQuotesBar";
+
+// ─── TOAST SYSTEM ────────────────────────────────────────────────────────────
+const ToastContext = createContext(null);
+
+export function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const addToast = useCallback((message, type = "error") => {
+    const id = Date.now();
+    setToasts((t) => [...t, { id, message, type }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
+  }, []);
+  return (
+    <ToastContext.Provider value={addToast}>
+      {children}
+      <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none" }}>
+        {toasts.map((t) => (
+          <div key={t.id} style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 500,
+            padding: "12px 18px", borderRadius: 8, maxWidth: 360, pointerEvents: "auto",
+            background: t.type === "success" ? "rgba(52,211,153,0.12)" : t.type === "info" ? "rgba(34,211,238,0.1)" : "rgba(251,113,133,0.12)",
+            border: `1px solid ${t.type === "success" ? "rgba(52,211,153,0.35)" : t.type === "info" ? "rgba(34,211,238,0.3)" : "rgba(251,113,133,0.35)"}`,
+            color: t.type === "success" ? "var(--green)" : t.type === "info" ? "var(--accent)" : "var(--red)",
+            backdropFilter: "blur(12px)", boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+            animation: "fadeSlideIn 0.25s ease",
+          }}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+function useToast() {
+  return useContext(ToastContext);
+}
+
+// ─── DELETE POPOVER CONFIRM ──────────────────────────────────────────────────
+function DeletePopover({ id, confirmId, setConfirmId, onConfirm, children, buttonStyle = {} }) {
+  const open = confirmId === id;
+  return (
+    <div style={{ position: "relative", display: "inline-flex" }}>
+      {open && (
+        <div onClick={() => setConfirmId(null)} style={{ position: "fixed", inset: 0, zIndex: 49 }} />
+      )}
+      <button onClick={() => setConfirmId(open ? null : id)} style={buttonStyle}>{children}</button>
+      {open && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", right: 0, zIndex: 50,
+          background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
+          borderRadius: 8, padding: "12px 14px", boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          backdropFilter: "blur(12px)", whiteSpace: "nowrap", animation: "fadeSlideIn 0.15s ease",
+        }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 10 }}>Delete this?</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { onConfirm(id); setConfirmId(null); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--red)", background: "rgba(251,113,133,0.1)", border: "1px solid rgba(251,113,133,0.25)", borderRadius: 4, padding: "5px 12px", cursor: "pointer" }}>Delete</button>
+            <button onClick={() => setConfirmId(null)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", borderRadius: 4, padding: "5px 12px", cursor: "pointer" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── PRIVACY HELPER ─────────────────────────────────────────────────────────
 const MASK = "$•••••";
@@ -363,7 +426,7 @@ function TradeSharpScore({ trades, month }) {
   if (!result) {
     return (
       <TCard style={{ padding: 28, marginBottom: 24, textAlign: "center" }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>TRADESHARP SCORE</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>TRADESHARP SCORE</div>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)" }}>Log at least 3 trades to generate your score.</div>
       </TCard>
     );
@@ -410,11 +473,11 @@ function TradeSharpScore({ trades, month }) {
         padding: "20px 28px", borderBottom: "1px solid var(--border-primary)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             TRADESHARP SCORE
           </div>
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>
             {month} · {totalTrades} trades
           </span>
         </div>
@@ -567,7 +630,7 @@ function TradeSharpScore({ trades, month }) {
 
       {/* Pillar Breakdown */}
       <div style={{ padding: "0 28px 28px" }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 14 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 14 }}>
           PILLAR BREAKDOWN
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -693,6 +756,8 @@ const selectStyle = { ...inputStyle, cursor: "pointer" };
 function makeModelId() { return "m_" + Math.random().toString(36).slice(2, 9); }
 
 export function ChecklistView({ supabase, user, embedded = false }) {
+  const toast = useToast();
+  const [confirmDeleteModel, setConfirmDeleteModel] = useState(null);
   const [models, setModels] = useState(null); // null = loading
   const [activeModelId, setActiveModelId] = useState(null);
   const [checked, setChecked] = useState([]);
@@ -816,8 +881,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
   };
 
   const deleteModel = async (id) => {
-    if (models.length <= 1) { alert("You need at least one model."); return; }
-    if (!window.confirm("Delete this model and all its checklist items?")) return;
+    if (models.length <= 1) { toast("You need at least one model."); return; }
     const updated = models.filter(m => m.id !== id);
     setModels(updated);
     if (activeModelId === id) switchModel(updated[0].id);
@@ -837,7 +901,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
   const addItem = () => {
     const label = newLabel.trim();
     if (!label) return;
-    if (editItems.length >= 20) { alert("Maximum 20 items."); return; }
+    if (editItems.length >= 20) { toast("Maximum 20 items."); return; }
     setEditItems([...editItems, { label, sub: newSub.trim() }]);
     setNewLabel(""); setNewSub("");
   };
@@ -1003,7 +1067,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
                   <button onClick={() => startRename(m)} title="Rename model" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✎</button>
                 )}
                 {!isActive && models.length > 1 && (
-                  <button onClick={() => deleteModel(m.id)} title="Delete model" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✕</button>
+                  <DeletePopover id={m.id} confirmId={confirmDeleteModel} setConfirmId={setConfirmDeleteModel} onConfirm={deleteModel} buttonStyle={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✕</DeletePopover>
                 )}
               </div>
             );
@@ -1127,6 +1191,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl }) {
+  const toast = useToast();
   // Plan state (loaded silently for Sheets trade sync)
   const [plan, setPlan] = useState({ session_plan: "" });
   const [mood, setMood] = useState(null);
@@ -1189,7 +1254,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
 
   const logTrade = async () => {
     const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
-    if (err) { alert(err); return; }
+    if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     const tradeData = {
       user_id: user.id,
@@ -1210,7 +1275,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
     };
     const { error } = await supabase.from("trades").insert(tradeData);
-    if (error) { alert("Error saving trade: " + error.message); return; }
+    if (error) { toast("Error saving trade: " + error.message); return; }
     if (syncToSheets) syncToSheets({
       type: "trade",
       ...tradeData,
@@ -1315,8 +1380,8 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
           </Field>
         </div>
         <button onClick={logTrade} style={{
-          fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 13, fontSize: 13, fontWeight: 700, border: "1px solid var(--accent)", borderRadius: 4, cursor: "pointer",
-          background: "transparent", color: "var(--accent)", letterSpacing: "0.08em", textTransform: "uppercase",
+          fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 13, fontSize: 13, fontWeight: 700, border: "1px solid rgba(34,211,238,0.25)", borderRadius: 4, cursor: "pointer",
+          background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.08em", textTransform: "uppercase",
           boxShadow: "none",
         }}>
           + LOG TRADE
@@ -1331,6 +1396,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
+  const toast = useToast();
   const [formDt, setFormDt] = useState(nowLocal());
   const [formAsset, setFormAsset] = useState("");
   const [formDirection, setFormDirection] = useState("");
@@ -1357,7 +1423,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
 
   const logTrade = async () => {
     const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
-    if (err) { alert(err); return; }
+    if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     setSaving(true);
     const tradeData = {
@@ -1377,7 +1443,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     setSaving(false);
-    if (error) { alert("Error saving trade: " + error.message); return; }
+    if (error) { toast("Error saving trade: " + error.message); return; }
     if (syncToSheets) syncToSheets({
       type: "trade",
       ...tradeData,
@@ -1951,6 +2017,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode }) {
+  const [confirmDeleteTrade, setConfirmDeleteTrade] = useState(null);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [dayPopup, setDayPopup] = useState(null);
@@ -1958,6 +2025,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const [editForm, setEditForm] = useState({});
   const [pnlMode, setPnlMode] = useState("personal");
   const [showReview, setShowReview] = useState(false);
+  const [compactTable, setCompactTable] = useState(false);
   const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
@@ -2030,7 +2098,6 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   }, [trades, pnlMode]);
 
   const deleteTrade = async (id) => {
-    if (!window.confirm("Delete this trade entry?")) return;
     await supabase.from("trades").delete().eq("id", id);
     loadTrades();
   };
@@ -2163,7 +2230,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
       {/* Equity Curve */}
       <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden", background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.03) 100%)" }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
           EQUITY CURVE
         </div>
         <canvas ref={chartRef} height={120} style={{ width: "100%", borderRadius: 8 }} />
@@ -2173,7 +2240,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       <TCard style={{ marginBottom: 24, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>P&L CALENDAR</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>P&L CALENDAR</div>
             <div style={{ display: "flex", gap: 4 }}>
               {[["personal", "Personal"], ["funded", "Funded"], ["both", "Both"]].map(([mode, label]) => (
                 <button
@@ -2272,10 +2339,28 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       <TCard style={{ overflow: "hidden", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>TRADE HISTORY</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>TRADE HISTORY</div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", opacity: 0.6 }}>{new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {monthTrades.length > 0 && (
+            <button
+              onClick={() => setCompactTable(c => !c)}
+              title={compactTable ? "Comfortable view" : "Compact view"}
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                padding: "6px 10px", borderRadius: 4, cursor: "pointer",
+                border: `1px solid ${compactTable ? "var(--accent)" : "var(--border-primary)"}`,
+                background: compactTable ? "var(--accent-dim)" : "var(--bg-tertiary)",
+                color: compactTable ? "var(--accent)" : "var(--text-tertiary)",
+                letterSpacing: "0.04em", transition: "all 0.15s",
+                display: "flex", alignItems: "center", gap: 5,
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              {compactTable ? "COMPACT" : "COMPACT"}
+            </button>
+          )}
           {monthTrades.length > 0 && (
             <button
               onClick={() => setShowReview(true)}
@@ -2341,9 +2426,17 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                 {monthTrades.map((t) => {
                   const p = parseFloat(t.profit);
                   const pf = parseFloat(t.profit_funded);
-                  const cellStyle = { padding: "10px 12px", borderTop: "1px solid var(--border-primary)", whiteSpace: "nowrap", fontSize: 12 };
+                  const isWin = t.profit != null && !isNaN(p) && p > 0;
+                  const isLoss = t.profit != null && !isNaN(p) && p < 0;
+                  const rowPad = compactTable ? "5px 12px" : "10px 12px";
+                  const rowFontSize = compactTable ? 11 : 12;
+                  const cellStyle = { padding: rowPad, borderTop: "1px solid var(--border-primary)", whiteSpace: "nowrap", fontSize: rowFontSize };
                   return (
-                    <tr key={t.id} style={{ transition: "background 0.15s" }}>
+                    <tr key={t.id} style={{
+                      transition: "background 0.15s",
+                      background: isWin ? "rgba(52,211,153,0.04)" : isLoss ? "rgba(251,113,133,0.04)" : "transparent",
+                      boxShadow: isWin ? "inset 3px 0 0 var(--green)" : isLoss ? "inset 3px 0 0 var(--red)" : "none",
+                    }}>
                       <td style={{ ...cellStyle, color: "var(--text-secondary)" }}>{t.dt ? new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—"}</td>
                       <td style={{ ...cellStyle, fontWeight: 600, color: "var(--text-primary)" }}>{t.asset}</td>
                       <td style={cellStyle}>
@@ -2375,8 +2468,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                         <TradeTagChips tags={t.tags} />
                       </td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
-                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--accent-secondary)", padding: "2px 6px" }}>✏️</button>
-                        <button onClick={() => deleteTrade(t.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", padding: "2px 6px" }}>✕</button>
+                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent-secondary)", padding: "2px 6px", display: "flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        <DeletePopover id={t.id} confirmId={confirmDeleteTrade} setConfirmId={setConfirmDeleteTrade} onConfirm={deleteTrade} buttonStyle={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", padding: "2px 6px" }}>✕</DeletePopover>
                       </td>
                     </tr>
                   );
@@ -2659,7 +2752,7 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
   return (
     <TCard style={{ padding: 28, marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI TRADING SUMMARY</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI TRADING SUMMARY</div>
         <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: apiKey ? "rgba(5,150,105,0.12)" : "rgba(255,255,255,0.06)", color: apiKey ? "var(--green)" : "var(--text-tertiary)" }}>
           {apiKey ? "API KEY ACTIVE" : "NO API KEY — Set in Profile"}
         </span>
@@ -2668,7 +2761,7 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
         <button onClick={() => generate("week")} disabled={loading} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "1px solid var(--accent-secondary)", borderRadius: 4, cursor: loading ? "not-allowed" : "pointer", background: "transparent", color: "var(--accent-secondary)", letterSpacing: "0.05em", textTransform: "uppercase" }}>THIS WEEK</button>
         <button onClick={() => generate("month")} disabled={loading} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, padding: "10px 16px", fontSize: 12, fontWeight: 600, border: "1px solid var(--purple)", borderRadius: 4, cursor: loading ? "not-allowed" : "pointer", background: "transparent", color: "var(--purple)", letterSpacing: "0.05em", textTransform: "uppercase" }}>THIS MONTH</button>
       </div>
-      {period && <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginBottom: 10 }}>{period}</div>}
+      {period && <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 10 }}>{period}</div>}
       {loading && <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--accent-secondary)", padding: "16px 0", animation: "hudPulse 1.5s ease-in-out infinite" }}>ANALYZING TRADES...</div>}
       {output && <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", background: "var(--bg-tertiary)", borderRadius: 6, padding: 20, border: "1px solid var(--border-primary)" }}>{output}</div>}
     </TCard>
@@ -2713,7 +2806,7 @@ function BadgesSection({ trades, dayMap }) {
 
   return (
     <TCard style={{ padding: 28, marginTop: 24 }}>
-      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 18, textTransform: "uppercase", letterSpacing: "0.08em" }}>BADGES</div>
+      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 18, textTransform: "uppercase", letterSpacing: "0.08em" }}>BADGES</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12 }}>
         {badges.map((b, i) => (
           <div key={i} style={{
@@ -2724,8 +2817,8 @@ function BadgesSection({ trades, dayMap }) {
             boxShadow: b.unlocked ? "0 0 0 1px var(--accent-dim)" : "none",
           }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>{b.icon}</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: b.unlocked ? "var(--text-primary)" : "var(--text-tertiary)" }}>{b.name}</div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{b.desc}</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: b.unlocked ? "var(--text-primary)" : "var(--text-secondary)" }}>{b.name}</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{b.desc}</div>
           </div>
         ))}
       </div>
@@ -2767,8 +2860,8 @@ function WeeklyChallengesSection({ trades }) {
   return (
     <TCard style={{ padding: 28, marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>WEEKLY CHALLENGES</span>
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>Resets every Monday</span>
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>WEEKLY CHALLENGES</span>
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)" }}>Resets every Monday</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {challenges.map((c, i) => {
@@ -2778,7 +2871,7 @@ function WeeklyChallengesSection({ trades }) {
             <div key={i}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: done ? "var(--green)" : "var(--text-secondary)" }}>{done ? "✓ " : ""}{c.name}</span>
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>{c.cur} / {c.goal}</span>
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>{c.cur} / {c.goal}</span>
               </div>
               <div style={{ background: "var(--bg-tertiary)", borderRadius: 4, height: 8, overflow: "hidden", border: "1px solid var(--border-primary)" }}>
                 <div style={{ height: "100%", borderRadius: 4, background: done ? "var(--green)" : "linear-gradient(90deg, var(--accent-secondary), var(--accent))", transition: "width 0.4s", width: `${pct}%`, boxShadow: done ? "none" : "none" }} />
@@ -2956,14 +3049,19 @@ const PAYOUT_STATUSES = [
 const emptyPayoutForm = { account_id: "", amount: "", payout_date: "", method: "", status: "received", notes: "" };
 
 export function AccountsView({ supabase, user, privacyMode }) {
+  const toast = useToast();
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(null);
+  const [confirmDeletePayout, setConfirmDeletePayout] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [showAddAccount, setShowAddAccount] = useState(false);
 
   // Payout log state
   const [payouts, setPayouts] = useState([]);
   const [payoutForm, setPayoutForm] = useState({ ...emptyPayoutForm });
   const [editingPayout, setEditingPayout] = useState(null);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
 
   const loadAccounts = useCallback(async () => {
     if (!user) return;
@@ -2982,8 +3080,19 @@ export function AccountsView({ supabase, user, privacyMode }) {
   const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); };
   const resetPayoutForm = () => { setPayoutForm({ ...emptyPayoutForm }); setEditingPayout(null); };
 
+  // Escape key — close account/payout modals
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key !== "Escape") return;
+      if (showPayoutModal) { setPayoutForm({ ...emptyPayoutForm }); setEditingPayout(null); setShowPayoutModal(false); return; }
+      if (showAddAccount) { setShowAddAccount(false); return; }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showPayoutModal, showAddAccount]);
+
   const savePayout = async () => {
-    if (!payoutForm.amount || !payoutForm.payout_date) { alert("Please enter an amount and date."); return; }
+    if (!payoutForm.amount || !payoutForm.payout_date) { toast("Please enter an amount and date."); return; }
     const payload = {
       user_id: user.id,
       account_id: payoutForm.account_id || null,
@@ -2999,12 +3108,11 @@ export function AccountsView({ supabase, user, privacyMode }) {
     } else {
       ({ error: err } = await supabase.from("payouts").insert(payload));
     }
-    if (err) { alert("Error saving payout: " + err.message); return; }
-    resetPayoutForm(); loadPayouts();
+    if (err) { toast("Error saving payout: " + err.message); return; }
+    resetPayoutForm(); loadPayouts(); setShowPayoutModal(false);
   };
 
   const deletePayout = async (id) => {
-    if (!window.confirm("Delete this payout?")) return;
     await supabase.from("payouts").delete().eq("id", id);
     if (editingPayout === id) resetPayoutForm();
     loadPayouts();
@@ -3020,10 +3128,11 @@ export function AccountsView({ supabase, user, privacyMode }) {
       status: p.status || "received",
       notes: p.notes || "",
     });
+    setShowPayoutModal(true);
   };
 
   const saveAccount = async () => {
-    if (!form.firm) { alert("Please enter a firm name."); return; }
+    if (!form.firm) { toast("Please enter a firm name."); return; }
     const payload = {
       user_id: user.id, firm: form.firm, account_name: form.account_name || form.firm,
       account_type: form.account_type || "eval", account_size: form.account_size ? parseFloat(form.account_size) : null,
@@ -3040,12 +3149,11 @@ export function AccountsView({ supabase, user, privacyMode }) {
     } else {
       ({ error: err } = await supabase.from("accounts").insert(payload));
     }
-    if (err) { alert("Error saving account: " + err.message); return; }
-    resetForm(); loadAccounts();
+    if (err) { toast("Error saving account: " + err.message); return; }
+    resetForm(); loadAccounts(); setShowAddAccount(false);
   };
 
   const deleteAccount = async (id) => {
-    if (!window.confirm("Delete this account?")) return;
     await supabase.from("accounts").delete().eq("id", id);
     if (editing === id) resetForm();
     loadAccounts();
@@ -3063,6 +3171,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
       payout_pct: acc.payout_pct != null ? String(acc.payout_pct) : "",
       notes: acc.notes || "",
     });
+    setShowAddAccount(true);
   };
 
   // Summary counts
@@ -3128,57 +3237,26 @@ export function AccountsView({ supabase, user, privacyMode }) {
       </div>
 
       {/* Account Cards */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Accounts</div>
+        <button onClick={() => { resetForm(); setShowAddAccount(true); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.05em" }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Account
+        </button>
+      </div>
       {!accounts.length && (
         <TCard style={{ padding: 48, textAlign: "center", marginBottom: 24 }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
-          <div style={{ fontSize: 16, color: "var(--text-tertiary)" }}>No accounts yet. Add your first funded account or eval below.</div>
+          <div style={{ fontSize: 16, color: "var(--text-tertiary)" }}>No accounts yet. Click <strong>+ Add Account</strong> to get started.</div>
         </TCard>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
         {accounts.map((acc) => {
           const statusMeta = getStatusMeta(acc.status);
           const pnl = acc.current_pnl != null ? Number(acc.current_pnl) : null;
-          const isEditing = editing === acc.id;
           return (
-            <TCard key={acc.id} style={{ padding: 24, borderLeft: `4px solid ${isEditing ? "var(--accent)" : statusMeta.color}` }}>
-              {isEditing ? (
-                <>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 11, color: "var(--accent)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-                    EDITING: {acc.account_name || acc.firm}
-                  </div>
-                  <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-                    <Field label="Firm Name"><input style={inputStyle} placeholder="e.g. Apex, Topstep" value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} /></Field>
-                    <Field label="Account Size ($)"><input type="number" style={inputStyle} placeholder="e.g. 50000" value={form.account_size} onChange={(e) => setForm({ ...form, account_size: e.target.value })} /></Field>
-                    <Field label="Type">
-                      <select style={selectStyle} value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })}>
-                        <option value="">Select...</option>
-                        {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Status">
-                      <select style={selectStyle} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                        <option value="">Select...</option>
-                        {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </Field>
-                  </div>
-                  <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-                    <Field label="Profit Target ($)"><input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} /></Field>
-                    <Field label="Current P&L ($)"><input type="number" style={inputStyle} placeholder="e.g. 1500" value={form.current_pnl} onChange={(e) => setForm({ ...form, current_pnl: e.target.value })} /></Field>
-                    <Field label="Max Drawdown ($)"><input type="number" style={inputStyle} placeholder="e.g. 2500" value={form.max_drawdown} onChange={(e) => setForm({ ...form, max_drawdown: e.target.value })} /></Field>
-                    <Field label="Daily Loss Limit ($)"><input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} /></Field>
-                    <Field label="Payout Eligible (%)"><input type="number" style={inputStyle} placeholder="e.g. 80" min="0" max="100" value={form.payout_pct} onChange={(e) => setForm({ ...form, payout_pct: e.target.value })} /></Field>
-                  </div>
-                  <div style={{ marginBottom: 14 }}>
-                    <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }} placeholder="Withdrawal dates, rules, notes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-                  </div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <button onClick={resetForm} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 12, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
-                    <button onClick={saveAccount} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 12, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer" }}>SAVE CHANGES</button>
-                  </div>
-                </>
-              ) : (
-                <>
+            <TCard key={acc.id} style={{ padding: 24, borderLeft: `4px solid ${statusMeta.color}` }}>
+              <>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
                     <Badge label={statusMeta.label} color={statusMeta.color} />
@@ -3236,77 +3314,23 @@ export function AccountsView({ supabase, user, privacyMode }) {
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
                   )}
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 14 }}>
-                    <button onClick={() => openEdit(acc)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
-                    <button onClick={() => deleteAccount(acc.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 600 }}>✕ Delete</button>
+                    <button onClick={() => openEdit(acc)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--accent-secondary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
+                    <DeletePopover id={acc.id} confirmId={confirmDeleteAccount} setConfirmId={setConfirmDeleteAccount} onConfirm={deleteAccount} buttonStyle={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--text-tertiary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Delete</DeletePopover>
                   </div>
                 </>
-              )}
             </TCard>
           );
         })}
       </div>
 
-      {/* Add Account Form — only shown when not editing an existing account */}
-      {!editing && <TCard style={{ padding: 28 }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          {editing ? "EDIT ACCOUNT" : "ADD ACCOUNT"}
-        </div>
-        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-          <Field label="Firm Name">
-            <input style={inputStyle} placeholder="e.g. Apex, Topstep, FTMO" value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} />
-          </Field>
-          <Field label="Account Size ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 50000" value={form.account_size} onChange={(e) => setForm({ ...form, account_size: e.target.value })} />
-          </Field>
-          <Field label="Type">
-            <select style={selectStyle} value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })}>
-              <option value="">Select...</option>
-              {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select style={selectStyle} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="">Select...</option>
-              {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </Field>
-        </div>
-        <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
-          <Field label="Profit Target ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} />
-          </Field>
-          <Field label="Current P&L ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 1500" value={form.current_pnl} onChange={(e) => setForm({ ...form, current_pnl: e.target.value })} />
-          </Field>
-          <Field label="Max Drawdown ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 2500" value={form.max_drawdown} onChange={(e) => setForm({ ...form, max_drawdown: e.target.value })} />
-          </Field>
-          <Field label="Daily Loss Limit ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} />
-          </Field>
-          <Field label="Payout Eligible (%)">
-            <input type="number" style={inputStyle} placeholder="e.g. 80" min="0" max="100" value={form.payout_pct} onChange={(e) => setForm({ ...form, payout_pct: e.target.value })} />
-          </Field>
-        </div>
-        <div style={{ marginBottom: 20 }}>
-          <Field label="Notes">
-            <textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }} placeholder="Withdrawal dates, rules, notes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          </Field>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          {editing && (
-            <button onClick={resetForm} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
-          )}
-          <button onClick={saveAccount} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "none", letterSpacing: "0.05em" }}>
-            {editing ? "SAVE CHANGES" : "+ ADD ACCOUNT"}
-          </button>
-        </div>
-      </TCard>}
-
       {/* ─── PAYOUT LOG ─────────────────────────────────────────────────── */}
       <div style={{ marginTop: 32 }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-          Payout Log
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Payout Log</div>
+          <button onClick={() => { resetPayoutForm(); setShowPayoutModal(true); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.05em" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Log Payout
+          </button>
         </div>
 
         {/* Payout entries */}
@@ -3337,8 +3361,8 @@ export function AccountsView({ supabase, user, privacyMode }) {
                       {p.notes && <span style={{ color: "var(--text-tertiary)" }}>— {p.notes}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 14 }}>
-                      <button onClick={() => openEditPayout(p)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--accent-secondary)", fontWeight: 600 }}>✏️ Edit</button>
-                      <button onClick={() => deletePayout(p.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", fontWeight: 600 }}>✕</button>
+                      <button onClick={() => openEditPayout(p)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--accent-secondary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
+                      <DeletePopover id={p.id} confirmId={confirmDeletePayout} setConfirmId={setConfirmDeletePayout} onConfirm={deletePayout} buttonStyle={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--text-tertiary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Delete</DeletePopover>
                     </div>
                   </div>
                 </TCard>
@@ -3347,51 +3371,89 @@ export function AccountsView({ supabase, user, privacyMode }) {
           </div>
         )}
 
-        {/* Payout Form */}
-        <TCard style={{ padding: 28 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            {editingPayout ? "EDIT PAYOUT" : "LOG PAYOUT"}
-          </div>
-          <div className="payout-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
-            <Field label="Amount ($)">
-              <input type="number" style={inputStyle} placeholder="e.g. 1000" value={payoutForm.amount} onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })} />
-            </Field>
-            <Field label="Date">
-              <input type="date" style={inputStyle} value={payoutForm.payout_date} onChange={(e) => setPayoutForm({ ...payoutForm, payout_date: e.target.value })} />
-            </Field>
-            <Field label="Account">
-              <select style={selectStyle} value={payoutForm.account_id} onChange={(e) => setPayoutForm({ ...payoutForm, account_id: e.target.value })}>
-                <option value="">Select account...</option>
-                {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name || a.firm}</option>)}
-              </select>
-            </Field>
-            <Field label="Method">
-              <select style={selectStyle} value={payoutForm.method} onChange={(e) => setPayoutForm({ ...payoutForm, method: e.target.value })}>
-                <option value="">Select...</option>
-                {PAYOUT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-            </Field>
-            <Field label="Status">
-              <select style={selectStyle} value={payoutForm.status} onChange={(e) => setPayoutForm({ ...payoutForm, status: e.target.value })}>
-                {PAYOUT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </Field>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <Field label="Notes">
-              <input style={inputStyle} placeholder="Reference #, fees, etc." value={payoutForm.notes} onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })} />
-            </Field>
-          </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            {editingPayout && (
-              <button onClick={resetPayoutForm} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
-            )}
-            <button onClick={savePayout} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "none", letterSpacing: "0.05em" }}>
-              {editingPayout ? "SAVE CHANGES" : "+ LOG PAYOUT"}
-            </button>
-          </div>
-        </TCard>
       </div>
+
+      {/* ─── ADD ACCOUNT MODAL ─────────────────────────────────────────── */}
+      {showAddAccount && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetForm(); setShowAddAccount(false); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 960, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editing ? "Edit Account" : "Add Account"}</div>
+              <button onClick={() => { resetForm(); setShowAddAccount(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <Field label="Firm Name"><input style={inputStyle} placeholder="e.g. Apex, Topstep, FTMO" value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} /></Field>
+              <Field label="Account Size ($)"><input type="number" style={inputStyle} placeholder="e.g. 50000" value={form.account_size} onChange={(e) => setForm({ ...form, account_size: e.target.value })} /></Field>
+              <Field label="Type">
+                <select style={selectStyle} value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })}>
+                  <option value="">Select...</option>
+                  {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Status">
+                <select style={selectStyle} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  <option value="">Select...</option>
+                  {ACCOUNT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
+              <Field label="Profit Target ($)"><input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} /></Field>
+              <Field label="Current P&L ($)"><input type="number" style={inputStyle} placeholder="e.g. 1500" value={form.current_pnl} onChange={(e) => setForm({ ...form, current_pnl: e.target.value })} /></Field>
+              <Field label="Max Drawdown ($)"><input type="number" style={inputStyle} placeholder="e.g. 2500" value={form.max_drawdown} onChange={(e) => setForm({ ...form, max_drawdown: e.target.value })} /></Field>
+              <Field label="Daily Loss Limit ($)"><input type="number" style={inputStyle} placeholder="e.g. 500" value={form.daily_loss_limit} onChange={(e) => setForm({ ...form, daily_loss_limit: e.target.value })} /></Field>
+              <Field label="Payout Eligible (%)"><input type="number" style={inputStyle} placeholder="e.g. 80" min="0" max="100" value={form.payout_pct} onChange={(e) => setForm({ ...form, payout_pct: e.target.value })} /></Field>
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <Field label="Notes"><textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }} placeholder="Withdrawal dates, rules, notes..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => { resetForm(); setShowAddAccount(false); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
+              <button onClick={saveAccount} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em" }}>{editing ? "SAVE CHANGES" : "+ ADD ACCOUNT"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── LOG / EDIT PAYOUT MODAL ────────────────────────────────────── */}
+      {showPayoutModal && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetPayoutForm(); setShowPayoutModal(false); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 860, animation: "fadeSlideIn 0.2s ease" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editingPayout ? "Edit Payout" : "Log Payout"}</div>
+              <button onClick={() => { resetPayoutForm(); setShowPayoutModal(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
+            </div>
+            <div className="payout-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <Field label="Amount ($)"><input type="number" style={inputStyle} placeholder="e.g. 1000" value={payoutForm.amount} onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })} /></Field>
+              <Field label="Date"><input type="date" style={inputStyle} value={payoutForm.payout_date} onChange={(e) => setPayoutForm({ ...payoutForm, payout_date: e.target.value })} /></Field>
+              <Field label="Account">
+                <select style={selectStyle} value={payoutForm.account_id} onChange={(e) => setPayoutForm({ ...payoutForm, account_id: e.target.value })}>
+                  <option value="">Select account...</option>
+                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.account_name || a.firm}</option>)}
+                </select>
+              </Field>
+              <Field label="Method">
+                <select style={selectStyle} value={payoutForm.method} onChange={(e) => setPayoutForm({ ...payoutForm, method: e.target.value })}>
+                  <option value="">Select...</option>
+                  {PAYOUT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Status">
+                <select style={selectStyle} value={payoutForm.status} onChange={(e) => setPayoutForm({ ...payoutForm, status: e.target.value })}>
+                  {PAYOUT_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <Field label="Notes"><input style={inputStyle} placeholder="Reference #, fees, etc." value={payoutForm.notes} onChange={(e) => setPayoutForm({ ...payoutForm, notes: e.target.value })} /></Field>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => { resetPayoutForm(); setShowPayoutModal(false); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 600, padding: 14, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer" }}>CANCEL</button>
+              <button onClick={savePayout} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", flex: 1, fontSize: 13, fontWeight: 700, padding: 14, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em" }}>{editingPayout ? "SAVE CHANGES" : "+ LOG PAYOUT"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3482,7 +3544,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
       ))}
 
       {/* Drawdown Protocol — fixed bottom-right popup */}
-      {(todayPnl < 0 || alerts.length > 0) && (
+      {(todayPnl < -300 || alerts.length > 0) && (
         <div className="drawdown-popup" style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 300, width: 320,
           background: "rgba(12,10,20,0.85)",
@@ -3532,7 +3594,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
 
       {/* Week Progress */}
       <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
           WEEK PROGRESS
         </div>
         <div className="grid-week" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, alignItems: "end", height: 120 }}>
@@ -3560,7 +3622,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
       {/* Account Health */}
       {activeAccounts.length > 0 && (
         <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
             ACCOUNT HEALTH
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -4611,6 +4673,8 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
 const emptyEduForm = { type: "video", title: "", url: "", category: "ICT Concepts", status: "to_review", notes: "" };
 
 export function EducationView({ supabase, user }) {
+  const toast = useToast();
+  const [confirmDeleteResource, setConfirmDeleteResource] = useState(null);
   const [resources, setResources] = useState([]);
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -4645,16 +4709,16 @@ export function EducationView({ supabase, user }) {
     const ext = file.name.split(".").pop();
     const path = `${user.id}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("learning-screenshots").upload(path, file, { upsert: false });
-    if (error) { alert("Upload failed: " + error.message); setUploading(false); return; }
+    if (error) { toast("Upload failed: " + error.message); setUploading(false); return; }
     const { data: { publicUrl } } = supabase.storage.from("learning-screenshots").getPublicUrl(path);
     setForm((f) => ({ ...f, url: publicUrl }));
     setUploading(false);
   };
 
   const save = async () => {
-    if (!form.title.trim()) { alert("Please enter a title."); return; }
+    if (!form.title.trim()) { toast("Please enter a title."); return; }
     if ((form.type === "video" || form.type === "screenshot") && !form.url.trim()) {
-      alert("Please enter a URL or upload a screenshot."); return;
+      toast("Please enter a URL or upload a screenshot."); return;
     }
     const payload = {
       user_id: user.id,
@@ -4667,16 +4731,15 @@ export function EducationView({ supabase, user }) {
     };
     if (editingId) {
       const { error } = await supabase.from("learning_resources").update(payload).eq("id", editingId);
-      if (error) { alert("Error saving: " + error.message); return; }
+      if (error) { toast("Error saving: " + error.message); return; }
     } else {
       const { error } = await supabase.from("learning_resources").insert(payload);
-      if (error) { alert("Error saving: " + error.message); return; }
+      if (error) { toast("Error saving: " + error.message); return; }
     }
     resetForm(); load();
   };
 
   const deleteResource = async (id) => {
-    if (!window.confirm("Delete this resource?")) return;
     await supabase.from("learning_resources").delete().eq("id", id);
     if (viewingResource?.id === id) setViewingResource(null);
     load();
@@ -4864,12 +4927,18 @@ export function EducationView({ supabase, user }) {
         <button
           onClick={() => { setShowForm((v) => !v); if (showForm) resetForm(); }}
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "8px 12px",
-            borderRadius: 4, cursor: "pointer", marginLeft: "auto",
-            border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 600, padding: "5px 12px",
+            borderRadius: 6, cursor: "pointer", marginLeft: "auto",
+            border: "1px solid rgba(34,211,238,0.25)", background: "var(--accent-dim)", color: "var(--accent)",
             letterSpacing: "0.05em", transition: "all 0.15s", whiteSpace: "nowrap",
           }}
-        >{showForm ? "✕ Cancel" : "+ Add Resource"}</button>
+        >
+          {showForm
+            ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</>
+            : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Resource</>
+          }
+        </button>
       </div>
 
       {/* Category filter chips */}
@@ -5081,7 +5150,7 @@ export function EducationView({ supabase, user }) {
                     </span>
                     <div style={{ display: "flex", gap: 12 }}>
                       <button onClick={(e) => { e.stopPropagation(); startEdit(r); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--accent-secondary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>EDIT</button>
-                      <button onClick={(e) => { e.stopPropagation(); deleteResource(r.id); }} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, opacity: 0.6 }}>DELETE</button>
+                      <DeletePopover id={r.id} confirmId={confirmDeleteResource} setConfirmId={(id) => { setConfirmDeleteResource(id); }} onConfirm={deleteResource} buttonStyle={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, opacity: 0.6 }}>DELETE</DeletePopover>
                     </div>
                   </div>
                 </div>
