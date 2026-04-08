@@ -3984,14 +3984,17 @@ export function WatchlistView({ supabase, user }) {
         <button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "8px 12px",
-            borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.15s", whiteSpace: "nowrap",
-            border: showForm ? "1px solid var(--border-primary)" : "1px solid var(--accent)",
-            background: showForm ? "var(--bg-tertiary)" : "var(--accent-dim)",
-            color: showForm ? "var(--text-secondary)" : "var(--accent)",
+            fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 600, padding: "5px 12px",
+            borderRadius: 6, cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.15s", whiteSpace: "nowrap",
+            border: showForm ? "1px solid rgba(34,211,238,0.25)" : "1px solid rgba(34,211,238,0.25)",
+            background: "var(--accent-dim)", color: showForm ? "var(--text-secondary)" : "var(--accent)",
           }}
         >
-          {showForm ? "✕ Cancel" : "+ New Idea"}
+          {showForm
+            ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</>
+            : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> New Idea</>
+          }
         </button>
       </div>
 
