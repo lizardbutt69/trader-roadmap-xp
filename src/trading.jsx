@@ -2221,7 +2221,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       </div>
 
       {/* Extended Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
         <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
         <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
@@ -3062,6 +3062,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
   const [payoutForm, setPayoutForm] = useState({ ...emptyPayoutForm });
   const [editingPayout, setEditingPayout] = useState(null);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutCelebration, setPayoutCelebration] = useState(null); // amount string
 
   const loadAccounts = useCallback(async () => {
     if (!user) return;
@@ -3109,7 +3110,12 @@ export function AccountsView({ supabase, user, privacyMode }) {
       ({ error: err } = await supabase.from("payouts").insert(payload));
     }
     if (err) { toast("Error saving payout: " + err.message); return; }
+    const savedAmount = payoutForm.amount;
     resetPayoutForm(); loadPayouts(); setShowPayoutModal(false);
+    if (!editingPayout) {
+      setPayoutCelebration(savedAmount);
+      setTimeout(() => setPayoutCelebration(null), 4000);
+    }
   };
 
   const deletePayout = async (id) => {
@@ -3373,10 +3379,28 @@ export function AccountsView({ supabase, user, privacyMode }) {
 
       </div>
 
+      {/* ─── PAYOUT CELEBRATION ────────────────────────────────────────── */}
+      {payoutCelebration && (
+        <div style={{ position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", zIndex: 200, animation: "fadeSlideIn 0.3s ease", pointerEvents: "none" }}>
+          <div style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 14,
+            background: "linear-gradient(135deg, rgba(52,211,153,0.18), rgba(34,211,238,0.1))",
+            border: "1px solid rgba(52,211,153,0.4)", borderRadius: 12, padding: "16px 28px",
+            backdropFilter: "blur(16px)", boxShadow: "0 8px 32px rgba(52,211,153,0.2)",
+          }}>
+            <div style={{ fontSize: 28 }}>💰</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--green)", letterSpacing: "0.02em" }}>Payout Logged!</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>${Number(payoutCelebration).toLocaleString()} — keep stacking.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── ADD ACCOUNT MODAL ─────────────────────────────────────────── */}
       {showAddAccount && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) { resetForm(); setShowAddAccount(false); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 960, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetForm(); setShowAddAccount(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div className="modal-inner" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 960, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editing ? "Edit Account" : "Add Account"}</div>
               <button onClick={() => { resetForm(); setShowAddAccount(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
@@ -3397,7 +3421,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
                 </select>
               </Field>
             </div>
-            <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
+            <div className="form-grid acct-modal-grid-5" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
               <Field label="Profit Target ($)"><input type="number" style={inputStyle} placeholder="e.g. 3000" value={form.profit_target} onChange={(e) => setForm({ ...form, profit_target: e.target.value })} /></Field>
               <Field label="Current P&L ($)"><input type="number" style={inputStyle} placeholder="e.g. 1500" value={form.current_pnl} onChange={(e) => setForm({ ...form, current_pnl: e.target.value })} /></Field>
               <Field label="Max Drawdown ($)"><input type="number" style={inputStyle} placeholder="e.g. 2500" value={form.max_drawdown} onChange={(e) => setForm({ ...form, max_drawdown: e.target.value })} /></Field>
@@ -3417,8 +3441,8 @@ export function AccountsView({ supabase, user, privacyMode }) {
 
       {/* ─── LOG / EDIT PAYOUT MODAL ────────────────────────────────────── */}
       {showPayoutModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) { resetPayoutForm(); setShowPayoutModal(false); } }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 860, animation: "fadeSlideIn 0.2s ease" }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetPayoutForm(); setShowPayoutModal(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div className="modal-inner" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editingPayout ? "Edit Payout" : "Log Payout"}</div>
               <button onClick={() => { resetPayoutForm(); setShowPayoutModal(false); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
@@ -4206,7 +4230,7 @@ export function WatchlistView({ supabase, user }) {
 // EDUCATION VIEW — Learning library: videos, notes, screenshots
 // ═══════════════════════════════════════════════════════════════════════════
 
-const EDU_CATEGORIES = ["ICT Concepts", "Psychology", "Risk Management", "Setups", "Trade Reviews", "General"];
+const EDU_CATEGORIES = ["Trading Concepts", "Psychology", "Risk Management", "Setups", "Trade Reviews", "General"];
 const EDU_STATUSES = [
   { value: "to_review", label: "To Review", color: "var(--gold)" },
   { value: "reviewed", label: "Reviewed", color: "var(--green)" },
@@ -4673,7 +4697,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
   );
 }
 
-const emptyEduForm = { type: "video", title: "", url: "", category: "ICT Concepts", status: "to_review", notes: "" };
+const emptyEduForm = { type: "video", title: "", url: "", category: "Trading Concepts", status: "to_review", notes: "" };
 
 export function EducationView({ supabase, user }) {
   const toast = useToast();
@@ -4750,7 +4774,7 @@ export function EducationView({ supabase, user }) {
 
   const startEdit = (r) => {
     setEditingId(r.id);
-    setForm({ type: r.type, title: r.title, url: r.url || "", category: r.category || "ICT Concepts", status: r.status || "to_review", notes: r.notes || "" });
+    setForm({ type: r.type, title: r.title, url: r.url || "", category: r.category || "Trading Concepts", status: r.status || "to_review", notes: r.notes || "" });
     setShowForm(true);
     setViewingResource(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -4786,7 +4810,7 @@ export function EducationView({ supabase, user }) {
 
   const statusMeta = (s) => EDU_STATUSES.find((x) => x.value === s) || EDU_STATUSES[0];
   const catColor = (cat) => {
-    const map = { "ICT Concepts": "var(--accent)", "Psychology": "var(--purple)", "Risk Management": "var(--red)", "Setups": "var(--green)", "Trade Reviews": "var(--gold)", "General": "var(--text-tertiary)" };
+    const map = { "Trading Concepts": "var(--accent)", "Psychology": "var(--purple)", "Risk Management": "var(--red)", "Setups": "var(--green)", "Trade Reviews": "var(--gold)", "General": "var(--text-tertiary)" };
     return map[cat] || "var(--text-tertiary)";
   };
 
@@ -4864,7 +4888,23 @@ export function EducationView({ supabase, user }) {
                 </div>
               )}
 
-              {/* Session Notes */}
+              {/* Note content — full text display */}
+              {viewingResource.type === "note" && viewingResource.notes && (
+                <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-primary)" }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>NOTE</div>
+                  <div style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-primary)",
+                    lineHeight: 1.85, whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                    borderRadius: 8, padding: "16px 20px",
+                  }}>
+                    {viewingResource.notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Session Notes — only for non-note types */}
+              {viewingResource.type !== "note" && (
               <div style={{ padding: 20, flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                   <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
@@ -4891,6 +4931,7 @@ export function EducationView({ supabase, user }) {
                   }}
                 />
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -4978,7 +5019,7 @@ export function EducationView({ supabase, user }) {
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ gridColumn: "1 / 3" }}>
               <Field label="Title">
                 <input style={inputStyle} placeholder="e.g. ICT Power of 3 Explained" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
@@ -5038,7 +5079,7 @@ export function EducationView({ supabase, user }) {
           <div style={{ marginBottom: 18 }}>
             <Field label="Notes">
               <textarea
-                style={{ ...inputStyle, minHeight: 70, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }}
+                style={{ ...inputStyle, minHeight: form.type === "note" ? 200 : 70, resize: "vertical", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }}
                 placeholder="Key takeaways, timestamps, concepts..."
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}

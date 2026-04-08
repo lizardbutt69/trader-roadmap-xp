@@ -968,6 +968,21 @@ export default function TraderRoadmapXP() {
       .acct-summary { grid-template-columns: 1fr !important; }
       .main-content { padding: 12px 12px 32px !important; }
     }
+    @media (max-width: 768px) {
+      .modal-overlay { padding: 12px !important; align-items: flex-end !important; }
+      .modal-inner { border-radius: 12px 12px 0 0 !important; max-height: 92vh !important; padding: 20px !important; }
+      .watchlist-form-grid { grid-template-columns: 1fr 1fr !important; }
+      .notebook-grid { grid-template-columns: 1fr !important; }
+      .dashboard-week { gap: 4px !important; }
+    }
+    @media (max-width: 640px) {
+      .modal-inner { padding: 16px !important; }
+      .acct-modal-grid-5 { grid-template-columns: 1fr 1fr !important; }
+      .header-actions { gap: 4px !important; }
+      .page-banner { padding: 20px 16px !important; }
+      .page-banner h2 { font-size: 18px !important; }
+      .page-banner p { font-size: 12px !important; }
+    }
   `;
 
   // ── TRADESHARP LOGO (SVG) ───
