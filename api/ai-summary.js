@@ -7,11 +7,11 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
 ];
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const FALLBACK_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-
 export default async function handler(req, res) {
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+  const FALLBACK_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
   const origin = req.headers.origin;
   if (ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
