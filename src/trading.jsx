@@ -2608,7 +2608,6 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 // ═══════════════════════════════════════════════════════════════════════════
 
 function AISummarySection({ trades }) {
-  const [apiKey, setApiKey] = useState(() => { try { return localStorage.getItem("aiApiKey") || ""; } catch { return ""; } });
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState("");
   const [period, setPeriod] = useState("");
@@ -2625,8 +2624,6 @@ function AISummarySection({ trades }) {
     }
     const periodTrades = trades.filter((t) => t.dt && new Date(t.dt) >= startDate);
     if (!periodTrades.length) { setOutput("No trades logged for this period yet."); setPeriod(label); return; }
-
-    if (!apiKey) { setOutput("No API key set. Add your Anthropic API key in Profile settings."); setPeriod(label); return; }
 
     setPeriod(label); setLoading(true); setOutput("");
     let taken = 0, wins = 0, losses = 0, aplusTaken = 0, execSucked = 0, yesToNo = 0, nonAplus = 0, missed = 0, totalPnl = 0, totalFundedPnl = 0;
@@ -2735,15 +2732,15 @@ ANALYSIS INSTRUCTIONS:
 Be direct, specific, and reference actual trades and their notes. Keep it under 800 words.`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/ai-summary", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
       setOutput(data.content?.map((c) => c.text || "").join("") || "No response received.");
     } catch {
-      setOutput("Failed to generate summary. Please check your API key and try again.");
+      setOutput("Failed to generate summary. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -2753,8 +2750,8 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
     <TCard style={{ padding: 28, marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI TRADING SUMMARY</div>
-        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: apiKey ? "rgba(5,150,105,0.12)" : "rgba(255,255,255,0.06)", color: apiKey ? "var(--green)" : "var(--text-tertiary)" }}>
-          {apiKey ? "API KEY ACTIVE" : "NO API KEY — Set in Profile"}
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(5,150,105,0.12)", color: "var(--green)" }}>
+          AI ENABLED
         </span>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
@@ -4312,7 +4309,6 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState({ bias: "", max_trades: "2", session_plan: "" });
   const [moodText, setMoodText] = useState("");
-  const apiKey = (() => { try { return localStorage.getItem("aiApiKey") || ""; } catch { return ""; } })();
 
   // Load all entry dates for calendar dots
   useEffect(() => {
@@ -4407,7 +4403,6 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
   const calNext = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
 
   const generateAI = async (period) => {
-    if (!apiKey) { setAiOutput("Add your Anthropic API key in Profile settings to use AI summaries."); setAiPeriod(period); return; }
     setAiLoading(true); setAiOutput(""); setAiPeriod(period);
 
     const now = new Date();
@@ -4475,9 +4470,9 @@ Write a focused coaching summary (300–500 words). Tone: mentor who has seen it
 Quote their exact words where relevant. Be honest, be real, but keep it constructive.`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/ai-summary", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
@@ -4487,7 +4482,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
       setAiOutput(output);
       save({ ai_summary: timestamped });
     } catch {
-      setAiOutput("Failed to generate summary. Check your API key and try again.");
+      setAiOutput("Failed to generate summary. Please try again.");
     } finally {
       setAiLoading(false);
     }
@@ -4660,8 +4655,8 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
             <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
               <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: apiKey ? "rgba(5,150,105,0.12)" : "rgba(255,255,255,0.06)", color: apiKey ? "var(--green)" : "var(--text-tertiary)" }}>
-                  {apiKey ? "API KEY ACTIVE" : "NO API KEY — Set in Profile"}
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(5,150,105,0.12)", color: "var(--green)" }}>
+                  AI ENABLED
                 </span>
                 {["day", "week", "month"].map(p => (
                   <button key={p} onClick={() => generateAI(p)} disabled={aiLoading} style={{
