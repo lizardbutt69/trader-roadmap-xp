@@ -1028,7 +1028,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         title="Only A+ setups deserve your capital."
         subtitle="Run through every criterion before you execute. Discipline is the edge."
       />}
-      <TCard style={{ padding: 28, background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.02) 100%)" }}>
+      <TCard style={{ padding: 28 }}>
 
         {/* ── Model tabs ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
@@ -1467,7 +1467,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+      position: "fixed", inset: 0, background: "var(--modal-overlay, rgba(0,0,0,0.7))",
       backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
       zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center",
       padding: 20, animation: "fadeSlideIn 0.2s ease",
@@ -1699,7 +1699,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
   return (
     <div onClick={handleBackdrop} style={{
       position: "fixed", inset: 0, zIndex: 400,
-      background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)",
+      background: "var(--modal-overlay, rgba(0,0,0,0.7))", backdropFilter: "blur(6px)",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px 16px",
     }}>
@@ -2222,14 +2222,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
       {/* Extended Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
-        <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
-        <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
-        <StatBox value={bestDirection} label="Best Direction" color="var(--green)" style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.06) 0%, rgba(255,255,255,0.02) 100%)" }} />
+        <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.12) 0%, transparent 100%)" }} />
+        <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, transparent 100%)" }} />
+        <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12) 0%, transparent 100%)" }} />
+        <StatBox value={bestDirection} label="Best Direction" color="var(--green)" style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.12) 0%, transparent 100%)" }} />
       </div>
 
       {/* Equity Curve */}
-      <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden", background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.03) 100%)" }}>
+      <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden" }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
           EQUITY CURVE
         </div>
@@ -2495,7 +2495,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       {/* Edit Modal */}
       {editing && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(12px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeSlideIn 0.2s ease" }}
+          style={{ position: "fixed", inset: 0, background: "var(--modal-overlay, rgba(0,0,0,0.7))", backdropFilter: "blur(12px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setEditing(null)}
         >
           <TCard className="modal-card" style={{ padding: 32, width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 16px 48px rgba(0,0,0,0.6)" }}>
@@ -3221,21 +3221,21 @@ export function AccountsView({ supabase, user, privacyMode }) {
         <StatBox value={fundedCount} label="Funded" color="var(--green)" />
         <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
         <StatBox value={passedCount} label="Passed" color="var(--green)" />
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(34,211,238,0.10) 0%, transparent 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Current P&L</div>
         </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(52,211,153,0.10) 0%, transparent 100%)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalEligiblePayout > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalEligiblePayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Eligible Payout</div>
         </TCard>
       </div>
       <div className="acct-summary-2" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(52,211,153,0.12)" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", border: "1px solid rgba(52,211,153,0.18)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPaidOut > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>YTD Paid Out</div>
         </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(251,191,36,0.07) 0%, rgba(255,255,255,0.02) 100%)", border: "1px solid rgba(251,191,36,0.12)" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", border: "1px solid rgba(251,191,36,0.18)" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPending > 0 ? "var(--gold)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Pending</div>
         </TCard>
@@ -3398,7 +3398,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
 
       {/* ─── ADD ACCOUNT MODAL ─────────────────────────────────────────── */}
       {showAddAccount && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) { resetForm(); setShowAddAccount(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetForm(); setShowAddAccount(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "var(--modal-overlay, rgba(0,0,0,0.7))", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="modal-inner" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 960, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editing ? "Edit Account" : "Add Account"}</div>
@@ -3440,7 +3440,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
 
       {/* ─── LOG / EDIT PAYOUT MODAL ────────────────────────────────────── */}
       {showPayoutModal && (
-        <div onClick={(e) => { if (e.target === e.currentTarget) { resetPayoutForm(); setShowPayoutModal(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) { resetPayoutForm(); setShowPayoutModal(false); } }} className="modal-overlay" style={{ position: "fixed", inset: 0, background: "var(--modal-overlay, rgba(0,0,0,0.7))", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="modal-inner" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, padding: 32, width: "100%", maxWidth: 860, maxHeight: "90vh", overflowY: "auto", animation: "fadeSlideIn 0.2s ease" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{editingPayout ? "Edit Payout" : "Log Payout"}</div>
@@ -3603,20 +3603,20 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
 
       {/* Today's Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", borderColor: todayPnl < 0 ? "rgba(239,68,68,0.3)" : undefined, background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
+        <TCard style={{ padding: "18px 20px", textAlign: "center", borderColor: todayPnl < 0 ? "rgba(239,68,68,0.3)" : undefined }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: todayPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${todayPnl >= 0 ? "+" : ""}$${todayPnl.toFixed(0)}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Today's P&L</div>
         </TCard>
-        <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }} />
-        <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }} />
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)" }}>
+        <StatBox value={todayTaken} label="Trades Today" color="var(--text-secondary)" />
+        <StatBox value={greenStreak} label="Green Streak" color="var(--gold)" />
+        <TCard style={{ padding: "18px 20px", textAlign: "center" }}>
           <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: weekPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${weekPnl >= 0 ? "+" : ""}$${weekPnl.toFixed(0)}`}</div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>Week P&L</div>
         </TCard>
       </div>
 
       {/* Week Progress */}
-      <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
+      <TCard style={{ padding: 24, marginBottom: 24 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
           WEEK PROGRESS
         </div>
@@ -3644,7 +3644,7 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
 
       {/* Account Health */}
       {activeAccounts.length > 0 && (
-        <TCard style={{ padding: 24, marginBottom: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 60%, rgba(34,211,238,0.02) 100%)" }}>
+        <TCard style={{ padding: 24, marginBottom: 24 }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
             ACCOUNT HEALTH
           </div>
@@ -4655,7 +4655,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
           </button>
 
           {/* AI Coaching Summary */}
-          <TCard style={{ padding: 24, background: "linear-gradient(160deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.025) 60%, rgba(34,211,238,0.03) 100%)", border: "1px solid rgba(34,211,238,0.1)" }}>
+          <TCard style={{ padding: 24, border: "1px solid rgba(34,211,238,0.15)" }}>
             <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
               <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -4822,7 +4822,7 @@ export function EducationView({ supabase, user }) {
           onClick={(e) => { if (e.target === e.currentTarget) { setViewingResource(null); } }}
           style={{
             position: "fixed", inset: 0, zIndex: 500,
-            background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+            background: "var(--modal-overlay, rgba(0,0,0,0.7))", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 24, animation: "fadeSlideIn 0.2s ease",
           }}

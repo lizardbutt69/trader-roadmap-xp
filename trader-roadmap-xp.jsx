@@ -7,34 +7,35 @@ import RoadmapModern from "./src/components/RoadmapModern.jsx";
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
 const LIGHT_THEME = {
-  "--bg-primary": "#f8f9fc",
-  "--bg-secondary": "rgba(255,255,255,0.80)",
-  "--bg-tertiary": "rgba(240,241,246,0.85)",
-  "--bg-input": "#f0f1f6",
-  "--border-primary": "#dddfe8",
-  "--border-secondary": "#e8eaf0",
-  "--border-glow": "#d0d2dc",
+  "--bg-primary": "#eaecf4",
+  "--bg-secondary": "#ffffff",
+  "--bg-tertiary": "rgba(230,232,242,0.80)",
+  "--bg-input": "#ffffff",
+  "--border-primary": "#d2d5e2",
+  "--border-secondary": "#dcdfe8",
+  "--border-glow": "#b8bccf",
   "--border-glow-shadow": "none",
   "--text-primary": "#0f1029",
   "--text-secondary": "#4a4c6a",
-  "--text-tertiary": "#9496ae",
+  "--text-tertiary": "#72748e",
   "--text-accent": "#0891b2",
   "--accent": "#0891b2",
   "--accent-dim": "rgba(8,145,178,0.10)",
-  "--accent-glow": "rgba(8,145,178,0.05)",
-  "--accent-glow-strong": "rgba(8,145,178,0.12)",
+  "--accent-glow": "rgba(8,145,178,0.06)",
+  "--accent-glow-strong": "rgba(8,145,178,0.14)",
   "--accent-secondary": "#6366f1",
-  "--card-shadow": "0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
-  "--card-glow": "0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)",
-  "--card-bg": "linear-gradient(145deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.78) 100%)",
+  "--card-shadow": "0 4px 24px rgba(15,16,41,0.10), 0 1px 4px rgba(15,16,41,0.06)",
+  "--card-glow": "0 4px 24px rgba(15,16,41,0.10), 0 1px 4px rgba(15,16,41,0.06)",
+  "--card-bg": "linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.90) 100%)",
   "--glass-blur": "blur(12px)",
-  "--bg-glass": "rgba(255,255,255,0.80)",
-  "--bg-glass-hover": "rgba(255,255,255,0.92)",
+  "--bg-glass": "rgba(255,255,255,0.85)",
+  "--bg-glass-hover": "rgba(255,255,255,0.95)",
   "--green": "#059669",
   "--red": "#e11d48",
   "--gold": "#d97706",
   "--purple": "#7c3aed",
-  "--hud-grid": "rgba(0,0,0,0.015)",
+  "--hud-grid": "rgba(0,0,0,0.02)",
+  "--modal-overlay": "rgba(15,16,41,0.45)",
 };
 
 const DARK_THEME = {
@@ -66,6 +67,7 @@ const DARK_THEME = {
   "--gold": "#fbbf24",
   "--purple": "#a78bfa",
   "--hud-grid": "rgba(255,255,255,0.015)",
+  "--modal-overlay": "rgba(0,0,0,0.70)",
 };
 
 // ─── DATA ────────────────────────────────────────────────────────────────────
@@ -689,6 +691,8 @@ export default function TraderRoadmapXP() {
   const [editApiKey, setEditApiKey] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
   const avatarInputRef = useRef(null);
 
   // Trading app state
@@ -1044,7 +1048,9 @@ export default function TraderRoadmapXP() {
     <div
       style={{
         minHeight: "100vh",
-        background: "var(--bg-primary)",
+        background: dark
+          ? "var(--bg-primary)"
+          : "radial-gradient(ellipse 80% 60% at 10% 0%, rgba(8,145,178,0.06) 0%, transparent 60%), var(--bg-primary)",
         fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
     >
@@ -1058,7 +1064,7 @@ export default function TraderRoadmapXP() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.7)",
+              background: "var(--modal-overlay)",
               backdropFilter: "blur(8px)",
               zIndex: 200,
               display: "flex",
@@ -1069,7 +1075,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setConfirm(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: dark ? "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)" : "#ffffff", backdropFilter: dark ? "blur(24px)" : "none", WebkitBackdropFilter: dark ? "blur(24px)" : "none" }}>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>
@@ -1184,7 +1190,7 @@ export default function TraderRoadmapXP() {
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0,0,0,0.7)",
+              background: "var(--modal-overlay)",
               backdropFilter: "blur(8px)",
               zIndex: 200,
               display: "flex",
@@ -1195,7 +1201,7 @@ export default function TraderRoadmapXP() {
             }}
             onClick={(e) => e.target === e.currentTarget && setViewingProof(null)}
           >
-            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
+            <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)", background: dark ? "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)" : "#ffffff", backdropFilter: dark ? "blur(24px)" : "none", WebkitBackdropFilter: dark ? "blur(24px)" : "none" }}>
               <div style={{ textAlign: "center", marginBottom: 16 }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 16, color: meta?.color || "var(--text-primary)" }}>
@@ -1438,10 +1444,10 @@ export default function TraderRoadmapXP() {
       {/* ── Profile Editor Modal ── */}
       {showProfileEditor && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
+          style={{ position: "fixed", inset: 0, background: "var(--modal-overlay)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
           onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
         >
-          <Card className="modal-card" style={{ maxWidth: 420, padding: 28, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)" }}>
+          <Card className="modal-card" style={{ maxWidth: 520, padding: 0, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", overflow: "hidden" }}>
             {/* Saved confirmation overlay */}
             {profileSaved && (
               <div style={{
@@ -1458,95 +1464,212 @@ export default function TraderRoadmapXP() {
               </div>
             )}
 
-            {/* Profile section */}
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.1em" }}>Profile & Settings</div>
-              <div
-                onClick={() => avatarInputRef.current?.click()}
-                style={{
-                  width: 80, height: 80, borderRadius: "50%", margin: "0 auto 12px",
-                  background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer", border: "3px solid var(--border-primary)", position: "relative",
-                  overflow: "hidden",
-                }}
-              >
-                {!profile.avatar_url && <span style={{ fontSize: 32, color: "var(--bg-primary)" }}>{displayName[0]?.toUpperCase()}</span>}
-                <div style={{
-                  position: "absolute", bottom: 0, left: 0, right: 0,
-                  background: "rgba(0,0,0,0.5)", color: "#fff", fontSize: 10, padding: "4px 0",
-                  textAlign: "center", fontWeight: 600,
-                }}>
-                  Upload
+            {/* Modal header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px 16px", borderBottom: "1px solid var(--border-primary)" }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Profile Settings</div>
+              <button onClick={() => setShowProfileEditor(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 4, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 24px 24px" }}>
+              {/* Avatar + name row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div
+                    onClick={() => avatarInputRef.current?.click()}
+                    style={{
+                      width: 72, height: 72, borderRadius: "50%",
+                      background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", border: "3px solid var(--border-primary)", position: "relative",
+                      overflow: "visible",
+                    }}
+                  >
+                    {!profile.avatar_url && <span style={{ fontSize: 28, color: "var(--bg-primary)" }}>{displayName[0]?.toUpperCase()}</span>}
+                  </div>
+                  <div
+                    onClick={() => avatarInputRef.current?.click()}
+                    style={{
+                      position: "absolute", bottom: 0, right: 0,
+                      width: 24, height: 24, borderRadius: "50%",
+                      background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+                      border: `2px solid ${dark ? "#0b0d13" : "#f8f9fc"}`, cursor: "pointer",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? "#0b0d13" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </div>
+                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                    onChange={(e) => { if (e.target.files?.[0]) uploadAvatar(e.target.files[0]); }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onFocus={() => setFocusedField("name")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Your trader name..."
+                    style={{ width: "100%", padding: "10px 14px", fontSize: 13, border: focusedField === "name" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", boxShadow: focusedField === "name" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
+                  />
                 </div>
               </div>
-              <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }}
-                onChange={(e) => { if (e.target.files?.[0]) uploadAvatar(e.target.files[0]); }}
-              />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
-              <input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Your trader name..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 13, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box" }}
-              />
-            </div>
 
-            {/* Integrations divider */}
-            <div style={{ borderTop: "1px solid var(--border-primary)", margin: "20px 0 16px", position: "relative" }}>
-              <span style={{
-                position: "absolute", top: -8, left: 12, padding: "0 8px",
-                background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
-              }}>Integrations</span>
-            </div>
-
-            {/* Google Sheets */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                <span style={{ fontSize: 13 }}>📊</span> Google Sheets URL
-                {gsUrl && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>CONNECTED</span>}
-              </label>
-              <input
-                value={editGsUrl}
-                onChange={(e) => setEditGsUrl(e.target.value)}
-                placeholder="Paste your Apps Script URL here..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box" }}
-              />
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
-                Syncs trade data to Google Sheets on each journal entry.
+              {/* Integrations divider */}
+              <div style={{ borderTop: "1px solid var(--border-primary)", margin: "4px 0 18px", position: "relative" }}>
+                <span style={{
+                  position: "absolute", top: -8, left: 12, padding: "0 8px",
+                  background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
+                }}>Integrations</span>
               </div>
-            </div>
 
-            {/* Anthropic API Key */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                <span style={{ fontSize: 13 }}>🔑</span> Anthropic API Key
-                {apiKey && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>ACTIVE</span>}
-              </label>
-              <input
-                type="password"
-                value={editApiKey}
-                onChange={(e) => setEditApiKey(e.target.value)}
-                placeholder="sk-ant-..."
-                style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', monospace", boxSizing: "border-box", letterSpacing: editApiKey ? 1 : 0 }}
-              />
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
-                Powers AI trading summaries. Stored securely in your profile.
+              {/* Google Sheets row */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="9" x2="15" y2="21"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Google Sheets URL</label>
+                    {gsUrl && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>CONNECTED</span>}
+                  </div>
+                  <input
+                    value={editGsUrl}
+                    onChange={(e) => setEditGsUrl(e.target.value)}
+                    onFocus={() => setFocusedField("gs")}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="Paste your Apps Script URL here..."
+                    style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: focusedField === "gs" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", boxShadow: focusedField === "gs" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
+                  />
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                    Syncs trade data to Google Sheets on each journal entry.
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowProfileEditor(false)}
-                style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 4, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                Cancel
-              </button>
-              <button onClick={saveProfile}
-                style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)", borderRadius: 4, cursor: "pointer", boxShadow: "none", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                Save
-              </button>
+              {/* Anthropic API Key row */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="7.5" cy="15.5" r="5.5"/><line x1="21" y1="2" x2="11" y2="12"/><line x1="17" y1="2" x2="21" y2="6"/><line x1="14" y1="7" x2="18" y2="3"/>
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                    <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Anthropic API Key</label>
+                    {apiKey && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>ACTIVE</span>}
+                  </div>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      value={editApiKey}
+                      onChange={(e) => setEditApiKey(e.target.value)}
+                      onFocus={() => setFocusedField("api")}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="sk-ant-..."
+                      style={{ width: "100%", padding: "10px 40px 10px 14px", fontSize: 12, border: focusedField === "api" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', monospace", boxSizing: "border-box", boxShadow: focusedField === "api" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s", letterSpacing: (!showApiKey && editApiKey) ? 1 : 0 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey((v) => !v)}
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      {showApiKey ? (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      ) : (
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                    Powers AI trading summaries. Stored securely in your profile.
+                  </div>
+                </div>
+              </div>
+
+              {/* Roadmap Progress divider */}
+              <div style={{ borderTop: "1px solid var(--border-primary)", margin: "4px 0 18px", position: "relative" }}>
+                <span style={{
+                  position: "absolute", top: -8, left: 12, padding: "0 8px",
+                  background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
+                }}>Roadmap Progress</span>
+              </div>
+
+              {/* XP Progress card */}
+              <div style={{ background: "var(--bg-tertiary)", borderRadius: 10, padding: "14px 16px", border: "1px solid var(--border-primary)", marginBottom: 20 }}>
+                {/* Level name + tier + XP counter */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>{currentLevel.icon}</span>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{currentLevel.name}</div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40`, fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.06em" }}>{currentLevel.tier}</span>
+                  </div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{currentXP}</span>{" / "}{nextLevel ? nextLevel.xpRequired : TOTAL_XP} XP
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ height: 7, borderRadius: 4, background: "var(--border-primary)", overflow: "hidden", marginBottom: 6 }}>
+                  <div style={{
+                    height: "100%", borderRadius: 4,
+                    background: `linear-gradient(90deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
+                    width: `${nextLevel ? Math.min(100, Math.round(((currentXP - currentLevel.xpRequired) / (nextLevel.xpRequired - currentLevel.xpRequired)) * 100)) : 100}%`,
+                    transition: "width 0.6s ease",
+                    boxShadow: `0 0 8px ${currentLevel.accent}55`,
+                  }} />
+                </div>
+
+                {/* Next level hint */}
+                {nextLevel ? (
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginBottom: 10 }}>
+                    <span style={{ color: nextLevel.accent, fontWeight: 600 }}>{nextLevel.xpRequired - currentXP} XP</span> to reach {nextLevel.name} — {nextLevel.subtitle}
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--green)", fontWeight: 600, marginBottom: 10 }}>
+                    Max level reached — Full Independence
+                  </div>
+                )}
+
+                {/* Mini stats row */}
+                <div style={{ display: "flex", gap: 20 }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{completed.size}</span> / {ALL_ACH.length} quests
+                  </div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{Math.round((currentXP / TOTAL_XP) * 100)}%</span> overall progress
+                  </div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{TOTAL_XP - currentXP}</span> XP remaining
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setShowProfileEditor(false)}
+                  style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 6, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Cancel
+                </button>
+                <button onClick={saveProfile}
+                  style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "var(--accent)", border: "none", color: dark ? "#0b0d13" : "#fff", borderRadius: 6, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  Save Changes
+                </button>
+              </div>
             </div>
           </Card>
         </div>
@@ -1558,9 +1681,10 @@ export default function TraderRoadmapXP() {
         {/* ── Sidebar Nav ── */}
         <div className="sidebar-nav" style={{
           width: 240, flexShrink: 0,
-          background: "rgba(255,255,255,0.03)",
+          background: dark ? "rgba(255,255,255,0.03)" : "#ffffff",
           backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
           borderRight: "1px solid var(--border-primary)",
+          boxShadow: dark ? "none" : "2px 0 12px rgba(15,16,41,0.06)",
           position: "sticky", top: 0, height: "100vh", overflowY: "auto",
           display: "flex", flexDirection: "column",
           padding: "20px 0",
