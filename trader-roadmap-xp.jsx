@@ -1756,7 +1756,7 @@ export default function TraderRoadmapXP() {
               { key: "accounts", label: "Accounts", reset: false },
               { key: "stats", label: "Stats", reset: false },
               { key: "education", label: "Education", reset: false },
-              { key: "ai", label: "AI Hub", reset: false },
+              { key: "ai", label: "Edge AI", reset: false },
             ].map((tab) => {
               const isActive = view === tab.key;
               const NAV_ICONS = {
@@ -2021,7 +2021,7 @@ export default function TraderRoadmapXP() {
                   { key: "accounts", label: "Accounts" },
                   { key: "stats", label: "Stats" },
                   { key: "education", label: "Education" },
-                  { key: "ai", label: "AI Hub" },
+                  { key: "ai", label: "Edge AI" },
                 ].map((tab) => {
                   const isActive = view === tab.key;
                   const NAV_ICONS = {

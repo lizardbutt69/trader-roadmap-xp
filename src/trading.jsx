@@ -2591,8 +2591,6 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       {/* ── TradeSharp Score ── */}
       <TradeSharpScore trades={monthTrades} month={new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} />
 
-      {/* ── AI Trading Summary ── */}
-      <AISummarySection trades={trades} supabase={supabase} />
 
       {/* ── Badges ── */}
       <BadgesSection trades={trades} dayMap={dayMap} />
@@ -5451,22 +5449,8 @@ Direct, honest, constructive. Quote their own words back to them.`;
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-      <PageBanner label="AI HUB" title="Your intelligent trading assistant." subtitle="Four AI-powered tools to analyze patterns, review your journal, and sharpen your edge." />
+      <PageBanner label="EDGE AI" title="Your intelligent trading assistant." subtitle="Four AI-powered tools to analyze patterns, review your journal, and sharpen your edge." />
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-        <AIToolCard title="Trade History Analyzer" description="Feed a full month of trades to Claude — find mistake patterns, winning commonalities, and behavioral trends you'd never spot manually."
-          accentColor="var(--accent)"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>}
-          loading={analyzerLoading} loadingText="SCANNING TRADE HISTORY..." output={analyzerOutput} emptyText="Select a month and hit Analyze to find patterns in your trading."
-          controls={<div style={{ display: "flex", gap: 8, alignItems: "center" }}><select value={analyzerMonth} onChange={(e) => setAnalyzerMonth(e.target.value)} style={selectStyle}>{monthOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select><button onClick={runAnalyzer} disabled={analyzerLoading} style={{ ...fillBtn("var(--accent)", "var(--bg-primary)"), opacity: analyzerLoading ? 0.6 : 1 }}>Analyze</button></div>}
-        />
-
-        <AIToolCard title="Trading Summary" description="A direct coaching breakdown of your week or month — performance, patterns, strengths, and exactly what to fix."
-          accentColor="var(--accent-secondary)"
-          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>}
-          loading={summaryLoading} loadingText="ANALYZING TRADES..." output={summaryLabel && summaryOutput ? `${summaryLabel}\n\n${summaryOutput}` : summaryOutput} emptyText="Choose a period and generate your coaching summary."
-          controls={<div style={{ display: "flex", gap: 8 }}><button onClick={() => runSummary("week")} disabled={summaryLoading} style={{ ...(summaryPeriod === "week" && summaryOutput ? fillBtn("var(--accent-secondary)") : ghostBtn("var(--accent-secondary)")), opacity: summaryLoading ? 0.6 : 1 }}>This Week</button><button onClick={() => runSummary("month")} disabled={summaryLoading} style={{ ...(summaryPeriod === "month" && summaryOutput ? fillBtn("var(--purple)") : ghostBtn("var(--purple)")), opacity: summaryLoading ? 0.6 : 1 }}>This Month</button></div>}
-        />
 
         <AIToolCard title="Pre-Session Brief" description="Reads your last 5 sessions and today's trade plan, then gives you 3 sharp points to take into the NY open."
           accentColor="var(--green)"
@@ -5480,6 +5464,20 @@ Direct, honest, constructive. Quote their own words back to them.`;
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>}
           loading={notebookLoading} loadingText="READING YOUR JOURNAL..." output={notebookOutput} emptyText={notebookEntries.length ? "Select an entry date and hit Analyze." : "No notebook entries found. Write in your notebook first."}
           controls={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>{notebookEntries.length > 0 ? (<><select value={notebookDate} onChange={(e) => setNotebookDate(e.target.value)} style={selectStyle}>{notebookEntries.map((e) => (<option key={e.entry_date} value={e.entry_date}>{new Date(e.entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</option>))}</select><button onClick={runNotebookAI} disabled={notebookLoading} style={{ ...fillBtn("var(--gold)", "#0b0d13"), opacity: notebookLoading ? 0.6 : 1 }}>Analyze</button></>) : (<span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>No entries yet</span>)}</div>}
+        />
+
+        <AIToolCard title="Trading Summary" description="A direct coaching breakdown of your week or month — performance, patterns, strengths, and exactly what to fix."
+          accentColor="var(--accent-secondary)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>}
+          loading={summaryLoading} loadingText="ANALYZING TRADES..." output={summaryLabel && summaryOutput ? `${summaryLabel}\n\n${summaryOutput}` : summaryOutput} emptyText="Choose a period and generate your coaching summary."
+          controls={<div style={{ display: "flex", gap: 8 }}><button onClick={() => runSummary("week")} disabled={summaryLoading} style={{ ...(summaryPeriod === "week" && summaryOutput ? fillBtn("var(--accent-secondary)") : ghostBtn("var(--accent-secondary)")), opacity: summaryLoading ? 0.6 : 1 }}>This Week</button><button onClick={() => runSummary("month")} disabled={summaryLoading} style={{ ...(summaryPeriod === "month" && summaryOutput ? fillBtn("var(--purple)") : ghostBtn("var(--purple)")), opacity: summaryLoading ? 0.6 : 1 }}>This Month</button></div>}
+        />
+
+        <AIToolCard title="Trade History Analyzer" description="Feed a full month of trades to Claude — find mistake patterns, winning commonalities, and behavioral trends you'd never spot manually."
+          accentColor="var(--accent)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>}
+          loading={analyzerLoading} loadingText="SCANNING TRADE HISTORY..." output={analyzerOutput} emptyText="Select a month and hit Analyze to find patterns in your trading."
+          controls={<div style={{ display: "flex", gap: 8, alignItems: "center" }}><select value={analyzerMonth} onChange={(e) => setAnalyzerMonth(e.target.value)} style={selectStyle}>{monthOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select><button onClick={runAnalyzer} disabled={analyzerLoading} style={{ ...fillBtn("var(--accent)", "var(--bg-primary)"), opacity: analyzerLoading ? 0.6 : 1 }}>Analyze</button></div>}
         />
 
       </div>
