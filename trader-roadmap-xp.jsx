@@ -686,6 +686,8 @@ export default function TraderRoadmapXP() {
 
   const [editName, setEditName] = useState("");
   const [editGsUrl, setEditGsUrl] = useState("");
+  const [editApiKey, setEditApiKey] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
   const avatarInputRef = useRef(null);
 
@@ -740,8 +742,11 @@ export default function TraderRoadmapXP() {
   // Load profile
   const loadProfile = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single();
-    if (data) setProfile({ display_name: data.display_name || "", avatar_url: data.avatar_url || "" });
+    const { data } = await supabase.from("profiles").select("display_name, avatar_url, anthropic_api_key").eq("id", user.id).single();
+    if (data) {
+      setProfile({ display_name: data.display_name || "", avatar_url: data.avatar_url || "" });
+      if (data.anthropic_api_key) setApiKey(data.anthropic_api_key);
+    }
   }, [user]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
@@ -781,9 +786,15 @@ export default function TraderRoadmapXP() {
 
   const saveProfile = async () => {
     if (!user) return;
-    await supabase.from("profiles").upsert({ id: user.id, display_name: editName.trim(), avatar_url: profile.avatar_url, updated_at: new Date().toISOString() });
+    const trimmedKey = editApiKey.trim();
+    await supabase.from("profiles").upsert({
+      id: user.id, display_name: editName.trim(), avatar_url: profile.avatar_url,
+      updated_at: new Date().toISOString(),
+      ...(trimmedKey ? { anthropic_api_key: trimmedKey } : {}),
+    });
     setProfile((p) => ({ ...p, display_name: editName.trim() }));
-    // Save integrations to localStorage
+    if (trimmedKey) setApiKey(trimmedKey);
+    // Save GS URL to localStorage
     const trimmedGs = editGsUrl.trim();
     setGsUrl(trimmedGs);
     try { localStorage.setItem("gsUrl", trimmedGs); } catch {}
@@ -1509,6 +1520,23 @@ export default function TraderRoadmapXP() {
               </div>
             </div>
 
+            {/* Anthropic API Key */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <span style={{ fontSize: 13 }}>🔑</span> Anthropic API Key
+                {apiKey && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>ACTIVE</span>}
+              </label>
+              <input
+                type="password"
+                value={editApiKey}
+                onChange={(e) => setEditApiKey(e.target.value)}
+                placeholder="sk-ant-..."
+                style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: "1px solid var(--border-primary)", borderRadius: 4, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', monospace", boxSizing: "border-box", letterSpacing: editApiKey ? 1 : 0 }}
+              />
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                Powers AI trading summaries. Stored securely in your profile.
+              </div>
+            </div>
 
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setShowProfileEditor(false)}
@@ -1693,7 +1721,7 @@ export default function TraderRoadmapXP() {
             borderBottom: "1px solid var(--border-primary)",
           }}>
             <div
-              onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setProfileSaved(false); setShowProfileEditor(true); }}
+              onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); }}
               style={{ cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
             >
               {/* Avatar + name row */}
@@ -1905,7 +1933,7 @@ export default function TraderRoadmapXP() {
               {/* Profile */}
               <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border-primary)" }}>
                 <div
-                  onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setProfileSaved(false); setShowProfileEditor(true); setMobileMenu(false); }}
+                  onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); setMobileMenu(false); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
                 >
                   <div style={{

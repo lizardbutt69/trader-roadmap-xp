@@ -2592,7 +2592,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       <TradeSharpScore trades={monthTrades} month={new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} />
 
       {/* ── AI Trading Summary ── */}
-      <AISummarySection trades={trades} />
+      <AISummarySection trades={trades} supabase={supabase} />
 
       {/* ── Badges ── */}
       <BadgesSection trades={trades} dayMap={dayMap} />
@@ -2607,7 +2607,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 // AI TRADING SUMMARY
 // ═══════════════════════════════════════════════════════════════════════════
 
-function AISummarySection({ trades }) {
+function AISummarySection({ trades, supabase }) {
   const [loading, setLoading] = useState(false);
   const [output, setOutput] = useState("");
   const [period, setPeriod] = useState("");
@@ -2732,12 +2732,14 @@ ANALYSIS INSTRUCTIONS:
 Be direct, specific, and reference actual trades and their notes. Keep it under 800 words.`;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/ai-summary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
+      if (data.error) { setOutput(data.error); setLoading(false); return; }
       setOutput(data.content?.map((c) => c.text || "").join("") || "No response received.");
     } catch {
       setOutput("Failed to generate summary. Please try again.");
@@ -4470,12 +4472,14 @@ Write a focused coaching summary (300–500 words). Tone: mentor who has seen it
 Quote their exact words where relevant. Be honest, be real, but keep it constructive.`;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/ai-summary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
       });
       const data = await res.json();
+      if (data.error) { setAiOutput(data.error); setAiLoading(false); return; }
       const output = data.content?.map(c => c.text || "").join("") || "No response received.";
       const periodLabel = period === "day" ? "TODAY" : period === "week" ? "THIS WEEK" : "THIS MONTH";
       const timestamped = `[${periodLabel} · ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}]\n\n${output}`;
