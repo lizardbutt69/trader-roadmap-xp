@@ -5206,3 +5206,283 @@ export function EducationView({ supabase, user }) {
   );
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AI HUB VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+
+function AIToolCard({ title, description, accentColor = "var(--accent)", icon, controls, output, loading, loadingText = "ANALYZING...", emptyText = "Hit generate to run this analysis." }) {
+  return (
+    <TCard style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderTop: `3px solid ${accentColor}` }}>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px 16px" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: accentColor }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>{title}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>{description}</div>
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${accentColor}18`, color: accentColor, flexShrink: 0, letterSpacing: "0.08em" }}>AI</span>
+      </div>
+      {/* Controls */}
+      <div style={{ padding: "0 24px 16px", borderBottom: "1px solid var(--border-primary)" }}>{controls}</div>
+      {/* Output */}
+      <div style={{
+        padding: "16px 24px 20px",
+        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, lineHeight: 1.8,
+        color: loading ? accentColor : output ? "var(--text-secondary)" : "var(--text-tertiary)",
+        whiteSpace: "pre-wrap", minHeight: 80,
+        animation: loading ? "hudPulse 1.5s ease-in-out infinite" : "none",
+      }}>
+        {loading ? loadingText : (output || emptyText)}
+      </div>
+    </TCard>
+  );
+}
+
+export function AIHubView({ supabase, user, trades }) {
+  const now = new Date();
+
+  const callAI = async (prompt, maxTokens = 2000) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    let res;
+    try {
+      res = await fetch("/api/ai-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
+      });
+    } catch {
+      throw new Error("Could not reach the AI service. Make sure you're on the deployed app, not localhost.");
+    }
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch {
+      throw new Error("AI service returned an unexpected response. This feature requires the deployed Vercel environment.");
+    }
+    if (data.error) throw new Error(data.error);
+    return data.content?.map((c) => c.text || "").join("") || "No response received.";
+  };
+
+  // Tool 1: Trade History Analyzer
+  const monthOptions = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthOptions.push({ value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleString("default", { month: "long", year: "numeric" }) });
+  }
+  const [analyzerMonth, setAnalyzerMonth] = React.useState(monthOptions[0].value);
+  const [analyzerOutput, setAnalyzerOutput] = React.useState("");
+  const [analyzerLoading, setAnalyzerLoading] = React.useState(false);
+
+  const runAnalyzer = async () => {
+    const monthTrades = trades.filter((t) => t.dt?.startsWith(analyzerMonth));
+    if (!monthTrades.length) { setAnalyzerOutput("No trades logged for this month yet."); return; }
+    setAnalyzerLoading(true); setAnalyzerOutput("");
+    const taken = monthTrades.filter((t) => t.taken && t.taken !== "Missed");
+    const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
+    const pnl = monthTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const tradeLines = monthTrades.map((t) => {
+      const tags = t.tags?.length ? t.tags.join(", ") : "none";
+      return `${t.dt?.split("T")[0]} | ${t.asset || "?"} ${t.direction || ""} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Tags: ${tags} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
+    }).join("\n");
+    const prompt = `You are analyzing a funded futures trader's complete trade history for ${monthOptions.find(m => m.value === analyzerMonth)?.label}.
+
+TRADING CONTEXT:
+- ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
+- A+ requires: CIC/SMT, key level, timeframe alignment, CISD, ICCISD, TTFM, session, R:R, stop loss
+- Standard risk: $500/trade, target: $1,000 (2R). Losses beyond -$500 = moved stop or overexposure.
+- "Yes But Execution Sucked" = valid setup, poor execution. "Yes to No" = impulsive entry, not actually valid.
+
+PERIOD: ${monthOptions.find(m => m.value === analyzerMonth)?.label}
+TOTAL: ${monthTrades.length} logged | ${taken.length} taken | ${wins} wins | Net P&L: $${pnl.toFixed(0)}
+
+TRADE LOG:
+${tradeLines}
+
+Analyze this month's trades and identify:
+1. TOP MISTAKE PATTERNS — The 2-3 most repeated errors. Be specific: which days, which setups, what went wrong.
+2. WHAT WINNING TRADES HAVE IN COMMON — Setup type, time of day, asset, session conditions. Use the tags and notes.
+3. BEHAVIORAL PATTERNS — Any time-of-day effects, day-of-week patterns, what happens after a loss, tilt indicators in the notes.
+4. ASSET/DIRECTION ANALYSIS — Which instruments and directions are profitable vs bleeding.
+5. ONE KEY FOCUS FOR NEXT MONTH — The single highest-leverage improvement based on the data.
+
+Be specific and data-driven. Cite exact trade dates, notes, and patterns. Under 600 words.`;
+    try { setAnalyzerOutput(await callAI(prompt)); } catch (e) { setAnalyzerOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setAnalyzerLoading(false); }
+  };
+
+  // Tool 2: Weekly / Monthly Summary
+  const [summaryPeriod, setSummaryPeriod] = React.useState("week");
+  const [summaryOutput, setSummaryOutput] = React.useState("");
+  const [summaryLoading, setSummaryLoading] = React.useState(false);
+  const [summaryLabel, setSummaryLabel] = React.useState("");
+
+  const runSummary = async (p) => {
+    setSummaryPeriod(p);
+    let startDate, label;
+    if (p === "week") {
+      startDate = new Date(now); startDate.setDate(now.getDate() - now.getDay()); startDate.setHours(0,0,0,0);
+      label = `This Week (${startDate.toLocaleDateString([], { month: "short", day: "numeric" })} – ${now.toLocaleDateString([], { month: "short", day: "numeric" })})`;
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      label = `This Month (${now.toLocaleString("default", { month: "long", year: "numeric" })})`;
+    }
+    const periodTrades = trades.filter((t) => t.dt && new Date(t.dt) >= startDate);
+    if (!periodTrades.length) { setSummaryOutput("No trades logged for this period yet."); setSummaryLabel(label); return; }
+    setSummaryLabel(label); setSummaryLoading(true); setSummaryOutput("");
+    const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed");
+    const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
+    const pnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const aplusTaken = taken.filter((t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length;
+    const execSucked = taken.filter((t) => t.aplus === "Yes But Execution Sucked").length;
+    const yesToNo = taken.filter((t) => t.aplus === "Yes to No").length;
+    const nonAplus = taken.filter((t) => t.aplus === "No").length;
+    const tradeLines = periodTrades.map((t) => {
+      const tags = t.tags?.length ? t.tags.join(", ") : "none";
+      return `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Tags: ${tags} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
+    }).join("\n");
+    const prompt = `You are a direct but fair trading coach. ICT-inspired fractal model, NQ/ES, NY session only, max 2 trades/day. Tough older brother energy — honest, no sugarcoating.
+
+PERIOD: ${label}
+TRADES TAKEN: ${taken.length} (Wins: ${wins}, Losses: ${taken.length - wins})
+A+ TAKEN: ${aplusTaken} | Exec Sucked: ${execSucked} | Yes to No: ${yesToNo} | Non-A+: ${nonAplus}
+NET P&L: $${pnl.toFixed(0)} | WIN RATE: ${taken.length ? Math.round((wins/taken.length)*100) : 0}%
+
+TRADE LOG:
+${tradeLines}
+
+Provide:
+1. Performance Overview — key numbers, quality of wins vs losses
+2. Strengths — specific, reference actual trades
+3. Flaws & Weaknesses — direct, call out patterns and rule violations
+4. Language Analysis — what the notes reveal about mindset
+5. Key Focus — 2-3 actionable improvements for next ${p === "week" ? "week" : "month"}
+6. Final Word — one honest sentence on where this trader is mentally
+
+Under 700 words. Be specific and reference actual trades.`;
+    try { setSummaryOutput(await callAI(prompt)); } catch (e) { setSummaryOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setSummaryLoading(false); }
+  };
+
+  // Tool 3: Pre-Session Brief
+  const [briefOutput, setBriefOutput] = React.useState("");
+  const [briefLoading, setBriefLoading] = React.useState(false);
+
+  const runBrief = async () => {
+    setBriefLoading(true); setBriefOutput("");
+    const sortedDates = [...new Set(trades.filter((t) => t.dt).map((t) => t.dt.split("T")[0]))].sort().reverse();
+    const last5Dates = sortedDates.slice(0, 5);
+    if (!last5Dates.length) { setBriefOutput("No recent sessions found. Log some trades first."); setBriefLoading(false); return; }
+    const sessionSummaries = last5Dates.map((date) => {
+      const dayTrades = trades.filter((t) => t.dt?.startsWith(date));
+      const taken = dayTrades.filter((t) => t.taken && t.taken !== "Missed");
+      const pnl = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+      const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
+      const aplus = taken.filter((t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length;
+      const notes = taken.map((t) => t.notes).filter(Boolean).join(" | ");
+      return `${date}: ${taken.length} trade(s), ${wins}W/${taken.length - wins}L, P&L: $${pnl.toFixed(0)}, A+: ${aplus}/${taken.length}${notes ? `, Notes: "${notes}"` : ""}`;
+    }).join("\n");
+    const todayStr = now.toISOString().split("T")[0];
+    const { data: todayPlan } = await supabase.from("trade_plans").select("*").eq("user_id", user.id).eq("plan_date", todayStr).maybeSingle();
+    const planSection = todayPlan
+      ? `TODAY'S PLAN: Bias: ${todayPlan.bias || "none"}, Key levels: ${todayPlan.key_levels || "none"}, Session plan: ${todayPlan.session_plan || "none"}, Notes: ${todayPlan.notes || "none"}`
+      : "TODAY'S PLAN: No pre-trade plan filed for today.";
+    const prompt = `You are a sharp trading coach giving a futures trader their pre-session brief before the NY open.
+
+LAST 5 SESSIONS:
+${sessionSummaries}
+
+${planSection}
+
+Generate a concise pre-session brief with exactly 3 sections:
+1. RECENT PATTERN — One key pattern from their last 5 sessions to be aware of today (specific, data-backed).
+2. MENTAL REMINDER — One mental cue based on behavioral patterns in the notes (personal and direct).
+3. TODAY'S FOCUS — Given their plan and recent form, the single most important thing to execute well today.
+
+Each point: 1-2 sentences max. Direct and sharp. No fluff.`;
+    try { setBriefOutput(await callAI(prompt, 600)); } catch (e) { setBriefOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setBriefLoading(false); }
+  };
+
+  // Tool 4: Notebook Journal AI
+  const [notebookEntries, setNotebookEntries] = React.useState([]);
+  const [notebookDate, setNotebookDate] = React.useState("");
+  const [notebookOutput, setNotebookOutput] = React.useState("");
+  const [notebookLoading, setNotebookLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user) return;
+    supabase.from("notebook_entries").select("entry_date, recap, eod_reflection").eq("user_id", user.id).order("entry_date", { ascending: false }).limit(60)
+      .then(({ data }) => { if (data?.length) { setNotebookEntries(data); setNotebookDate(data[0].entry_date); } });
+  }, [user]);
+
+  const runNotebookAI = async () => {
+    const entry = notebookEntries.find((e) => e.entry_date === notebookDate);
+    if (!entry) { setNotebookOutput("No notebook entry found for this date."); return; }
+    setNotebookLoading(true); setNotebookOutput("");
+    const dayTrades = trades.filter((t) => t.dt?.startsWith(notebookDate));
+    const taken = dayTrades.filter((t) => t.taken && t.taken !== "Missed");
+    const pnl = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+    const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
+    const execSucked = taken.filter((t) => t.aplus === "Yes But Execution Sucked").length;
+    const yesToNo = taken.filter((t) => t.aplus === "Yes to No").length;
+    const tradeLines = dayTrades.map((t) => `${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Notes: ${t.notes || "none"}`).join("\n");
+    const prompt = `You are an experienced trading mentor reviewing a futures trader's journal for ${notebookDate}. ICT-inspired model, NQ/ES, NY session only, max 2 trades/day.
+
+JOURNAL ENTRY:
+RECAP: ${entry.recap || "(blank)"}
+EOD REFLECTION: ${entry.eod_reflection || "(blank)"}
+
+TRADES: ${taken.length} taken | ${wins} wins | P&L: $${pnl.toFixed(0)} | Exec Sucked: ${execSucked} | Yes to No: ${yesToNo}
+${tradeLines || "(no trades)"}
+
+Write a focused coaching response (200-350 words):
+1. Gameplan vs Reality — did they trade their plan? Use the trade log as evidence.
+2. Self-awareness — are the reflections honest and specific, or vague and defensive?
+3. Inner dialogue — quote their exact words. What do the word choices reveal?
+4. 2 specific, actionable focuses for their next session.
+
+Direct, honest, constructive. Quote their own words back to them.`;
+    try { setNotebookOutput(await callAI(prompt, 800)); } catch (e) { setNotebookOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setNotebookLoading(false); }
+  };
+
+  const btnBase = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, padding: "10px 20px", borderRadius: 6, cursor: "pointer", letterSpacing: "0.05em", textTransform: "uppercase", border: "none" };
+  const fillBtn = (bg, color = "#fff") => ({ ...btnBase, background: bg, color });
+  const ghostBtn = (color) => ({ ...btnBase, background: "transparent", color, border: `1px solid ${color}` });
+  const selectStyle = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, padding: "9px 12px", borderRadius: 6, background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border-primary)", cursor: "pointer", outline: "none" };
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner label="AI HUB" title="Your intelligent trading assistant." subtitle="Four AI-powered tools to analyze patterns, review your journal, and sharpen your edge." />
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+        <AIToolCard title="Trade History Analyzer" description="Feed a full month of trades to Claude — find mistake patterns, winning commonalities, and behavioral trends you'd never spot manually."
+          accentColor="var(--accent)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>}
+          loading={analyzerLoading} loadingText="SCANNING TRADE HISTORY..." output={analyzerOutput} emptyText="Select a month and hit Analyze to find patterns in your trading."
+          controls={<div style={{ display: "flex", gap: 8, alignItems: "center" }}><select value={analyzerMonth} onChange={(e) => setAnalyzerMonth(e.target.value)} style={selectStyle}>{monthOptions.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select><button onClick={runAnalyzer} disabled={analyzerLoading} style={{ ...fillBtn("var(--accent)", "var(--bg-primary)"), opacity: analyzerLoading ? 0.6 : 1 }}>Analyze</button></div>}
+        />
+
+        <AIToolCard title="Trading Summary" description="A direct coaching breakdown of your week or month — performance, patterns, strengths, and exactly what to fix."
+          accentColor="var(--accent-secondary)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>}
+          loading={summaryLoading} loadingText="ANALYZING TRADES..." output={summaryLabel && summaryOutput ? `${summaryLabel}\n\n${summaryOutput}` : summaryOutput} emptyText="Choose a period and generate your coaching summary."
+          controls={<div style={{ display: "flex", gap: 8 }}><button onClick={() => runSummary("week")} disabled={summaryLoading} style={{ ...(summaryPeriod === "week" && summaryOutput ? fillBtn("var(--accent-secondary)") : ghostBtn("var(--accent-secondary)")), opacity: summaryLoading ? 0.6 : 1 }}>This Week</button><button onClick={() => runSummary("month")} disabled={summaryLoading} style={{ ...(summaryPeriod === "month" && summaryOutput ? fillBtn("var(--purple)") : ghostBtn("var(--purple)")), opacity: summaryLoading ? 0.6 : 1 }}>This Month</button></div>}
+        />
+
+        <AIToolCard title="Pre-Session Brief" description="Reads your last 5 sessions and today's trade plan, then gives you 3 sharp points to take into the NY open."
+          accentColor="var(--green)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+          loading={briefLoading} loadingText="PREPARING YOUR BRIEF..." output={briefOutput} emptyText="Generate your pre-session brief before trading today."
+          controls={<button onClick={runBrief} disabled={briefLoading} style={{ ...fillBtn("var(--green)"), opacity: briefLoading ? 0.6 : 1 }}>Generate Brief</button>}
+        />
+
+        <AIToolCard title="Journal Entry Coach" description="Pick any notebook entry and get a coaching response on what you wrote, how honest your reflection was, and what to work on next."
+          accentColor="var(--gold)"
+          icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>}
+          loading={notebookLoading} loadingText="READING YOUR JOURNAL..." output={notebookOutput} emptyText={notebookEntries.length ? "Select an entry date and hit Analyze." : "No notebook entries found. Write in your notebook first."}
+          controls={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>{notebookEntries.length > 0 ? (<><select value={notebookDate} onChange={(e) => setNotebookDate(e.target.value)} style={selectStyle}>{notebookEntries.map((e) => (<option key={e.entry_date} value={e.entry_date}>{new Date(e.entry_date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</option>))}</select><button onClick={runNotebookAI} disabled={notebookLoading} style={{ ...fillBtn("var(--gold)", "#0b0d13"), opacity: notebookLoading ? 0.6 : 1 }}>Analyze</button></>) : (<span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>No entries yet</span>)}</div>}
+        />
+
+      </div>
+    </div>
+  );
+}
