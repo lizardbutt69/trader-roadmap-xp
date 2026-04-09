@@ -26,29 +26,36 @@ export default async function handler(req, res) {
   let anthropicKey = FALLBACK_ANTHROPIC_KEY;
   const authHeader = req.headers.authorization;
 
-  if (authHeader?.startsWith("Bearer ") && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return res.status(500).json({ error: "Server misconfiguration: SUPABASE_URL or SUPABASE_SERVICE_KEY env var is missing. Check Vercel environment variables." });
+  }
+
+  if (authHeader?.startsWith("Bearer ")) {
     try {
       const token = authHeader.slice(7);
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-      // Verify the token and get the user
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (!authError && user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("anthropic_api_key")
-          .eq("id", user.id)
-          .single();
-        if (profile?.anthropic_api_key) {
-          anthropicKey = profile.anthropic_api_key;
-        }
+      if (authError || !user) {
+        return res.status(401).json({ error: "Session expired or invalid. Please sign out and sign back in." });
+      }
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("anthropic_api_key")
+        .eq("id", user.id)
+        .single();
+      if (profileError) {
+        return res.status(500).json({ error: `Could not read profile: ${profileError.message}. The anthropic_api_key column may not exist — run the Supabase migration.` });
+      }
+      if (profile?.anthropic_api_key) {
+        anthropicKey = profile.anthropic_api_key;
       }
     } catch (e) {
-      // Fall through to fallback key
+      return res.status(500).json({ error: `Auth lookup failed: ${e.message}` });
     }
   }
 
   if (!anthropicKey) {
-    return res.status(400).json({ error: "No Anthropic API key configured. Add your key in Profile settings." });
+    return res.status(400).json({ error: "No Anthropic API key found. Add your key in Profile Settings and save." });
   }
 
   try {
