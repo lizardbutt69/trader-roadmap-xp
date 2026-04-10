@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, useToast } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, useToast } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
@@ -929,7 +929,8 @@ export default function TraderRoadmapXP() {
       .sidebar-nav { display: none !important; }
       .mobile-hamburger { display: flex !important; }
       .mobile-sidebar-overlay { display: block !important; }
-      .header-bar { padding: 12px 16px !important; }
+      .header-bar { padding: 10px 16px !important; }
+      .header-title { font-size: 17px !important; }
       .main-content { padding: 16px 16px 32px !important; }
       .edu-grid { grid-template-columns: 1fr 1fr !important; }
       .edu-controls { flex-direction: row !important; flex-wrap: wrap !important; }
@@ -943,6 +944,11 @@ export default function TraderRoadmapXP() {
     @media (min-width: 769px) {
       .mobile-hamburger { display: none !important; }
       .mobile-sidebar-overlay { display: none !important; }
+    }
+    @media (max-width: 480px) {
+      .header-icon-btn { display: none !important; }
+      .header-right { gap: 6px !important; }
+      .header-title { font-size: 15px !important; }
     }
     @media (max-width: 640px) {
       .grid-4 { grid-template-columns: 1fr 1fr !important; }
@@ -1766,7 +1772,7 @@ export default function TraderRoadmapXP() {
               { key: "accounts", label: "Accounts", reset: false },
               { key: "stats", label: "Stats", reset: false },
               { key: "education", label: "Education", reset: false },
-              { key: "ai", label: "Edge AI", reset: false },
+              { key: "edge-chat", label: "Edge AI", reset: false },
             ].map((tab) => {
               const isActive = view === tab.key;
               const NAV_ICONS = {
@@ -1779,6 +1785,7 @@ export default function TraderRoadmapXP() {
                 stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
                 education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
                 ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>,
+                "edge-chat": <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
                 calendar: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
               };
               return (
@@ -2032,7 +2039,7 @@ export default function TraderRoadmapXP() {
                   { key: "accounts", label: "Accounts" },
                   { key: "stats", label: "Stats" },
                   { key: "education", label: "Education" },
-                  { key: "ai", label: "Edge AI" },
+                  { key: "edge-chat", label: "Edge AI" },
                 ].map((tab) => {
                   const isActive = view === tab.key;
                   const NAV_ICONS = {
@@ -2045,6 +2052,7 @@ export default function TraderRoadmapXP() {
                     stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
                     education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
                     ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>,
+                    "edge-chat": <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
                     calendar: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
                   };
                   return (
@@ -2175,8 +2183,8 @@ export default function TraderRoadmapXP() {
                   flexShrink: 0,
                 }}
               >☰</button>
-              <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+              <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2213,7 +2221,7 @@ export default function TraderRoadmapXP() {
                   icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
                 },
               ].map(({ icon, title, onClick, active, color }) => (
-                <button key={title} onClick={onClick} title={title} style={{
+                <button key={title} onClick={onClick} title={title} className="header-icon-btn" style={{
                   display: "flex", alignItems: "center", justifyContent: "center",
                   width: 32, height: 32, borderRadius: 6,
                   background: active ? "var(--accent-dim)" : "transparent",
@@ -2285,9 +2293,9 @@ export default function TraderRoadmapXP() {
           <EducationView supabase={supabase} user={user} />
         )}
 
-        {/* AI HUB VIEW */}
-        {view === "ai" && (
-          <AIHubView supabase={supabase} user={user} trades={trades} />
+        {/* EDGE CHAT VIEW */}
+        {view === "edge-chat" && (
+          <EdgeChatView supabase={supabase} user={user} trades={trades} />
         )}
 
 

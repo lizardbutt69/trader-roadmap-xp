@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 import MotivationalQuotesBar from "./components/MotivationalQuotesBar";
@@ -5841,3 +5842,510 @@ Direct, honest, constructive. Quote their own words back to them.`;
     </div>
   );
 }
+
+// ─── EDGE CHAT ────────────────────────────────────────────────────────────────
+
+const EDGE_PROMPTS = [
+  {
+    id: "brief",
+    label: "Pre-Session Brief",
+    color: "#34d399",
+    colorRaw: "52,211,153",
+    icon: "🌅",
+    example: "Edge, look at my last 5 sessions and give me my 3 sharpest focuses for today's NY open.",
+  },
+  {
+    id: "journal",
+    label: "Journal Entry Coach",
+    color: "#fbbf24",
+    colorRaw: "251,191,36",
+    icon: "📓",
+    example: "Edge, read my latest journal entry — was I being honest with myself, and what should I actually work on next session?",
+  },
+  {
+    id: "summary",
+    label: "Trading Summary",
+    color: "#818cf8",
+    colorRaw: "129,140,248",
+    icon: "📊",
+    example: "Edge, break down my trading this week. What am I doing well, what's hurting my P&L, and what's the one thing to fix?",
+  },
+  {
+    id: "analyzer",
+    label: "Trade History Analyzer",
+    color: "#22d3ee",
+    colorRaw: "34,211,238",
+    icon: "🔍",
+    example: "Edge, scan this month's trades. Show me my top mistake patterns and what my winning trades all have in common.",
+  },
+];
+
+function TypingDots() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 2 }}>
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "rgba(34,211,238,0.8)",
+            boxShadow: "0 0 4px rgba(34,211,238,0.4)",
+          }}
+          animate={{ opacity: [0.3, 1, 0.3], scale: [0.85, 1.15, 0.85] }}
+          transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18, ease: "easeInOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EdgeMsg({ msg }) {
+  const isUser = msg.role === "user";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}
+    >
+      {!isUser && (
+        <div style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+          color: "#22d3ee", marginBottom: 5, paddingLeft: 2,
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}>EDGE</div>
+      )}
+      <div style={{
+        maxWidth: isUser ? "78%" : "88%",
+        padding: "11px 16px",
+        borderRadius: isUser ? "14px 14px 3px 14px" : "14px 14px 14px 3px",
+        background: isUser
+          ? "linear-gradient(135deg, rgba(34,211,238,0.14) 0%, rgba(34,211,238,0.07) 100%)"
+          : "rgba(255,255,255,0.04)",
+        border: isUser ? "1px solid rgba(34,211,238,0.22)" : "1px solid rgba(255,255,255,0.07)",
+        color: isUser ? "#e2fffe" : "rgba(234,235,240,0.9)",
+        fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        boxShadow: isUser
+          ? "0 2px 12px rgba(34,211,238,0.07), inset 0 1px 0 rgba(34,211,238,0.1)"
+          : "0 2px 12px rgba(0,0,0,0.12)",
+      }}>
+        {msg.content}
+      </div>
+      <div style={{
+        fontSize: 10, color: "rgba(160,163,181,0.4)", marginTop: 4,
+        paddingLeft: isUser ? 0 : 2, paddingRight: isUser ? 2 : 0,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}>
+        {new Date(msg.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+      </div>
+    </motion.div>
+  );
+}
+
+function EdgeTyping() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      transition={{ duration: 0.2 }}
+      style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}
+    >
+      <div style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+        color: "#22d3ee", marginBottom: 5, paddingLeft: 2, fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}>EDGE</div>
+      <div style={{
+        padding: "11px 16px", borderRadius: "14px 14px 14px 3px",
+        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <span style={{ fontSize: 13, color: "rgba(160,163,181,0.6)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Thinking</span>
+        <TypingDots />
+      </div>
+    </motion.div>
+  );
+}
+
+export function EdgeChatView({ supabase, user, trades }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [systemCtx, setSystemCtx] = useState("");
+  const [ctxLoading, setCtxLoading] = useState(true);
+  const [inputFocused, setInputFocused] = useState(false);
+  const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
+  const hasMessages = messages.length > 0;
+
+  useEffect(() => { buildSystemContext(); }, []);
+
+  const buildSystemContext = async () => {
+    setCtxLoading(true);
+    try {
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const taken = trades.filter((t) => t.taken === "Yes");
+      const profit = (t) => (t.profit ?? 0) + (t.profit_funded ?? 0);
+      const wins = taken.filter((t) => profit(t) > 0).length;
+      const netAll = taken.reduce((s, t) => s + profit(t), 0);
+      const winRateAll = taken.length ? Math.round((wins / taken.length) * 100) : 0;
+      const monthKey = todayStr.slice(0, 7);
+      const monthTrades = taken.filter((t) => t.dt?.slice(0, 7) === monthKey);
+      const monthWins = monthTrades.filter((t) => profit(t) > 0).length;
+      const monthLosses = monthTrades.filter((t) => profit(t) < 0).length;
+      const monthPnl = monthTrades.reduce((s, t) => s + profit(t), 0);
+      const monthAplus = monthTrades.filter((t) => t.aplus === "Yes").length;
+      const monthARate = monthTrades.length ? Math.round((monthAplus / monthTrades.length) * 100) : 0;
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+      weekStart.setHours(0, 0, 0, 0);
+      const weekTrades = taken.filter((t) => t.dt && new Date(t.dt) >= weekStart);
+      const weekWins = weekTrades.filter((t) => profit(t) > 0).length;
+      const weekLosses = weekTrades.filter((t) => profit(t) < 0).length;
+      const weekPnl = weekTrades.reduce((s, t) => s + profit(t), 0);
+      const sessionMap = new Map();
+      taken.forEach((t) => {
+        const d = t.dt?.slice(0, 10);
+        if (!d) return;
+        if (!sessionMap.has(d)) sessionMap.set(d, []);
+        sessionMap.get(d).push(t);
+      });
+      const last5 = [...sessionMap.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0])).slice(0, 5)
+        .map(([date, ts]) => {
+          const w = ts.filter((t) => profit(t) > 0).length;
+          const l = ts.filter((t) => profit(t) < 0).length;
+          const pnl = ts.reduce((s, t) => s + profit(t), 0);
+          const note = ts.find((t) => t.notes)?.notes?.slice(0, 60) || "";
+          return `  ${date} | ${ts.length} trade${ts.length !== 1 ? "s" : ""} | ${w}W/${l}L | $${pnl.toFixed(0)}${note ? ` | "${note}"` : ""}`;
+        });
+      const tagCounts = {};
+      taken.slice(0, 30).forEach((t) => {
+        (t.tags || []).forEach((tag) => { tagCounts[tag] = (tagCounts[tag] || 0) + 1; });
+      });
+      const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag]) => tag).join(", ") || "None logged";
+      let todayPlan = "No pre-trade plan filed for today.";
+      try {
+        const { data: plan } = await supabase.from("trade_plans").select("bias, key_levels, session_plan, notes").eq("user_id", user.id).eq("plan_date", todayStr).single();
+        if (plan) todayPlan = `Bias: ${plan.bias || "–"} | Key levels: ${plan.key_levels || "–"} | Session plan: ${plan.session_plan || "–"} | Notes: ${plan.notes || "–"}`;
+      } catch {}
+      setSystemCtx(`You are Edge, an elite trading coach inside TradeSharp. You work exclusively with this trader and know their full performance history.
+
+TRADER PROFILE:
+- Strategy: ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
+- Standard risk: $500/trade | Target: $1,000 (2R)
+- A+ criteria requires ALL of: CIC/SMT, key level, TF alignment, CISD, ICCISD, TTFM, correct session time, min 1:2 R:R, defined stop
+- "Yes But Execution Sucked" = valid A+ setup, poor execution
+- "Yes to No" = impulsive entry, not a valid A+ setup
+- Losses beyond -$500 usually mean a moved stop or overexposure
+
+PERFORMANCE SNAPSHOT (as of ${todayStr}):
+ALL-TIME: ${taken.length} trades taken | ${winRateAll}% win rate | Net P&L: $${netAll.toFixed(0)}
+THIS MONTH (${monthKey}): ${monthTrades.length} taken | ${monthWins}W/${monthLosses}L | $${monthPnl.toFixed(0)} | A+ rate: ${monthARate}%
+THIS WEEK: ${weekTrades.length} taken | ${weekWins}W/${weekLosses}L | $${weekPnl.toFixed(0)}
+LAST 5 SESSIONS:
+${last5.length ? last5.join("\n") : "  No recent sessions found."}
+TOP TAGS (last 30 trades): ${topTags}
+
+TODAY'S PLAN: ${todayPlan}
+
+COACHING STYLE: Be direct, specific, and honest — like a tough but fair older brother. No fluff. Reference actual numbers from the data above. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
+    } catch {
+      setSystemCtx("You are Edge, an AI trading coach inside TradeSharp. Be direct, specific, and helpful.");
+    } finally {
+      setCtxLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
+
+  const callEdge = async (userMessage) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const apiMessages = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: userMessage },
+    ];
+    const res = await fetch("/api/ai-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, system: systemCtx, messages: apiMessages }),
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error("Unexpected response from AI service."); }
+    if (data.error) throw new Error(data.error);
+    return data.content?.map((c) => c.text || "").join("") || "No response received.";
+  };
+
+  const sendMessage = async (overrideText) => {
+    const text = (overrideText ?? input).trim();
+    if (!text || isLoading || ctxLoading) return;
+    const userMsg = { id: `${Date.now()}-u`, role: "user", content: text, ts: Date.now() };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    if (textareaRef.current) { textareaRef.current.style.height = "auto"; }
+    setIsLoading(true);
+    try {
+      const reply = await callEdge(text);
+      setMessages((prev) => [...prev, { id: `${Date.now()}-a`, role: "assistant", content: reply, ts: Date.now() }]);
+    } catch (e) {
+      setMessages((prev) => [...prev, { id: `${Date.now()}-e`, role: "assistant", content: `Something went wrong: ${e.message}`, ts: Date.now() }]);
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+  };
+
+  return (
+    <div style={{
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      paddingBottom: 40,
+    }}>
+      {/* ── Header ── */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={{ width: "100%", maxWidth: 660, textAlign: "center", marginBottom: 28 }}
+      >
+        <div style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.2em",
+          textTransform: "uppercase", color: "#22d3ee", marginBottom: 10,
+        }}>EDGE CHAT</div>
+        <h2 style={{
+          fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 10px",
+          background: "linear-gradient(135deg, rgba(234,235,240,0.95) 0%, rgba(234,235,240,0.45) 100%)",
+          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+        }}>
+          Talk to Edge.
+        </h2>
+        <motion.div
+          initial={{ width: 0, opacity: 0 }}
+          animate={{ width: "100%", opacity: 1 }}
+          transition={{ delay: 0.35, duration: 0.7 }}
+          style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(34,211,238,0.2), transparent)", marginBottom: 10 }}
+        />
+        <p style={{ fontSize: 13, color: "rgba(160,163,181,0.6)", margin: 0, lineHeight: 1.6 }}>
+          Your AI trading coach — powered by your actual data.
+        </p>
+      </motion.div>
+
+      {/* ── Prompt cards (disappear once conversation starts) ── */}
+      <AnimatePresence>
+        {!hasMessages && (
+          <motion.div
+            key="prompts"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+            transition={{ duration: 0.35 }}
+            style={{
+              width: "100%", maxWidth: 660,
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12,
+            }}
+          >
+            {EDGE_PROMPTS.map((p, i) => (
+              <motion.button
+                key={p.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 + i * 0.07, duration: 0.28 }}
+                onClick={() => sendMessage(p.example)}
+                disabled={ctxLoading}
+                whileHover={!ctxLoading ? { y: -2, scale: 1.01 } : {}}
+                whileTap={!ctxLoading ? { scale: 0.98 } : {}}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start",
+                  gap: 8, padding: "14px 16px", borderRadius: 14, textAlign: "left",
+                  background: `rgba(${p.colorRaw}, 0.04)`,
+                  border: `1px solid rgba(${p.colorRaw}, 0.15)`,
+                  cursor: ctxLoading ? "not-allowed" : "pointer",
+                  opacity: ctxLoading ? 0.45 : 1,
+                  transition: "background 0.15s, border-color 0.15s",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+                onMouseEnter={(e) => { if (!ctxLoading) e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.08)`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.04)`; }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{ fontSize: 14 }}>{p.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: p.color }}>
+                    {p.label}
+                  </span>
+                </div>
+                <p style={{
+                  margin: 0, fontSize: 13, lineHeight: 1.6,
+                  color: "rgba(160,163,181,0.75)", fontStyle: "italic",
+                }}>
+                  "{p.example}"
+                </p>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Chat card (grows with conversation) ── */}
+      <motion.div
+        layout
+        transition={{ layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] } }}
+        style={{
+          width: "100%", maxWidth: 660,
+          borderRadius: 18,
+          background: "rgba(255,255,255,0.025)",
+          backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
+          overflow: "hidden", position: "relative",
+        }}
+      >
+        {/* Ambient glow — top */}
+        <div style={{
+          position: "absolute", top: -40, left: "20%", width: 200, height: 200,
+          background: "radial-gradient(circle, rgba(34,211,238,0.05) 0%, transparent 70%)",
+          borderRadius: "50%", pointerEvents: "none",
+        }} />
+
+        {/* Messages area — only shown when conversation exists */}
+        <AnimatePresence>
+          {hasMessages && (
+            <motion.div
+              key="messages"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              style={{
+                maxHeight: 520, overflowY: "auto",
+                padding: "20px 24px 8px",
+                display: "flex", flexDirection: "column", gap: 16,
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {messages.map((msg) => <EdgeMsg key={msg.id} msg={msg} />)}
+              <AnimatePresence>
+                {isLoading && <EdgeTyping key="thinking" />}
+              </AnimatePresence>
+              <div ref={chatEndRef} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Context loading hint — shown only before first message */}
+        {!hasMessages && ctxLoading && (
+          <div style={{
+            padding: "14px 24px 0",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 12, color: "rgba(160,163,181,0.4)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              Loading your trading context
+            </span>
+            <TypingDots />
+          </div>
+        )}
+
+        {/* Input area */}
+        <div style={{ padding: "14px 16px 14px", position: "relative" }}>
+          {/* New chat button — only when conversation exists */}
+          {hasMessages && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+              <button
+                onClick={() => setMessages([])}
+                style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
+                  padding: "4px 12px", borderRadius: 20,
+                  background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "rgba(160,163,181,0.5)", cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "rgba(160,163,181,0.8)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(160,163,181,0.5)"; }}
+              >
+                New Chat
+              </button>
+            </div>
+          )}
+
+          {/* Input box */}
+          <div style={{
+            display: "flex", alignItems: "flex-end", gap: 10,
+            background: "rgba(255,255,255,0.04)",
+            border: `1px solid ${inputFocused ? "rgba(34,211,238,0.3)" : "rgba(255,255,255,0.08)"}`,
+            borderRadius: 12, padding: "10px 12px",
+            transition: "border-color 0.2s",
+            boxShadow: inputFocused ? "0 0 0 3px rgba(34,211,238,0.06)" : "none",
+          }}>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onInput={(e) => {
+                e.target.style.height = "auto";
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+              }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              placeholder={ctxLoading ? "Loading your trading context..." : "Ask Edge anything..."}
+              disabled={isLoading || ctxLoading}
+              rows={1}
+              style={{
+                flex: 1, resize: "none", overflow: "hidden", boxSizing: "border-box",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 14, lineHeight: 1.55,
+                color: "rgba(234,235,240,0.9)",
+                background: "transparent", border: "none", outline: "none",
+                minHeight: 26, maxHeight: 120,
+                opacity: ctxLoading ? 0.4 : 1,
+              }}
+            />
+            <motion.button
+              onClick={() => sendMessage()}
+              disabled={isLoading || ctxLoading || !input.trim()}
+              whileHover={input.trim() && !isLoading && !ctxLoading ? { scale: 1.06 } : {}}
+              whileTap={input.trim() && !isLoading && !ctxLoading ? { scale: 0.94 } : {}}
+              style={{
+                flexShrink: 0, width: 34, height: 34, borderRadius: 8,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: input.trim() && !isLoading && !ctxLoading
+                  ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.05)",
+                border: "none",
+                color: input.trim() && !isLoading && !ctxLoading ? "#0b0d13" : "rgba(160,163,181,0.35)",
+                cursor: input.trim() && !isLoading && !ctxLoading ? "pointer" : "not-allowed",
+                transition: "background 0.2s, color 0.2s",
+                boxShadow: input.trim() && !isLoading && !ctxLoading
+                  ? "0 2px 10px rgba(255,255,255,0.1)" : "none",
+              }}
+            >
+              {isLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                  style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(160,163,181,0.3)", borderTopColor: "rgba(34,211,238,0.7)" }}
+                />
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"/>
+                  <polyline points="5 12 12 5 19 12"/>
+                </svg>
+              )}
+            </motion.button>
+          </div>
+          <div style={{ marginTop: 7, fontSize: 10, color: "rgba(160,163,181,0.3)", textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            Enter to send · Shift+Enter for new line
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+

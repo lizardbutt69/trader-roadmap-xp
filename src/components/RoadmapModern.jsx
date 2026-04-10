@@ -273,7 +273,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         </button>
 
         {/* Level Header */}
-        <div style={{
+        <div className="roadmap-detail-header" style={{
           borderRadius: 20, padding: "28px", marginBottom: 32,
           background: level.bgGradient, border: `1px solid ${level.accent}30`,
           position: "relative", overflow: "hidden",
@@ -327,7 +327,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
           Missions
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+        <div className="roadmap-missions-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {level.missions.map((mission, index) => {
             const isCompleted = completed.has(mission.id);
             const meta = TYPE_META[mission.type];
@@ -407,6 +407,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         {/* Proof Submission Modal */}
         {confirmMission && (
           <div
+            className="roadmap-modal-overlay"
             style={{
               position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
               backdropFilter: "blur(12px)", zIndex: 1000,
@@ -416,6 +417,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
             onClick={() => setConfirmMission(null)}
           >
             <div
+              className="roadmap-modal-inner"
               style={{
                 width: "100%", maxWidth: 440, borderRadius: 24,
                 background: "var(--bg-primary)", border: "1px solid var(--border-primary)",
@@ -519,6 +521,17 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         <style>{`
           @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
           @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+
+          @media (max-width: 640px) {
+            .roadmap-detail-header { padding: 18px !important; border-radius: 14px !important; margin-bottom: 20px !important; }
+            .roadmap-missions-grid { grid-template-columns: 1fr !important; gap: 10px !important; }
+            .roadmap-modal-overlay { padding: 12px !important; align-items: flex-end !important; }
+            .roadmap-modal-inner { padding: 20px !important; border-radius: 20px 20px 14px 14px !important; max-height: 92vh !important; overflow-y: auto !important; }
+          }
+          @media (max-width: 420px) {
+            .roadmap-detail-header { padding: 14px !important; }
+            .roadmap-modal-inner { padding: 16px !important; }
+          }
         `}</style>
       </div>
     );
@@ -536,14 +549,14 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
       />
 
       {/* Stats Bar */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
+      <div className="roadmap-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 32 }}>
         {[
           { label: "Total XP",     value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`,                              color: "#fbbf24" },
           { label: "Current Level",value: `Stage ${currentLevel.id}`, sub: currentLevel.name,                                            color: currentLevel.accent },
           { label: "Missions Done",value: `${completed.size}`,        sub: `/ ${ALL_MISSIONS.length} total`,                             color: "#10b981" },
           { label: "Next Goal",    value: nextLevel ? nextLevel.name : "MAX", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP to go` : "You made it!", color: nextLevel?.accent || "#ec4899" },
         ].map((s, i) => (
-          <div key={i} style={{
+          <div key={i} className="roadmap-stat-card" style={{
             borderRadius: 14, padding: "18px 20px",
             background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
             overflow: "hidden", position: "relative",
@@ -571,6 +584,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
           return (
             <div
               key={level.id}
+              className="roadmap-level-card"
               onClick={() => isActive && setSelectedLevel(level.id)}
               style={{
                 position: "relative", borderRadius: 18, padding: "24px 28px",
@@ -591,8 +605,8 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: level.gradient, borderRadius: "18px 18px 0 0" }} />
               )}
 
-              <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 16 }}>
-                <div style={{
+              <div className="roadmap-level-header" style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 16 }}>
+                <div className="roadmap-level-icon" style={{
                   width: 56, height: 56, borderRadius: 14, flexShrink: 0,
                   background: `${level.accent}15`, border: `1px solid ${level.accent}30`,
                   display: "flex", alignItems: "center", justifyContent: "center",
@@ -654,6 +668,20 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
         @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
         @keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+        @media (max-width: 640px) {
+          .roadmap-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; margin-bottom: 20px !important; }
+          .roadmap-stat-card { padding: 14px 14px !important; border-radius: 10px !important; }
+          .roadmap-level-card { padding: 16px 16px !important; border-radius: 14px !important; }
+          .roadmap-level-header { gap: 12px !important; margin-bottom: 12px !important; }
+          .roadmap-level-icon { width: 44px !important; height: 44px !important; border-radius: 10px !important; }
+        }
+        @media (max-width: 420px) {
+          .roadmap-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .roadmap-stat-card { padding: 12px 12px !important; }
+          .roadmap-level-card { padding: 14px 14px !important; }
+          .roadmap-level-icon { width: 38px !important; height: 38px !important; }
+        }
       `}</style>
     </div>
   );

@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, messages } = req.body;
+    const { model, max_tokens, messages, system } = req.body;
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
         "x-api-key": anthropicKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ model, max_tokens, messages }),
+      body: JSON.stringify({ model, max_tokens, messages, ...(system ? { system } : {}) }),
     });
     const text = await r.text();
     if (!r.ok) return res.status(r.status).json({ error: `Anthropic ${r.status}`, detail: text });
