@@ -4163,10 +4163,11 @@ export function EconomicCalendarView() {
               if (dayEvents.length === 0) return null;
               const dayDate = new Date(`${day.dateStr}T12:00:00`);
               const isToday = day.dateStr === todayET;
+              const isDayPast = day.dateStr < todayET;
               const weekday = dayDate.toLocaleDateString("en-US", { weekday: "long" });
               const dateLabel = dayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
               return (
-                <div key={day.dateStr}>
+                <div key={day.dateStr} style={{ opacity: isDayPast ? 0.4 : 1 }}>
                   {/* Day header */}
                   <div style={{
                     padding: "8px 20px", background: isToday ? "rgba(34,211,238,0.05)" : "var(--bg-tertiary)",
@@ -4201,6 +4202,7 @@ export function EconomicCalendarView() {
                     const color = isHigh ? "#fb7185" : "#fbbf24";
                     const mins = getMinutesUntil(event, now);
                     const isImminent = mins !== null && mins >= -10 && mins <= 30;
+                    const isPast = isToday && event.time !== "allday" && mins !== null && mins < -10;
                     return (
                       <div
                         key={idx}
@@ -4209,6 +4211,7 @@ export function EconomicCalendarView() {
                           padding: "11px 20px", borderBottom: "1px solid var(--border-primary)",
                           transition: "background 0.15s",
                           background: isImminent ? "rgba(251,113,133,0.04)" : "transparent",
+                          opacity: isPast ? 0.4 : 1,
                         }}
                         onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tertiary)"}
                         onMouseLeave={(e) => e.currentTarget.style.background = isImminent ? "rgba(251,113,133,0.04)" : "transparent"}
