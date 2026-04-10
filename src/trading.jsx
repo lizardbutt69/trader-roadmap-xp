@@ -5988,7 +5988,7 @@ export function EdgeChatView({ supabase, user, trades }) {
     try {
       const now = new Date();
       const todayStr = now.toISOString().slice(0, 10);
-      const taken = trades.filter((t) => t.taken === "Yes");
+      const taken = trades.filter((t) => t.taken && t.taken !== "Missed");
       const profit = (t) => (t.profit ?? 0) + (t.profit_funded ?? 0);
       const wins = taken.filter((t) => profit(t) > 0).length;
       const netAll = taken.reduce((s, t) => s + profit(t), 0);
@@ -6033,6 +6033,20 @@ export function EdgeChatView({ supabase, user, trades }) {
         const { data: plan } = await supabase.from("trade_plans").select("bias, key_levels, session_plan, notes").eq("user_id", user.id).eq("plan_date", todayStr).single();
         if (plan) todayPlan = `Bias: ${plan.bias || "–"} | Key levels: ${plan.key_levels || "–"} | Session plan: ${plan.session_plan || "–"} | Notes: ${plan.notes || "–"}`;
       } catch {}
+      let notebookSection = "No recent journal entries found.";
+      try {
+        const { data: nbEntries } = await supabase.from("notebook_entries").select("entry_date, recap, eod_reflection").eq("user_id", user.id).order("entry_date", { ascending: false }).limit(5);
+        if (nbEntries?.length) {
+          notebookSection = nbEntries.map(e => {
+            const dayTrades = taken.filter(t => t.dt?.slice(0, 10) === e.entry_date);
+            const w = dayTrades.filter(t => profit(t) > 0).length;
+            const l = dayTrades.filter(t => profit(t) < 0).length;
+            const pnl = dayTrades.reduce((s, t) => s + profit(t), 0);
+            const tradesSummary = dayTrades.length ? ` | Trades: ${dayTrades.length} (${w}W/${l}L, $${pnl.toFixed(0)})` : " | No trades logged";
+            return `${e.entry_date}${tradesSummary}\n  RECAP: ${e.recap || "(blank)"}\n  EOD REFLECTION: ${e.eod_reflection || "(blank)"}`;
+          }).join("\n\n");
+        }
+      } catch {}
       setSystemCtx(`You are Edge, an elite trading coach inside TradeSharp. You work exclusively with this trader and know their full performance history.
 
 TRADER PROFILE:
@@ -6052,6 +6066,9 @@ ${last5.length ? last5.join("\n") : "  No recent sessions found."}
 TOP TAGS (last 30 trades): ${topTags}
 
 TODAY'S PLAN: ${todayPlan}
+
+RECENT JOURNAL ENTRIES (last 5, newest first):
+${notebookSection}
 
 COACHING STYLE: Be direct, specific, and honest — like a tough but fair older brother. No fluff. Reference actual numbers from the data above. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
     } catch {
