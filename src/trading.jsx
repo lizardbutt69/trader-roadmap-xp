@@ -2,6 +2,15 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, createContext
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 import MotivationalQuotesBar from "./components/MotivationalQuotesBar";
+import {
+  getEventsForWeek,
+  getEventsForToday,
+  getNextHighImpactEvent,
+  getMinutesUntil,
+  formatEventTime,
+  getTodayET,
+} from "./utils/calendarUtils.js";
+import { requestNotificationPermission } from "./utils/newsAlerts.js";
 
 // ─── TOAST SYSTEM ────────────────────────────────────────────────────────────
 const ToastContext = createContext(null);
@@ -35,7 +44,7 @@ export function ToastProvider({ children }) {
   );
 }
 
-function useToast() {
+export function useToast() {
   return useContext(ToastContext);
 }
 
@@ -779,6 +788,16 @@ export function ChecklistView({ supabase, user, embedded = false }) {
   const [addingModel, setAddingModel] = useState(false);
   const [newModelName, setNewModelName] = useState("");
 
+  // News risk gate
+  const [nowET, setNowET] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNowET(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const nextHighEvent = getNextHighImpactEvent(nowET);
+  const minsUntilHigh = nextHighEvent ? getMinutesUntil(nextHighEvent, nowET) : null;
+  const isNewsRisk = minsUntilHigh !== null && minsUntilHigh >= -10 && minsUntilHigh <= 30;
+
   // ── Load from Supabase — handle old format migration ──
   useEffect(() => {
     if (!user) return;
@@ -1029,6 +1048,27 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         subtitle="Run through every criterion before you execute. Discipline is the edge."
       />}
       <TCard style={{ padding: 28 }}>
+
+        {/* ── News Risk Gate ── */}
+        {isNewsRisk && nextHighEvent && (
+          <div style={{
+            padding: "14px 18px", marginBottom: 20,
+            background: "rgba(251,113,133,0.08)",
+            border: "1px solid var(--red)",
+            borderRadius: 6,
+            display: "flex", alignItems: "center", gap: 12,
+          }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--red)", animation: "hudPulse 2s infinite", flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "var(--red)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                NEWS RISK — {nextHighEvent.name} ({minsUntilHigh > 0 ? `in ${minsUntilHigh}m` : `${Math.abs(minsUntilHigh)}m ago`})
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 3 }}>
+                High-impact event active. Consider waiting for the move to settle before entering.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Model tabs ── */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
@@ -3716,31 +3756,11 @@ function timeAgo(unixTs) {
 
 export function NewsView() {
   const [channel, setChannel] = useState("bloomberg");
-  const calendarRef = useRef(null);
   const [newsItems, setNewsItems] = useState([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsError, setNewsError] = useState(null);
 
   const activeSrc = LIVE_CHANNELS.find((c) => c.key === channel)?.src || LIVE_CHANNELS[0].src;
-
-  // Load TradingView Economic Calendar widget
-  useEffect(() => {
-    if (!calendarRef.current) return;
-    calendarRef.current.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      colorTheme: localStorage.getItem("theme") === "dark" ? "dark" : "light",
-      isTransparent: true,
-      width: "100%",
-      height: "500",
-      locale: "en",
-      importanceFilter: "0,1",
-      countryFilter: "us",
-    });
-    calendarRef.current.appendChild(script);
-  }, []);
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -3887,19 +3907,353 @@ export function NewsView() {
         </div>
       </TCard>
 
-      {/* Economic Calendar — TradingView */}
+      {/* Economic Calendar */}
+      <EconomicCalendarView />
+
+    </div>
+  );
+}
+
+// ─── ECONOMIC CALENDAR VIEW ──────────────────────────────────────────────────
+
+const TIMEZONE_OPTIONS = [
+  { label: "ET (New York)", value: "America/New_York" },
+  { label: "CT (Chicago)", value: "America/Chicago" },
+  { label: "MT (Denver)", value: "America/Denver" },
+  { label: "PT (Los Angeles)", value: "America/Los_Angeles" },
+  { label: "GMT (London)", value: "Europe/London" },
+  { label: "CET (Frankfurt)", value: "Europe/Berlin" },
+  { label: "SGT (Singapore)", value: "Asia/Singapore" },
+  { label: "BKK (Bangkok)", value: "Asia/Bangkok" },
+  { label: "HKT (Hong Kong)", value: "Asia/Hong_Kong" },
+  { label: "JST (Tokyo)", value: "Asia/Tokyo" },
+  { label: "AEST (Sydney)", value: "Australia/Sydney" },
+];
+
+export function EconomicCalendarView() {
+  const [now, setNow] = useState(new Date());
+  const [displayTZ, setDisplayTZ] = useState(
+    () => localStorage.getItem("displayTimezone") || Intl.DateTimeFormat().resolvedOptions().timeZone
+  );
+  const [alertsEnabled, setAlertsEnabled] = useState(
+    () => localStorage.getItem("newsAlertsEnabled") === "true"
+  );
+  const [notifPermission, setNotifPermission] = useState(
+    () => (typeof Notification !== "undefined" ? Notification.permission : "unsupported")
+  );
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const todayET = getTodayET(now);
+  const nextHighEvent = getNextHighImpactEvent(now);
+  const minsUntilNext = nextHighEvent ? getMinutesUntil(nextHighEvent, now) : null;
+
+  // Week navigation — compute the reference date for the displayed week
+  const displayWeekRef = new Date(now);
+  displayWeekRef.setDate(displayWeekRef.getDate() + weekOffset * 7);
+  const displayWeekDays = getEventsForWeek(displayWeekRef);
+  const displayWeekEvents = displayWeekDays.flatMap((d) => d.events.map((e) => ({ ...e, _dateStr: d.dateStr })));
+  const weekStart = displayWeekDays[0]?.dateStr;
+  const weekEnd = displayWeekDays[4]?.dateStr;
+  const fmtWeekDate = (str) => str ? new Date(`${str}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+  // Day status
+  const todayEvents = getEventsForToday(now);
+  const todayHigh = todayEvents.filter((e) => e.impact === "high" && e.time !== "allday");
+  const todayMedium = todayEvents.filter((e) => e.impact === "medium" && e.time !== "allday");
+  const hasHighToday = todayHigh.length > 0;
+  const hasMediumToday = todayMedium.length > 0;
+  const imminent = minsUntilNext !== null && minsUntilNext >= -10 && minsUntilNext <= 30;
+
+  function handleTZChange(tz) {
+    setDisplayTZ(tz);
+    localStorage.setItem("displayTimezone", tz);
+  }
+
+  async function handleEnableAlerts() {
+    if (alertsEnabled) {
+      setAlertsEnabled(false);
+      localStorage.setItem("newsAlertsEnabled", "false");
+      return;
+    }
+    const perm = await requestNotificationPermission();
+    setNotifPermission(perm);
+    if (perm === "granted" || perm === "denied") {
+      setAlertsEnabled(perm === "granted");
+      localStorage.setItem("newsAlertsEnabled", perm === "granted" ? "true" : "false");
+    }
+  }
+
+  // Status shield config
+  const statusConfig = imminent
+    ? { label: "NEWS IMMINENT", title: "STAND ASIDE", color: "#fb7185", bg: "rgba(251,113,133,0.08)", pulse: true }
+    : hasHighToday
+    ? { label: "NEWS DAY", title: "HIGH IMPACT TODAY", color: "#fb7185", bg: "rgba(251,113,133,0.06)", pulse: false }
+    : hasMediumToday
+    ? { label: "CAUTION", title: "ELEVATED VOLATILITY", color: "#fbbf24", bg: "rgba(251,191,36,0.06)", pulse: false }
+    : { label: "ALL CLEAR", title: "CLEAR TO TRADE", color: "#34d399", bg: "rgba(52,211,153,0.06)", pulse: false };
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+
+      {/* Status Shield */}
+      <div style={{
+        marginBottom: 20, borderRadius: 10, padding: "24px 28px",
+        background: statusConfig.bg,
+        border: `1px solid ${statusConfig.color}33`,
+        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
+        position: "relative", overflow: "hidden",
+      }}>
+        {/* Radial glow */}
+        <div style={{
+          position: "absolute", right: -40, top: "50%", transform: "translateY(-50%)",
+          width: 200, height: 200, borderRadius: "50%",
+          background: `radial-gradient(circle, ${statusConfig.color}20 0%, transparent 70%)`,
+          pointerEvents: "none",
+        }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {statusConfig.pulse && (
+              <div style={{
+                position: "absolute", inset: -4, borderRadius: "50%",
+                background: `${statusConfig.color}30`,
+                animation: "hudPulse 1.5s ease-in-out infinite",
+              }} />
+            )}
+            <div style={{
+              width: 12, height: 12, borderRadius: "50%",
+              background: statusConfig.color,
+              boxShadow: `0 0 8px ${statusConfig.color}`,
+              animation: statusConfig.pulse ? "hudPulse 1.5s ease-in-out infinite" : "none",
+            }} />
+          </div>
+          <div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+              color: statusConfig.color, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
+            }}>
+              {statusConfig.label}
+            </div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800,
+              color: "var(--text-primary)", letterSpacing: "-0.02em",
+            }}>
+              {statusConfig.title}
+            </div>
+            {nextHighEvent && minsUntilNext !== null && (
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+                color: "var(--text-secondary)", marginTop: 4,
+              }}>
+                {imminent
+                  ? `${nextHighEvent.name} — ${minsUntilNext > 0 ? `in ${minsUntilNext}m` : `${Math.abs(minsUntilNext)}m ago`} (${formatEventTime(nextHighEvent, displayTZ)})`
+                  : `Next: ${nextHighEvent.name} — ${formatEventTime(nextHighEvent, displayTZ)}`}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {/* Timezone selector */}
+          <select
+            value={displayTZ}
+            onChange={(e) => handleTZChange(e.target.value)}
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600,
+              padding: "6px 10px", borderRadius: 5,
+              background: "var(--bg-tertiary)", color: "var(--text-primary)",
+              border: "1px solid var(--border-primary)", cursor: "pointer", outline: "none",
+            }}
+          >
+            {TIMEZONE_OPTIONS.map((tz) => (
+              <option key={tz.value} value={tz.value}>{tz.label}</option>
+            ))}
+          </select>
+          {/* Alerts toggle */}
+          <button
+            onClick={handleEnableAlerts}
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+              padding: "6px 14px", borderRadius: 5, cursor: "pointer",
+              textTransform: "uppercase", letterSpacing: "0.06em",
+              border: alertsEnabled ? "1px solid #34d399" : "1px solid var(--border-primary)",
+              background: alertsEnabled ? "rgba(52,211,153,0.1)" : "transparent",
+              color: alertsEnabled ? "#34d399" : "var(--text-tertiary)",
+              transition: "all 0.2s",
+            }}
+          >
+            {alertsEnabled ? "✓ Alerts On" : "Enable Alerts"}
+          </button>
+        </div>
+      </div>
+
+      {/* Weekly Events List */}
       <TCard style={{ padding: 0, overflow: "hidden" }}>
         <div style={{
-          padding: "16px 20px", borderBottom: "1px solid var(--border-primary)",
+          padding: "12px 20px", borderBottom: "1px solid var(--border-primary)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            ECONOMIC CALENDAR
-          </span>
+          {/* Title */}
+          <div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+              color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em",
+            }}>
+              Economic Calendar
+            </div>
+            <div style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 1,
+            }}>
+              {TIMEZONE_OPTIONS.find((t) => t.value === displayTZ)?.label || displayTZ}
+            </div>
+          </div>
+
+          {/* Week navigator */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setWeekOffset((w) => w - 1)}
+              style={{
+                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
+                fontSize: 14, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >‹</button>
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em",
+              }}>
+                {weekOffset === 0 ? "This Week" : weekOffset === 1 ? "Next Week" : weekOffset === -1 ? "Last Week" : weekOffset > 0 ? `+${weekOffset} Weeks` : `${weekOffset} Weeks`}
+              </div>
+              <div style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 1,
+              }}>
+                {fmtWeekDate(weekStart)} – {fmtWeekDate(weekEnd)}
+              </div>
+            </div>
+            <button
+              onClick={() => setWeekOffset((w) => w + 1)}
+              style={{
+                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
+                fontSize: 14, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+            >›</button>
+          </div>
         </div>
-        <div ref={calendarRef} style={{ minHeight: 500 }} />
+        <div>
+          {displayWeekEvents.length === 0 ? (
+            <div style={{
+              padding: "28px 20px", textAlign: "center",
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+              color: "var(--text-tertiary)",
+            }}>
+              No events this week
+            </div>
+          ) : (
+            displayWeekDays.map((day) => {
+              const dayEvents = day.events;
+              if (dayEvents.length === 0) return null;
+              const dayDate = new Date(`${day.dateStr}T12:00:00`);
+              const isToday = day.dateStr === todayET;
+              const weekday = dayDate.toLocaleDateString("en-US", { weekday: "long" });
+              const dateLabel = dayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              return (
+                <div key={day.dateStr}>
+                  {/* Day header */}
+                  <div style={{
+                    padding: "8px 20px", background: isToday ? "rgba(34,211,238,0.05)" : "var(--bg-tertiary)",
+                    borderBottom: "1px solid var(--border-primary)",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <span style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                      color: isToday ? "var(--accent)" : "var(--text-secondary)",
+                      textTransform: "uppercase", letterSpacing: "0.08em",
+                    }}>
+                      {weekday}
+                    </span>
+                    <span style={{
+                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11,
+                      color: "var(--text-tertiary)",
+                    }}>
+                      {dateLabel}
+                    </span>
+                    {isToday && (
+                      <span style={{
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700,
+                        padding: "1px 6px", borderRadius: 3,
+                        background: "var(--accent-glow-strong)", color: "var(--accent)",
+                        textTransform: "uppercase", letterSpacing: "0.08em",
+                      }}>TODAY</span>
+                    )}
+                  </div>
+                  {/* Events for this day */}
+                  {dayEvents.map((event, idx) => {
+                    const isHigh = event.impact === "high";
+                    const color = isHigh ? "#fb7185" : "#fbbf24";
+                    const mins = getMinutesUntil(event, now);
+                    const isImminent = mins !== null && mins >= -10 && mins <= 30;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 14,
+                          padding: "11px 20px", borderBottom: "1px solid var(--border-primary)",
+                          transition: "background 0.15s",
+                          background: isImminent ? "rgba(251,113,133,0.04)" : "transparent",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tertiary)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = isImminent ? "rgba(251,113,133,0.04)" : "transparent"}
+                      >
+                        <div style={{
+                          width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0,
+                          animation: isImminent ? "hudPulse 1.5s infinite" : "none",
+                        }} />
+                        <div style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600,
+                          color: "var(--text-secondary)", width: 100, flexShrink: 0,
+                        }}>
+                          {event.time === "allday" ? "All Day" : formatEventTime(event, displayTZ)}
+                        </div>
+                        <div style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                          color: "var(--text-primary)", flex: 1,
+                        }}>
+                          {event.name}
+                        </div>
+                        <div style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+                          padding: "2px 8px", borderRadius: 3,
+                          background: `${color}15`, color,
+                          textTransform: "uppercase", letterSpacing: "0.05em", flexShrink: 0,
+                        }}>
+                          {isHigh ? "HIGH" : "MED"}
+                        </div>
+                        {isImminent && (
+                          <div style={{
+                            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+                            color: "#fb7185", flexShrink: 0,
+                          }}>
+                            {mins > 0 ? `in ${mins}m` : `${Math.abs(mins)}m ago`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
       </TCard>
-
-
     </div>
   );
 }
