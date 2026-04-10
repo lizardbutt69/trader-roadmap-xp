@@ -5905,20 +5905,19 @@ function renderEdgeMarkdown(text) {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    // H1/H2/H3
     if (/^### (.+)/.test(line)) {
-      elements.push(<div key={i} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#22d3ee", marginTop: 14, marginBottom: 4 }}>{line.replace(/^### /, "")}</div>);
+      elements.push(<div key={i} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent)", marginTop: 14, marginBottom: 4 }}>{line.replace(/^### /, "")}</div>);
     } else if (/^## (.+)/.test(line)) {
-      elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 700, color: "rgba(234,235,240,0.95)", marginTop: 16, marginBottom: 5 }}>{line.replace(/^## /, "")}</div>);
+      elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginTop: 16, marginBottom: 5 }}>{line.replace(/^## /, "")}</div>);
     } else if (/^# (.+)/.test(line)) {
-      elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 800, color: "rgba(234,235,240,1)", marginTop: 16, marginBottom: 6 }}>{line.replace(/^# /, "")}</div>);
+      elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginTop: 16, marginBottom: 6 }}>{line.replace(/^# /, "")}</div>);
     } else if (/^---+$/.test(line.trim())) {
-      elements.push(<hr key={i} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", margin: "12px 0" }} />);
+      elements.push(<hr key={i} style={{ border: "none", borderTop: "1px solid var(--border-primary)", margin: "12px 0" }} />);
     } else if (/^(\s*[-*•])\s+/.test(line)) {
-      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "#22d3ee", flexShrink: 0, marginTop: 1 }}>·</span><span>{inlineStyles(line.replace(/^\s*[-*•]\s+/, ""))}</span></div>);
+      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }}>·</span><span>{inlineStyles(line.replace(/^\s*[-*•]\s+/, ""))}</span></div>);
     } else if (/^\d+\.\s+/.test(line)) {
       const num = line.match(/^(\d+)\./)[1];
-      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "#22d3ee", flexShrink: 0, minWidth: 16, fontWeight: 700, fontSize: 12 }}>{num}.</span><span>{inlineStyles(line.replace(/^\d+\.\s+/, ""))}</span></div>);
+      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "var(--accent)", flexShrink: 0, minWidth: 16, fontWeight: 700, fontSize: 12 }}>{num}.</span><span>{inlineStyles(line.replace(/^\d+\.\s+/, ""))}</span></div>);
     } else if (line.trim() === "") {
       elements.push(<div key={i} style={{ height: 8 }} />);
     } else {
@@ -5930,15 +5929,14 @@ function renderEdgeMarkdown(text) {
 }
 
 function inlineStyles(text) {
-  // **bold**, *italic*, `code`
   const parts = [];
   const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[2]) parts.push(<strong key={m.index} style={{ color: "rgba(234,235,240,1)", fontWeight: 700 }}>{m[2]}</strong>);
-    else if (m[3]) parts.push(<em key={m.index} style={{ color: "rgba(234,235,240,0.8)", fontStyle: "italic" }}>{m[3]}</em>);
-    else if (m[4]) parts.push(<code key={m.index} style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", borderRadius: 3, padding: "1px 5px", fontSize: 12, fontFamily: "monospace" }}>{m[4]}</code>);
+    if (m[2]) parts.push(<strong key={m.index} style={{ color: "var(--text-primary)", fontWeight: 700 }}>{m[2]}</strong>);
+    else if (m[3]) parts.push(<em key={m.index} style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>{m[3]}</em>);
+    else if (m[4]) parts.push(<code key={m.index} style={{ background: "var(--accent-dim, rgba(8,145,178,0.1))", color: "var(--accent)", borderRadius: 3, padding: "1px 5px", fontSize: 12, fontFamily: "monospace" }}>{m[4]}</code>);
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
@@ -5957,7 +5955,7 @@ function EdgeMsg({ msg }) {
       {!isUser && (
         <div style={{
           fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-          color: "#22d3ee", marginBottom: 5, paddingLeft: 2,
+          color: "var(--accent)", marginBottom: 5, paddingLeft: 2,
           fontFamily: "'Plus Jakarta Sans', sans-serif",
         }}>EDGE</div>
       )}
@@ -5965,22 +5963,18 @@ function EdgeMsg({ msg }) {
         maxWidth: isUser ? "78%" : "88%",
         padding: "11px 16px",
         borderRadius: isUser ? "14px 14px 3px 14px" : "14px 14px 14px 3px",
-        background: isUser
-          ? "linear-gradient(135deg, rgba(34,211,238,0.14) 0%, rgba(34,211,238,0.07) 100%)"
-          : "rgba(255,255,255,0.04)",
-        border: isUser ? "1px solid rgba(34,211,238,0.22)" : "1px solid rgba(255,255,255,0.07)",
-        color: isUser ? "#e2fffe" : "rgba(234,235,240,0.9)",
+        background: isUser ? "var(--accent-dim, rgba(8,145,178,0.1))" : "var(--bg-tertiary)",
+        border: isUser ? "1px solid var(--accent-border, rgba(8,145,178,0.25))" : "1px solid var(--border-primary)",
+        color: "var(--text-primary)",
         fontSize: 14, lineHeight: 1.7, wordBreak: "break-word",
         fontFamily: "'Plus Jakarta Sans', sans-serif",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-        boxShadow: isUser
-          ? "0 2px 12px rgba(34,211,238,0.07), inset 0 1px 0 rgba(34,211,238,0.1)"
-          : "0 2px 12px rgba(0,0,0,0.12)",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
       }}>
         {isUser ? msg.content : renderEdgeMarkdown(msg.content)}
       </div>
       <div style={{
-        fontSize: 10, color: "rgba(160,163,181,0.4)", marginTop: 4,
+        fontSize: 10, color: "var(--text-tertiary)", marginTop: 4,
         paddingLeft: isUser ? 0 : 2, paddingRight: isUser ? 2 : 0,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}>
@@ -6001,15 +5995,15 @@ function EdgeTyping() {
     >
       <div style={{
         fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-        color: "#22d3ee", marginBottom: 5, paddingLeft: 2, fontFamily: "'Plus Jakarta Sans', sans-serif",
+        color: "var(--accent)", marginBottom: 5, paddingLeft: 2, fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}>EDGE</div>
       <div style={{
         padding: "11px 16px", borderRadius: "14px 14px 14px 3px",
-        background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+        background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         display: "flex", alignItems: "center", gap: 8,
       }}>
-        <span style={{ fontSize: 13, color: "rgba(160,163,181,0.6)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Thinking</span>
+        <span style={{ fontSize: 13, color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Thinking</span>
         <TypingDots />
       </div>
     </motion.div>
@@ -6027,7 +6021,7 @@ export function EdgeChatView({ supabase, user, trades }) {
   const textareaRef = useRef(null);
   const hasMessages = messages.length > 0;
 
-  useEffect(() => { buildSystemContext(); }, []);
+  useEffect(() => { buildSystemContext(); }, [trades.length]);
 
   const buildSystemContext = async () => {
     setCtxLoading(true);
@@ -6180,12 +6174,11 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
       >
         <div style={{
           fontSize: 10, fontWeight: 700, letterSpacing: "0.2em",
-          textTransform: "uppercase", color: "#22d3ee", marginBottom: 10,
-        }}>EDGE CHAT</div>
+          textTransform: "uppercase", color: "var(--accent)", marginBottom: 10,
+        }}>EDGE AI</div>
         <h2 style={{
           fontSize: 26, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 10px",
-          background: "linear-gradient(135deg, rgba(234,235,240,0.95) 0%, rgba(234,235,240,0.45) 100%)",
-          WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+          color: "var(--text-primary)",
         }}>
           Talk to Edge.
         </h2>
@@ -6193,9 +6186,9 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
           initial={{ width: 0, opacity: 0 }}
           animate={{ width: "100%", opacity: 1 }}
           transition={{ delay: 0.35, duration: 0.7 }}
-          style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(34,211,238,0.2), transparent)", marginBottom: 10 }}
+          style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border-primary), transparent)", marginBottom: 10 }}
         />
-        <p style={{ fontSize: 13, color: "rgba(160,163,181,0.6)", margin: 0, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: 0, lineHeight: 1.6 }}>
           Your AI trading coach — powered by your actual data.
         </p>
       </motion.div>
@@ -6245,7 +6238,7 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 </div>
                 <p style={{
                   margin: 0, fontSize: 13, lineHeight: 1.6,
-                  color: "rgba(160,163,181,0.75)", fontStyle: "italic",
+                  color: "var(--text-tertiary)", fontStyle: "italic",
                 }}>
                   "{p.example}"
                 </p>
@@ -6262,10 +6255,10 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
         style={{
           width: "100%", maxWidth: 660,
           borderRadius: 18,
-          background: "rgba(255,255,255,0.025)",
+          background: "var(--bg-secondary)",
           backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
+          border: "1px solid var(--border-primary)",
+          boxShadow: "var(--card-glow)",
           overflow: "hidden", position: "relative",
         }}
       >
@@ -6306,7 +6299,7 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
             padding: "14px 24px 0",
             display: "flex", alignItems: "center", gap: 8,
           }}>
-            <span style={{ fontSize: 12, color: "rgba(160,163,181,0.4)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Loading your trading context
             </span>
             <TypingDots />
@@ -6323,13 +6316,13 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 style={{
                   fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
                   padding: "4px 12px", borderRadius: 20,
-                  background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "rgba(160,163,181,0.5)", cursor: "pointer",
+                  background: "transparent", border: "1px solid var(--border-primary)",
+                  color: "var(--text-tertiary)", cursor: "pointer",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   transition: "all 0.15s",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "rgba(160,163,181,0.8)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(160,163,181,0.5)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; }}
               >
                 New Chat
               </button>
@@ -6339,11 +6332,11 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
           {/* Input box */}
           <div style={{
             display: "flex", alignItems: "flex-end", gap: 10,
-            background: "rgba(255,255,255,0.04)",
-            border: `1px solid ${inputFocused ? "rgba(34,211,238,0.3)" : "rgba(255,255,255,0.08)"}`,
+            background: "var(--bg-tertiary)",
+            border: `1px solid ${inputFocused ? "var(--accent)" : "var(--border-primary)"}`,
             borderRadius: 12, padding: "10px 12px",
             transition: "border-color 0.2s",
-            boxShadow: inputFocused ? "0 0 0 3px rgba(34,211,238,0.06)" : "none",
+            boxShadow: inputFocused ? "0 0 0 3px var(--accent-dim, rgba(8,145,178,0.08))" : "none",
           }}>
             <textarea
               ref={textareaRef}
@@ -6365,7 +6358,7 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 flex: 1, resize: "none", overflow: "hidden", boxSizing: "border-box",
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 fontSize: 14, lineHeight: 1.55,
-                color: "rgba(234,235,240,0.9)",
+                color: "var(--text-primary)",
                 background: "transparent", border: "none", outline: "none",
                 minHeight: 26, maxHeight: 120,
                 opacity: ctxLoading ? 0.4 : 1,
