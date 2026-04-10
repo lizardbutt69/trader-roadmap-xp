@@ -5899,6 +5899,52 @@ function TypingDots() {
   );
 }
 
+function renderEdgeMarkdown(text) {
+  const lines = text.split("\n");
+  const elements = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // H1/H2/H3
+    if (/^### (.+)/.test(line)) {
+      elements.push(<div key={i} style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#22d3ee", marginTop: 14, marginBottom: 4 }}>{line.replace(/^### /, "")}</div>);
+    } else if (/^## (.+)/.test(line)) {
+      elements.push(<div key={i} style={{ fontSize: 13, fontWeight: 700, color: "rgba(234,235,240,0.95)", marginTop: 16, marginBottom: 5 }}>{line.replace(/^## /, "")}</div>);
+    } else if (/^# (.+)/.test(line)) {
+      elements.push(<div key={i} style={{ fontSize: 14, fontWeight: 800, color: "rgba(234,235,240,1)", marginTop: 16, marginBottom: 6 }}>{line.replace(/^# /, "")}</div>);
+    } else if (/^---+$/.test(line.trim())) {
+      elements.push(<hr key={i} style={{ border: "none", borderTop: "1px solid rgba(255,255,255,0.08)", margin: "12px 0" }} />);
+    } else if (/^(\s*[-*•])\s+/.test(line)) {
+      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "#22d3ee", flexShrink: 0, marginTop: 1 }}>·</span><span>{inlineStyles(line.replace(/^\s*[-*•]\s+/, ""))}</span></div>);
+    } else if (/^\d+\.\s+/.test(line)) {
+      const num = line.match(/^(\d+)\./)[1];
+      elements.push(<div key={i} style={{ display: "flex", gap: 8, marginTop: 3 }}><span style={{ color: "#22d3ee", flexShrink: 0, minWidth: 16, fontWeight: 700, fontSize: 12 }}>{num}.</span><span>{inlineStyles(line.replace(/^\d+\.\s+/, ""))}</span></div>);
+    } else if (line.trim() === "") {
+      elements.push(<div key={i} style={{ height: 8 }} />);
+    } else {
+      elements.push(<div key={i} style={{ marginTop: 2 }}>{inlineStyles(line)}</div>);
+    }
+    i++;
+  }
+  return elements;
+}
+
+function inlineStyles(text) {
+  // **bold**, *italic*, `code`
+  const parts = [];
+  const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  let last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[2]) parts.push(<strong key={m.index} style={{ color: "rgba(234,235,240,1)", fontWeight: 700 }}>{m[2]}</strong>);
+    else if (m[3]) parts.push(<em key={m.index} style={{ color: "rgba(234,235,240,0.8)", fontStyle: "italic" }}>{m[3]}</em>);
+    else if (m[4]) parts.push(<code key={m.index} style={{ background: "rgba(34,211,238,0.1)", color: "#22d3ee", borderRadius: 3, padding: "1px 5px", fontSize: 12, fontFamily: "monospace" }}>{m[4]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 && typeof parts[0] === "string" ? parts[0] : parts;
+}
+
 function EdgeMsg({ msg }) {
   const isUser = msg.role === "user";
   return (
@@ -5924,14 +5970,14 @@ function EdgeMsg({ msg }) {
           : "rgba(255,255,255,0.04)",
         border: isUser ? "1px solid rgba(34,211,238,0.22)" : "1px solid rgba(255,255,255,0.07)",
         color: isUser ? "#e2fffe" : "rgba(234,235,240,0.9)",
-        fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word",
+        fontSize: 14, lineHeight: 1.7, wordBreak: "break-word",
         fontFamily: "'Plus Jakarta Sans', sans-serif",
         backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         boxShadow: isUser
           ? "0 2px 12px rgba(34,211,238,0.07), inset 0 1px 0 rgba(34,211,238,0.1)"
           : "0 2px 12px rgba(0,0,0,0.12)",
       }}>
-        {msg.content}
+        {isUser ? msg.content : renderEdgeMarkdown(msg.content)}
       </div>
       <div style={{
         fontSize: 10, color: "rgba(160,163,181,0.4)", marginTop: 4,
