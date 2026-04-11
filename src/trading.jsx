@@ -2239,6 +2239,17 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const calNext = () => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); };
   const firstDay = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  // Mon-first offset: Mon=0 … Fri=4, clamp Sat(5)/Sun(6) → 0 (month starts on weekend, no leading empties needed)
+  const firstDayMon = firstDay === 0 ? 0 : firstDay === 6 ? 0 : firstDay - 1;
+  const getWeekPnl = (fridayDate) => {
+    let total = 0;
+    for (let offset = 4; offset >= 0; offset--) {
+      const d = new Date(calYear, calMonth, fridayDate - offset);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      total += dayMap[k]?.pnl || 0;
+    }
+    return total;
+  };
   const todayDate = new Date();
 
   return (
@@ -2307,46 +2318,73 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           </div>
         </div>
         <div style={{ padding: 20 }}>
-          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div key={d} style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", padding: 6, letterSpacing: "0.05em" }}>{d}</div>
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 80px", gap: 6, marginBottom: 6 }}>
+            {["Mon", "Tue", "Wed", "Thu", "Fri", "Week"].map((d) => (
+              <div key={d} style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: d === "Week" ? "var(--accent)" : "var(--text-tertiary)", textTransform: "uppercase", padding: 6, letterSpacing: "0.05em" }}>{d}</div>
             ))}
           </div>
-          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-            {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const d = i + 1;
-              const k = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-              const data = dayMap[k];
-              const isToday = todayDate.getFullYear() === calYear && todayDate.getMonth() === calMonth && todayDate.getDate() === d;
-              const isGreen = data && data.pnl >= 0;
-              const isRed = data && data.pnl < 0;
-              return (
-                <div
-                  key={d}
-                  onClick={data ? () => setDayPopup({ day: d, k, data }) : undefined}
-                  className="cal-day"
-                  style={{
-                    minHeight: 76, borderRadius: 6, padding: "8px 10px", fontSize: 13,
-                    border: `1px solid ${isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--border-primary)"}`,
-                    background: isGreen ? "var(--accent-glow)" : isRed ? "rgba(239,68,68,0.06)" : "var(--bg-tertiary)",
-                    cursor: data ? "pointer" : "default",
-                    boxShadow: isToday ? "0 0 0 2px var(--accent-secondary)" : isGreen ? "none" : "none",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <div className="cal-day-num" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--text-tertiary)", marginBottom: 4 }}>{d}</div>
-                  {data && (
-                    <>
-                      <div className="cal-pnl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: isGreen ? "var(--green)" : "var(--red)" }}>
-                        {privacyMode ? MASK : `${data.pnl >= 0 ? "+" : ""}$${data.pnl.toFixed(0)}`}
+          <div className="cal-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr) 80px", gap: 6 }}>
+            {Array.from({ length: firstDayMon }, (_, i) => <div key={`e${i}`} />)}
+            {(() => {
+              const cells = [];
+              for (let i = 1; i <= daysInMonth; i++) {
+                const dow = new Date(calYear, calMonth, i).getDay(); // 0=Sun, 6=Sat
+                if (dow === 0 || dow === 6) continue; // skip weekends
+                const k = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+                const data = dayMap[k];
+                const isToday = todayDate.getFullYear() === calYear && todayDate.getMonth() === calMonth && todayDate.getDate() === i;
+                const isGreen = data && data.pnl >= 0;
+                const isRed = data && data.pnl < 0;
+                cells.push(
+                  <div
+                    key={i}
+                    onClick={data ? () => setDayPopup({ day: i, k, data }) : undefined}
+                    className="cal-day"
+                    style={{
+                      minHeight: 76, borderRadius: 6, padding: "8px 10px", fontSize: 13,
+                      border: `1px solid ${isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--border-primary)"}`,
+                      background: isGreen ? "var(--accent-glow)" : isRed ? "rgba(239,68,68,0.06)" : "var(--bg-tertiary)",
+                      cursor: data ? "pointer" : "default",
+                      boxShadow: isToday ? "0 0 0 2px var(--accent-secondary)" : "none",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div className="cal-day-num" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: isGreen ? "var(--green)" : isRed ? "var(--red)" : "var(--text-tertiary)", marginBottom: 4 }}>{i}</div>
+                    {data && (
+                      <>
+                        <div className="cal-pnl" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: isGreen ? "var(--green)" : "var(--red)" }}>
+                          {privacyMode ? MASK : `${data.pnl >= 0 ? "+" : ""}$${data.pnl.toFixed(0)}`}
+                        </div>
+                        <div className="cal-count" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{data.count} trade{data.count !== 1 ? "s" : ""}</div>
+                      </>
+                    )}
+                  </div>
+                );
+                // After Friday (or last day of month if week is incomplete), inject weekly total
+                const isLastDayOfMonth = i === daysInMonth;
+                const nextDow = isLastDayOfMonth ? -1 : new Date(calYear, calMonth, i + 1).getDay();
+                const weekEnds = dow === 5 || isLastDayOfMonth || nextDow === 6 || nextDow === 0;
+                if (weekEnds) {
+                  const weekPnl = getWeekPnl(dow === 5 ? i : i + (5 - dow));
+                  const wGreen = weekPnl > 0;
+                  const wRed = weekPnl < 0;
+                  cells.push(
+                    <div key={`w${i}`} style={{
+                      minHeight: 76, borderRadius: 6, padding: "8px 10px",
+                      border: `1px solid ${wGreen ? "rgba(52,211,153,0.3)" : wRed ? "rgba(239,68,68,0.3)" : "var(--border-primary)"}`,
+                      background: wGreen ? "rgba(52,211,153,0.05)" : wRed ? "rgba(239,68,68,0.04)" : "var(--bg-tertiary)",
+                      display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 4,
+                    }}>
+                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--accent)", opacity: 0.7 }}>WEEK</div>
+                      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 13, color: wGreen ? "var(--green)" : wRed ? "var(--red)" : "var(--text-tertiary)" }}>
+                        {weekPnl === 0 ? "—" : privacyMode ? MASK : `${weekPnl >= 0 ? "+" : ""}$${weekPnl.toFixed(0)}`}
                       </div>
-                      <div className="cal-count" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>{data.count} trade{data.count !== 1 ? "s" : ""}</div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                    </div>
+                  );
+                }
+              }
+              return cells;
+            })()}
           </div>
         </div>
       </TCard>
@@ -5851,7 +5889,7 @@ const EDGE_PROMPTS = [
     label: "Pre-Session Brief",
     color: "#34d399",
     colorRaw: "52,211,153",
-    icon: "🌅",
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>,
     example: "Edge, look at my last 5 sessions and give me my 3 sharpest focuses for today's NY open.",
   },
   {
@@ -5859,7 +5897,7 @@ const EDGE_PROMPTS = [
     label: "Journal Entry Coach",
     color: "#fbbf24",
     colorRaw: "251,191,36",
-    icon: "📓",
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
     example: "Edge, read my latest journal entry — was I being honest with myself, and what should I actually work on next session?",
   },
   {
@@ -5867,7 +5905,7 @@ const EDGE_PROMPTS = [
     label: "Trading Summary",
     color: "#818cf8",
     colorRaw: "129,140,248",
-    icon: "📊",
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
     example: "Edge, break down my trading this week. What am I doing well, what's hurting my P&L, and what's the one thing to fix?",
   },
   {
@@ -5875,7 +5913,7 @@ const EDGE_PROMPTS = [
     label: "Trade History Analyzer",
     color: "#22d3ee",
     colorRaw: "34,211,238",
-    icon: "🔍",
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
     example: "Edge, scan this month's trades. Show me my top mistake patterns and what my winning trades all have in common.",
   },
 ];
@@ -6231,7 +6269,7 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 onMouseLeave={(e) => { e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.04)`; }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{ fontSize: 14 }}>{p.icon}</span>
+                  <span style={{ color: p.color, display: "flex", alignItems: "center" }}>{p.icon}</span>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: p.color }}>
                     {p.label}
                   </span>
