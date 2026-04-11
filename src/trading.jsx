@@ -3328,7 +3328,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
       </div>
       {!accounts.length && (
         <TCard style={{ padding: 48, textAlign: "center", marginBottom: 24 }}>
-          <div style={{ fontSize: 40, marginBottom: 16 }}>📊</div>
+          <div style={{ marginBottom: 16, display: "flex", justifyContent: "center", color: "var(--text-tertiary)", opacity: 0.4 }}><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
           <div style={{ fontSize: 16, color: "var(--text-tertiary)" }}>No accounts yet. Click <strong>+ Add Account</strong> to get started.</div>
         </TCard>
       )}
@@ -3418,7 +3418,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
         {/* Payout entries */}
         {!payouts.length && (
           <TCard style={{ padding: 36, textAlign: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>💰</div>
+            <div style={{ marginBottom: 12, display: "flex", justifyContent: "center", color: "var(--text-tertiary)", opacity: 0.4 }}><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
             <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>No payouts logged yet. Record your first payout below.</div>
           </TCard>
         )}
@@ -3464,7 +3464,7 @@ export function AccountsView({ supabase, user, privacyMode }) {
             border: "1px solid rgba(52,211,153,0.4)", borderRadius: 12, padding: "16px 28px",
             backdropFilter: "blur(16px)", boxShadow: "0 8px 32px rgba(52,211,153,0.2)",
           }}>
-            <div style={{ fontSize: 28 }}>💰</div>
+            <div style={{ color: "var(--green)", display: "flex", alignItems: "center" }}><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--green)", letterSpacing: "0.02em" }}>Payout Logged!</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>${Number(payoutCelebration).toLocaleString()} — keep stacking.</div>

@@ -725,8 +725,9 @@ export default function TraderRoadmapXP() {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === "SIGNED_IN") { localStorage.setItem("ts_active_tab", "map"); setView("map"); }
     });
     return () => subscription.unsubscribe();
   }, []);
