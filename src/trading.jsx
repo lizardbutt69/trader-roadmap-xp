@@ -5545,14 +5545,14 @@ function AIToolCard({ title, description, accentColor = "var(--accent)", icon, c
     <TCard style={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderTop: `3px solid ${accentColor}` }}>
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 24px 16px" }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: accentColor }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accentColor}28`, border: `1px solid ${accentColor}50`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: accentColor }}>
           {icon}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>{title}</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>{description}</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>{description}</div>
         </div>
-        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${accentColor}18`, color: accentColor, flexShrink: 0, letterSpacing: "0.08em" }}>AI</span>
+        <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${accentColor}28`, color: accentColor, flexShrink: 0, letterSpacing: "0.08em" }}>AI</span>
       </div>
       {/* Controls */}
       <div style={{ padding: "0 24px 16px", borderBottom: "1px solid var(--border-primary)" }}>{controls}</div>
@@ -6046,18 +6046,17 @@ export function EdgeChatView({ supabase, user, trades }) {
         const { data: plan } = await supabase.from("trade_plans").select("bias, key_levels, session_plan, notes").eq("user_id", user.id).eq("plan_date", todayStr).single();
         if (plan) todayPlan = `Bias: ${plan.bias || "–"} | Key levels: ${plan.key_levels || "–"} | Session plan: ${plan.session_plan || "–"} | Notes: ${plan.notes || "–"}`;
       } catch {}
-      let notebookSection = "No recent journal entries found.";
+      let notebookSection = "No journal entry found.";
       try {
-        const { data: nbEntries } = await supabase.from("notebook_entries").select("entry_date, recap, eod_reflection").eq("user_id", user.id).order("entry_date", { ascending: false }).limit(5);
+        const { data: nbEntries } = await supabase.from("notebook_entries").select("entry_date, recap, eod_reflection").eq("user_id", user.id).order("entry_date", { ascending: false }).limit(1);
         if (nbEntries?.length) {
-          notebookSection = nbEntries.map(e => {
-            const dayTrades = taken.filter(t => t.dt?.slice(0, 10) === e.entry_date);
-            const w = dayTrades.filter(t => profit(t) > 0).length;
-            const l = dayTrades.filter(t => profit(t) < 0).length;
-            const pnl = dayTrades.reduce((s, t) => s + profit(t), 0);
-            const tradesSummary = dayTrades.length ? ` | Trades: ${dayTrades.length} (${w}W/${l}L, $${pnl.toFixed(0)})` : " | No trades logged";
-            return `${e.entry_date}${tradesSummary}\n  RECAP: ${e.recap || "(blank)"}\n  EOD REFLECTION: ${e.eod_reflection || "(blank)"}`;
-          }).join("\n\n");
+          const e = nbEntries[0];
+          const dayTrades = taken.filter(t => t.dt?.slice(0, 10) === e.entry_date);
+          const w = dayTrades.filter(t => profit(t) > 0).length;
+          const l = dayTrades.filter(t => profit(t) < 0).length;
+          const pnl = dayTrades.reduce((s, t) => s + profit(t), 0);
+          const tradesSummary = dayTrades.length ? ` | Trades: ${dayTrades.length} (${w}W/${l}L, $${pnl.toFixed(0)})` : " | No trades logged";
+          notebookSection = `${e.entry_date}${tradesSummary}\n  RECAP: ${e.recap || "(blank)"}\n  EOD REFLECTION: ${e.eod_reflection || "(blank)"}`;
         }
       } catch {}
       setSystemCtx(`You are Edge, an elite trading coach inside TradeSharp. You work exclusively with this trader and know their full performance history.
@@ -6080,7 +6079,7 @@ TOP TAGS (last 30 trades): ${topTags}
 
 TODAY'S PLAN: ${todayPlan}
 
-RECENT JOURNAL ENTRIES (last 5, newest first):
+LATEST JOURNAL ENTRY:
 ${notebookSection}
 
 COACHING STYLE: Be direct, specific, and honest — like a tough but fair older brother. No fluff. Reference actual numbers from the data above. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
@@ -6193,15 +6192,15 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 style={{
                   display: "flex", flexDirection: "column", alignItems: "flex-start",
                   gap: 8, padding: "14px 16px", borderRadius: 14, textAlign: "left",
-                  background: `rgba(${p.colorRaw}, 0.04)`,
-                  border: `1px solid rgba(${p.colorRaw}, 0.15)`,
+                  background: `rgba(${p.colorRaw}, 0.08)`,
+                  border: `1px solid rgba(${p.colorRaw}, 0.28)`,
                   cursor: ctxLoading ? "not-allowed" : "pointer",
                   opacity: ctxLoading ? 0.45 : 1,
                   transition: "background 0.15s, border-color 0.15s",
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                 }}
-                onMouseEnter={(e) => { if (!ctxLoading) e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.08)`; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.04)`; }}
+                onMouseEnter={(e) => { if (!ctxLoading) e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.14)`; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = `rgba(${p.colorRaw}, 0.08)`; }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                   <span style={{ color: p.color, display: "flex", alignItems: "center" }}>{p.icon}</span>
@@ -6346,20 +6345,19 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
                 flexShrink: 0, width: 34, height: 34, borderRadius: 8,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 background: input.trim() && !isLoading && !ctxLoading
-                  ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.05)",
-                border: "none",
-                color: input.trim() && !isLoading && !ctxLoading ? "#0b0d13" : "rgba(160,163,181,0.35)",
+                  ? "var(--text-primary)" : "var(--bg-tertiary)",
+                border: "1px solid var(--border-primary)",
+                color: input.trim() && !isLoading && !ctxLoading ? "var(--bg-primary)" : "var(--text-tertiary)",
                 cursor: input.trim() && !isLoading && !ctxLoading ? "pointer" : "not-allowed",
                 transition: "background 0.2s, color 0.2s",
-                boxShadow: input.trim() && !isLoading && !ctxLoading
-                  ? "0 2px 10px rgba(255,255,255,0.1)" : "none",
+                boxShadow: "none",
               }}
             >
               {isLoading ? (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                  style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(160,163,181,0.3)", borderTopColor: "rgba(34,211,238,0.7)" }}
+                  style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--border-primary)", borderTopColor: "var(--accent)" }}
                 />
               ) : (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -70,7 +70,16 @@ export default async function handler(req, res) {
       body: JSON.stringify({ model, max_tokens, messages, ...(system ? { system } : {}) }),
     });
     const text = await r.text();
-    if (!r.ok) return res.status(r.status).json({ error: `Anthropic ${r.status}`, detail: text });
+    if (!r.ok) {
+      const friendlyErrors = {
+        529: "Anthropic's API is overloaded right now. Wait a moment and try again.",
+        429: "Rate limit hit. Wait a moment and try again.",
+        401: "Invalid Anthropic API key. Check your key in Profile Settings.",
+        403: "Anthropic API key doesn't have access to this model.",
+      };
+      const msg = friendlyErrors[r.status] || `Anthropic API error (${r.status}). Try again shortly.`;
+      return res.status(r.status).json({ error: msg, detail: text });
+    }
     return res.status(200).json(JSON.parse(text));
   } catch (e) {
     return res.status(500).json({ error: e.message });
