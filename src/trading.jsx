@@ -3719,51 +3719,8 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
         </div>
       </TCard>
 
-      {/* Account Health */}
-      {activeAccounts.length > 0 && (
-        <TCard style={{ padding: 24, marginBottom: 24 }}>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-            ACCOUNT HEALTH
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {activeAccounts.map((acc) => {
-              const pnl = Number(acc.current_pnl) || 0;
-              const target = Number(acc.profit_target) || 1;
-              const dd = Number(acc.max_drawdown) || 1;
-              const profitPct = Math.max(0, (pnl / target) * 100);
-              const ddUsed = Math.abs(Math.min(0, pnl));
-              const ddPct = (ddUsed / dd) * 100;
-              const ddColor = ddPct >= DRAWDOWN_DANGER * 100 ? "var(--red)" : ddPct >= DRAWDOWN_WARNING * 100 ? "var(--gold)" : "var(--text-tertiary)";
-              return (
-                <div key={acc.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}`}</span>
-                  </div>
-                  {acc.profit_target && (
-                    <div style={{ marginBottom: 6 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase" }}>Profit Target</span>
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{Math.round(profitPct)}%</span>
-                      </div>
-                      <ProgressBar pct={profitPct} color="var(--green)" />
-                    </div>
-                  )}
-                  {acc.max_drawdown && (
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase" }}>Drawdown Used</span>
-                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: ddColor }}>{Math.round(ddPct)}%</span>
-                      </div>
-                      <ProgressBar pct={ddPct} color={ddColor} />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </TCard>
-      )}
+      {/* Economic Calendar */}
+      <EconomicCalendarView />
 
       {/* News Command Center */}
       <NewsView />
@@ -3824,7 +3781,9 @@ export function NewsView() {
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
 
       {/* Motivational Quotes Bar */}
-      <MotivationalQuotesBar />
+      <div style={{ marginTop: 24 }}>
+        <MotivationalQuotesBar />
+      </div>
 
       {/* Live News Stream */}
       <TCard style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
@@ -3946,9 +3905,6 @@ export function NewsView() {
         </div>
       </TCard>
 
-      {/* Economic Calendar */}
-      <EconomicCalendarView />
-
     </div>
   );
 }
@@ -3971,9 +3927,7 @@ const TIMEZONE_OPTIONS = [
 
 export function EconomicCalendarView() {
   const [now, setNow] = useState(new Date());
-  const [displayTZ, setDisplayTZ] = useState(
-    () => localStorage.getItem("displayTimezone") || Intl.DateTimeFormat().resolvedOptions().timeZone
-  );
+  const displayTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [alertsEnabled, setAlertsEnabled] = useState(
     () => localStorage.getItem("newsAlertsEnabled") === "true"
   );
@@ -4008,11 +3962,6 @@ export function EconomicCalendarView() {
   const hasMediumToday = todayMedium.length > 0;
   const imminent = minsUntilNext !== null && minsUntilNext >= -10 && minsUntilNext <= 30;
 
-  function handleTZChange(tz) {
-    setDisplayTZ(tz);
-    localStorage.setItem("displayTimezone", tz);
-  }
-
   async function handleEnableAlerts() {
     if (alertsEnabled) {
       setAlertsEnabled(false);
@@ -4039,152 +3988,138 @@ export function EconomicCalendarView() {
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
 
-      {/* Status Shield */}
-      <div style={{
-        marginBottom: 20, borderRadius: 10, padding: "24px 28px",
-        background: statusConfig.bg,
-        border: `1px solid ${statusConfig.color}33`,
-        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
-        position: "relative", overflow: "hidden",
-      }}>
-        {/* Radial glow */}
-        <div style={{
-          position: "absolute", right: -40, top: "50%", transform: "translateY(-50%)",
-          width: 200, height: 200, borderRadius: "50%",
-          background: `radial-gradient(circle, ${statusConfig.color}20 0%, transparent 70%)`,
-          pointerEvents: "none",
-        }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ position: "relative", flexShrink: 0 }}>
-            {statusConfig.pulse && (
-              <div style={{
-                position: "absolute", inset: -4, borderRadius: "50%",
-                background: `${statusConfig.color}30`,
-                animation: "hudPulse 1.5s ease-in-out infinite",
-              }} />
-            )}
-            <div style={{
-              width: 12, height: 12, borderRadius: "50%",
-              background: statusConfig.color,
-              boxShadow: `0 0 8px ${statusConfig.color}`,
-              animation: statusConfig.pulse ? "hudPulse 1.5s ease-in-out infinite" : "none",
-            }} />
-          </div>
-          <div>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
-              color: statusConfig.color, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4,
-            }}>
-              {statusConfig.label}
-            </div>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800,
-              color: "var(--text-primary)", letterSpacing: "-0.02em",
-            }}>
-              {statusConfig.title}
-            </div>
-            {nextHighEvent && minsUntilNext !== null && (
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
-                color: "var(--text-secondary)", marginTop: 4,
-              }}>
-                {imminent
-                  ? `${nextHighEvent.name} — ${minsUntilNext > 0 ? `in ${minsUntilNext}m` : `${Math.abs(minsUntilNext)}m ago`} (${formatEventTime(nextHighEvent, displayTZ)})`
-                  : `Next: ${nextHighEvent.name} — ${formatEventTime(nextHighEvent, displayTZ)}`}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Economic Calendar — combined status + events card */}
+      <TCard style={{ padding: 0, overflow: "hidden", border: `1px solid ${statusConfig.color}33` }}>
 
-        {/* Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {/* Timezone selector */}
-          <select
-            value={displayTZ}
-            onChange={(e) => handleTZChange(e.target.value)}
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600,
-              padding: "6px 10px", borderRadius: 5,
-              background: "var(--bg-tertiary)", color: "var(--text-primary)",
-              border: "1px solid var(--border-primary)", cursor: "pointer", outline: "none",
-            }}
-          >
-            {TIMEZONE_OPTIONS.map((tz) => (
-              <option key={tz.value} value={tz.value}>{tz.label}</option>
-            ))}
-          </select>
-          {/* Alerts toggle */}
-          <button
-            onClick={handleEnableAlerts}
-            style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
-              padding: "6px 14px", borderRadius: 5, cursor: "pointer",
-              textTransform: "uppercase", letterSpacing: "0.06em",
-              border: alertsEnabled ? "1px solid #34d399" : "1px solid var(--border-primary)",
-              background: alertsEnabled ? "rgba(52,211,153,0.1)" : "transparent",
-              color: alertsEnabled ? "#34d399" : "var(--text-tertiary)",
-              transition: "all 0.2s",
-            }}
-          >
-            {alertsEnabled ? "✓ Alerts On" : "Enable Alerts"}
-          </button>
-        </div>
-      </div>
-
-      {/* Weekly Events List */}
-      <TCard style={{ padding: 0, overflow: "hidden" }}>
+        {/* Header: status left, controls + week nav right */}
         <div style={{
-          padding: "12px 20px", borderBottom: "1px solid var(--border-primary)",
+          padding: "16px 20px",
+          background: statusConfig.bg,
+          borderBottom: `1px solid ${statusConfig.color}22`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 12,
+          position: "relative", overflow: "hidden",
         }}>
-          {/* Title */}
-          <div>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
-              color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em",
-            }}>
-              Economic Calendar
+          {/* Radial glow */}
+          <div style={{
+            position: "absolute", right: -40, top: "50%", transform: "translateY(-50%)",
+            width: 180, height: 180, borderRadius: "50%",
+            background: `radial-gradient(circle, ${statusConfig.color}18 0%, transparent 70%)`,
+            pointerEvents: "none",
+          }} />
+
+          {/* Status + calendar title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            {/* Dot */}
+            <div style={{ position: "relative", flexShrink: 0 }}>
+              {statusConfig.pulse && (
+                <div style={{
+                  position: "absolute", inset: -4, borderRadius: "50%",
+                  background: `${statusConfig.color}30`,
+                  animation: "hudPulse 1.5s ease-in-out infinite",
+                }} />
+              )}
+              <div style={{
+                width: 10, height: 10, borderRadius: "50%",
+                background: statusConfig.color,
+                boxShadow: `0 0 8px ${statusConfig.color}`,
+                animation: statusConfig.pulse ? "hudPulse 1.5s ease-in-out infinite" : "none",
+              }} />
             </div>
-            <div style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 1,
-            }}>
-              {TIMEZONE_OPTIONS.find((t) => t.value === displayTZ)?.label || displayTZ}
+            {/* Text */}
+            <div>
+              <div>
+                <span style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                  color: statusConfig.color, textTransform: "uppercase", letterSpacing: "0.12em",
+                }}>
+                  {statusConfig.label}
+                </span>
+              </div>
+              {nextHighEvent && minsUntilNext !== null ? (
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 500,
+                  color: "var(--text-tertiary)", marginTop: 2,
+                }}>
+                  <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>Economic Calendar</span>
+                  {" · "}
+                  {imminent
+                    ? `${nextHighEvent.name} — ${minsUntilNext > 0 ? `in ${minsUntilNext}m` : `${Math.abs(minsUntilNext)}m ago`} · ${formatEventTime(nextHighEvent, displayTZ)}`
+                    : `Next high-impact: ${nextHighEvent.name} · ${formatEventTime(nextHighEvent, displayTZ)}`}
+                </div>
+              ) : (
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11,
+                  color: "var(--text-tertiary)", marginTop: 2,
+                }}>
+                  Economic Calendar
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Week navigator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => setWeekOffset((w) => w - 1)}
-              style={{
-                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
-                fontSize: 14, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}
-            >‹</button>
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
-                color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em",
-              }}>
-                {weekOffset === 0 ? "This Week" : weekOffset === 1 ? "Next Week" : weekOffset === -1 ? "Last Week" : weekOffset > 0 ? `+${weekOffset} Weeks` : `${weekOffset} Weeks`}
+          {/* Right controls: week nav + tz + alerts */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {/* Week navigator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                onClick={() => setWeekOffset((w) => w - 1)}
+                style={{
+                  background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                  borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
+                  fontSize: 14, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >‹</button>
+              <div style={{ textAlign: "center", minWidth: 80 }}>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700,
+                  color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em",
+                }}>
+                  {weekOffset === 0 ? "This Week" : weekOffset === 1 ? "Next Week" : weekOffset === -1 ? "Last Week" : weekOffset > 0 ? `+${weekOffset}w` : `${weekOffset}w`}
+                </div>
+                <div style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)", marginTop: 1,
+                }}>
+                  {fmtWeekDate(weekStart)} – {fmtWeekDate(weekEnd)}
+                </div>
               </div>
-              <div style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 1,
-              }}>
-                {fmtWeekDate(weekStart)} – {fmtWeekDate(weekEnd)}
-              </div>
+              <button
+                onClick={() => setWeekOffset((w) => w + 1)}
+                style={{
+                  background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
+                  borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
+                  fontSize: 14, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                }}
+              >›</button>
             </div>
+            {/* Divider */}
+            <div style={{ width: 1, height: 20, background: "var(--border-primary)" }} />
+            {/* Alerts icon button */}
             <button
-              onClick={() => setWeekOffset((w) => w + 1)}
+              onClick={handleEnableAlerts}
+              title={alertsEnabled ? "Alerts on — click to disable" : "Enable news alerts"}
               style={{
-                background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)",
-                borderRadius: 4, cursor: "pointer", color: "var(--text-secondary)",
-                fontSize: 14, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                width: 30, height: 30, borderRadius: 5, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: alertsEnabled ? "1px solid #34d399" : "1px solid var(--border-primary)",
+                background: alertsEnabled ? "rgba(52,211,153,0.1)" : "transparent",
+                color: alertsEnabled ? "#34d399" : "var(--text-tertiary)",
+                transition: "all 0.2s", fontSize: 15,
               }}
-            >›</button>
+            >
+              {alertsEnabled ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+              )}
+            </button>
           </div>
         </div>
         <div>
