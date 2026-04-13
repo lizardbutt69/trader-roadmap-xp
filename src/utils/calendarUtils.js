@@ -111,7 +111,7 @@ export function getEventsForWeek(now = new Date()) {
   const etDateStr = getTodayET(now);
   const etDate = new Date(`${etDateStr}T12:00:00`); // noon local to avoid DST edge cases
   const dayOfWeek = etDate.getDay(); // 0=Sun
-  const daysToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const daysToMon = dayOfWeek === 0 ? 1 : 1 - dayOfWeek;
   const monday = new Date(etDate);
   monday.setDate(etDate.getDate() + daysToMon);
 
