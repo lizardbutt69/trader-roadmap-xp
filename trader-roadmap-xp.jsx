@@ -720,14 +720,21 @@ export default function TraderRoadmapXP() {
   }, [gsUrl]);
 
   // Auth listener
+  const wasAuthenticatedRef = useRef(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user) wasAuthenticatedRef.current = true;
       setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      if (event === "SIGNED_IN") { localStorage.setItem("ts_active_tab", "map"); setView("map"); }
+      // Only reset to map on a real new sign-in (not token refresh re-firing SIGNED_IN)
+      if (event === "SIGNED_IN" && !wasAuthenticatedRef.current) {
+        localStorage.setItem("ts_active_tab", "map");
+        setView("map");
+      }
+      wasAuthenticatedRef.current = !!session?.user;
     });
     return () => subscription.unsubscribe();
   }, []);
