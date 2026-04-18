@@ -1231,7 +1231,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 // JOURNAL TAB — Pre-Trade Plan + Log a Trade
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function JournalView({ supabase, user, loadTrades, prefs }) {
+export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) {
   const toast = useToast();
   // Plan state
   const [plan, setPlan] = useState({ session_plan: "" });
