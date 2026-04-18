@@ -131,6 +131,9 @@ alter table trades add column if not exists tags text[];
 alter table trades add column if not exists account_id_personal uuid references accounts(id) on delete set null;
 alter table trades add column if not exists account_id_funded uuid references accounts(id) on delete set null;
 
+-- Per-trade risk amount (overrides default_risk from user_preferences for R multiple calc)
+alter table trades add column if not exists risk numeric;
+
 -- Watchlist table (trade ideas)
 create table if not exists watchlist (
   id uuid default gen_random_uuid() primary key,
@@ -205,3 +208,27 @@ create policy "Users can insert own checklist"
 
 create policy "Users can update own checklist"
   on checklist_items for update using (auth.uid() = user_id);
+
+-- Profile extensions
+alter table profiles add column if not exists bio text;
+alter table profiles add column if not exists timezone text default 'America/New_York';
+
+-- User preferences table
+create table if not exists user_preferences (
+  user_id          uuid references auth.users(id) on delete cascade primary key,
+  experience_level text,
+  trading_style    text,
+  default_risk     numeric,
+  primary_session  text,
+  aplus_options    text[] not null default array['A+','B+','C','Miss'],
+  tags             jsonb not null default '[]'::jsonb,
+  onboarding_complete boolean not null default false,
+  updated_at       timestamptz default now()
+);
+
+alter table user_preferences enable row level security;
+
+create policy "Users manage own preferences"
+  on user_preferences for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

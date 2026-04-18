@@ -503,7 +503,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
 
 // ─── JOURNAL + CHECKLIST COMBINED ────────────────────────────────────────────
 
-function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl, setGsUrl, privacyMode }) {
+function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl, setGsUrl, privacyMode, prefs }) {
   const [checklistOpen, setChecklistOpen] = useState(() => {
     const stored = sessionStorage.getItem("checklistOpen");
     return stored === null ? true : stored === "true";
@@ -544,7 +544,394 @@ function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl,
         )}
       </div>
       {/* Journal */}
-      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
+      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} prefs={prefs} />
+    </div>
+  );
+}
+
+// ─── SETTINGS VIEW ───────────────────────────────────────────────────────────
+
+function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, dark, setDark, privacyMode, setPrivacyMode, userPrefs, setUserPrefs, gsUrl, setGsUrl, uploadAvatar, handleSignOut, currentXP, currentLevel, nextLevel, levels, completed, onNavigate }) {
+  const addToast = useToast();
+  const avatarRef = useRef(null);
+
+  // Section: Profile
+  const [editName, setEditName] = useState(profile.display_name || "");
+  const [editBio, setEditBio] = useState(profile.bio || "");
+  const [editEmail, setEditEmail] = useState(user?.email || "");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Section: Trading Profile
+  const [expLevel, setExpLevel] = useState(userPrefs?.experience_level || "");
+  const [tradingStyle, setTradingStyle] = useState(userPrefs?.trading_style || "");
+  const [defaultRisk, setDefaultRisk] = useState(userPrefs?.default_risk ?? "");
+  const [primarySession, setPrimarySession] = useState(userPrefs?.primary_session || "");
+  const [savingTrading, setSavingTrading] = useState(false);
+
+  // Section: Preferences — quality labels
+  const ICT_APLUS = ["Yes", "No", "Yes to No", "Yes But Execution Sucked"];
+  const ICT_TAGS = [
+    { label: "GXT", color: "#22d3ee" }, { label: "TTFM", color: "#a78bfa" },
+    { label: "CISD", color: "#f59e0b" }, { label: "ICCISD", color: "#fb923c" },
+    { label: "1STG", color: "#34d399" }, { label: "2STG", color: "#60a5fa" },
+    { label: "SMT", color: "#f472b6" }, { label: "PSP", color: "#2dd4bf" },
+    { label: "SSMT", color: "#f87171" }, { label: "SMTFILL", color: "#c084fc" },
+  ];
+  const [aplusOptions, setAplusOptions] = useState(userPrefs?.aplus_options ?? ICT_APLUS);
+  const [newAplus, setNewAplus] = useState("");
+  const [tags, setTags] = useState(userPrefs?.tags ?? ICT_TAGS);
+  const [newTagLabel, setNewTagLabel] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#22d3ee");
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  // Section: Integrations
+  const [editApiKey, setEditApiKey] = useState(apiKey || "");
+  const [editGsUrl, setEditGsUrl] = useState(gsUrl || "");
+  const [showKey, setShowKey] = useState(false);
+  const [savingIntegrations, setSavingIntegrations] = useState(false);
+
+  // Sync local state if parent prefs change (e.g. on first load)
+  useEffect(() => {
+    if (userPrefs) {
+      setExpLevel(userPrefs.experience_level || "");
+      setTradingStyle(userPrefs.trading_style || "");
+      setDefaultRisk(userPrefs.default_risk ?? "");
+      setPrimarySession(userPrefs.primary_session || "");
+      setAplusOptions(userPrefs.aplus_options ?? ICT_APLUS);
+      setTags(userPrefs.tags ?? ICT_TAGS);
+    }
+  }, [userPrefs]);
+
+  useEffect(() => {
+    setEditName(profile.display_name || "");
+    setEditBio(profile.bio || "");
+  }, [profile]);
+
+  // ── Save helpers ──────────────────────────────────────────────────────────
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    const updates = { id: user.id, display_name: editName.trim(), bio: editBio.trim(), updated_at: new Date().toISOString() };
+    if (profile.avatar_url) updates.avatar_url = profile.avatar_url;
+    await supabase.from("profiles").upsert(updates);
+    setProfile(p => ({ ...p, display_name: editName.trim(), bio: editBio.trim() }));
+    if (editEmail.trim() !== user.email) {
+      const { error } = await supabase.auth.updateUser({ email: editEmail.trim() });
+      if (error) addToast("Email update failed: " + error.message);
+      else addToast("Confirmation email sent to " + editEmail.trim());
+    }
+    setSavingProfile(false);
+    addToast("Profile saved");
+  };
+
+  const saveTradingProfile = async () => {
+    setSavingTrading(true);
+    const row = {
+      user_id: user.id,
+      experience_level: expLevel || null,
+      trading_style: tradingStyle || null,
+      default_risk: defaultRisk !== "" ? parseFloat(defaultRisk) : null,
+      primary_session: primarySession || null,
+      updated_at: new Date().toISOString(),
+    };
+    await supabase.from("user_preferences").upsert(row, { onConflict: "user_id" });
+    setUserPrefs(p => ({ ...(p ?? {}), ...row }));
+    setSavingTrading(false);
+    addToast("Trading profile saved");
+  };
+
+  const savePreferences = async () => {
+    setSavingPrefs(true);
+    const row = { user_id: user.id, aplus_options: aplusOptions, tags, onboarding_complete: true, updated_at: new Date().toISOString() };
+    await supabase.from("user_preferences").upsert(row, { onConflict: "user_id" });
+    setUserPrefs(p => ({ ...(p ?? {}), ...row }));
+    setSavingPrefs(false);
+    addToast("Preferences saved");
+  };
+
+  const saveIntegrations = async () => {
+    setSavingIntegrations(true);
+    const trimmedKey = editApiKey.trim();
+    if (trimmedKey) {
+      await supabase.from("profiles").upsert({ id: user.id, anthropic_api_key: trimmedKey, updated_at: new Date().toISOString() });
+      setApiKey(trimmedKey);
+    }
+    try { localStorage.setItem("gsUrl", editGsUrl.trim()); } catch {}
+    setGsUrl(editGsUrl.trim());
+    setSavingIntegrations(false);
+    addToast("Integrations saved");
+  };
+
+  // ── Reusable styles ───────────────────────────────────────────────────────
+
+  const sectionCard = {
+    background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
+    borderRadius: 10, padding: "24px 28px", marginBottom: 16,
+  };
+  const sectionTitle = {
+    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+    letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--accent)",
+    marginBottom: 20,
+  };
+  const label = {
+    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600,
+    color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
+    marginBottom: 6, display: "block",
+  };
+  const inputStyle = {
+    width: "100%", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13,
+    padding: "9px 12px", borderRadius: 6, border: "1px solid var(--border-primary)",
+    background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none",
+    boxSizing: "border-box",
+  };
+  const saveBtn = (loading) => ({
+    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+    letterSpacing: "0.08em", textTransform: "uppercase",
+    padding: "9px 20px", borderRadius: 6, cursor: loading ? "not-allowed" : "pointer",
+    background: "var(--accent)", color: "#000", border: "none",
+    opacity: loading ? 0.6 : 1, marginTop: 20,
+  });
+  const pillGroup = (value, setValue, options) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+      {options.map(o => (
+        <button key={o.key} type="button" onClick={() => setValue(v => v === o.key ? "" : o.key)}
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+            padding: "7px 14px", borderRadius: 20, cursor: "pointer",
+            background: value === o.key ? "var(--accent-dim)" : "var(--bg-tertiary)",
+            border: value === o.key ? "1px solid rgba(34,211,238,0.4)" : "1px solid var(--border-primary)",
+            color: value === o.key ? "var(--accent)" : "var(--text-secondary)",
+            transition: "all 0.15s",
+          }}>{o.label}</button>
+      ))}
+    </div>
+  );
+  const toggle = (checked, onChange, labelText, helpText) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border-primary)" }}>
+      <div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{labelText}</div>
+        {helpText && <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{helpText}</div>}
+      </div>
+      <div onClick={onChange} style={{
+        width: 40, height: 22, borderRadius: 11, cursor: "pointer", flexShrink: 0,
+        background: checked ? "var(--accent)" : "var(--bg-tertiary)",
+        border: "1px solid var(--border-primary)", position: "relative", transition: "background 0.2s",
+      }}>
+        <div style={{
+          position: "absolute", top: 2, left: checked ? 18 : 2,
+          width: 16, height: 16, borderRadius: 8, background: checked ? "#000" : "var(--text-tertiary)",
+          transition: "left 0.2s",
+        }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "24px 32px 48px", maxWidth: 720, margin: "0 auto" }}>
+      <PageBanner label="Account" title="Settings" subtitle="Manage your profile, trading preferences, and integrations" />
+
+      {/* ── Section 1: Profile ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>Profile</div>
+
+        {/* Avatar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <div
+              onClick={() => avatarRef.current?.click()}
+              style={{
+                width: 72, height: 72, borderRadius: 12, cursor: "pointer",
+                background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : "linear-gradient(135deg, var(--accent), var(--accent)88)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                border: "2px solid var(--border-primary)",
+              }}
+            >
+              {!profile.avatar_url && <span style={{ fontSize: 26, color: "#000", fontWeight: 700 }}>{(profile.display_name || user?.email || "?")[0].toUpperCase()}</span>}
+              <div style={{ position: "absolute", bottom: -4, right: -4, width: 22, height: 22, borderRadius: 11, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+            </div>
+            <input ref={avatarRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files[0] && uploadAvatar(e.target.files[0])} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{profile.display_name || "Trader"}</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>{user?.email}</div>
+            <button onClick={() => avatarRef.current?.click()} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginTop: 4 }}>Change photo</button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={label}>Display Name</label>
+            <input style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)} placeholder="Your trader name..." maxLength={50} />
+          </div>
+          <div>
+            <label style={label}>Email</label>
+            <input style={inputStyle} value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="email@example.com" />
+            {editEmail !== user?.email && <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4 }}>A confirmation link will be sent to the new address.</div>}
+          </div>
+        </div>
+        <div style={{ marginBottom: 4 }}>
+          <label style={label}>Bio <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({editBio.length}/200)</span></label>
+          <textarea style={{ ...inputStyle, height: 80, resize: "vertical" }} value={editBio} onChange={e => setEditBio(e.target.value.slice(0, 200))} placeholder="Tell other traders about yourself..." />
+        </div>
+        <button style={saveBtn(savingProfile)} onClick={saveProfile} disabled={savingProfile}>{savingProfile ? "Saving..." : "Save Profile"}</button>
+
+        {/* XP strip */}
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border-primary)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14 }}>{currentLevel.icon}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{currentLevel.name}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40` }}>{currentLevel.tier}</span>
+            </div>
+            <button
+              onClick={() => onNavigate("roadmap")}
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", letterSpacing: "0.04em", padding: 0 }}
+            >
+              View Roadmap →
+            </button>
+          </div>
+          <XPBar current={nextLevel ? currentXP - currentLevel.xpRequired : 1} max={nextLevel ? nextLevel.xpRequired - currentLevel.xpRequired : 1} color={currentLevel.accent} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{currentXP.toLocaleString()} XP</span>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{nextLevel ? `${nextLevel.xpRequired.toLocaleString()} to ${nextLevel.name}` : "MAX LEVEL"}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section 2: Trading Profile ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>Trading Profile</div>
+
+        <label style={label}>Experience Level</label>
+        {pillGroup(expLevel, setExpLevel, [
+          { key: "under_1yr", label: "Under 1 Year" },
+          { key: "1_3yrs", label: "1–3 Years" },
+          { key: "3plus_yrs", label: "3+ Years" },
+          { key: "professional", label: "Professional" },
+        ])}
+
+        <label style={label}>Trading Style</label>
+        {pillGroup(tradingStyle, setTradingStyle, [
+          { key: "day_trader", label: "Day Trader" },
+          { key: "swing", label: "Swing Trader" },
+          { key: "scalper", label: "Scalper" },
+          { key: "options", label: "Options Trader" },
+        ])}
+
+        <label style={label}>Primary Session</label>
+        {pillGroup(primarySession, setPrimarySession, [
+          { key: "ny", label: "NY Session" },
+          { key: "london", label: "London" },
+          { key: "asian", label: "Asian" },
+          { key: "all", label: "All Sessions" },
+        ])}
+
+        <div style={{ maxWidth: 200 }}>
+          <label style={label}>Default Risk Per Trade</label>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>$</span>
+            <input style={{ ...inputStyle, paddingLeft: 24 }} type="number" min="0" value={defaultRisk} onChange={e => setDefaultRisk(e.target.value)} placeholder="500" />
+          </div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4 }}>Used by AI coaching to calculate R multiples.</div>
+        </div>
+
+        <button style={saveBtn(savingTrading)} onClick={saveTradingProfile} disabled={savingTrading}>{savingTrading ? "Saving..." : "Save Trading Profile"}</button>
+      </div>
+
+      {/* ── Section 3: Preferences ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>Preferences</div>
+
+        {/* Quality Labels */}
+        <label style={label}>Setup Quality Labels</label>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginBottom: 10 }}>First item = your A+ equivalent — counts toward streaks and scoring.</div>
+        <div style={{ marginBottom: 12 }}>
+          {aplusOptions.map((opt, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-primary)" }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-primary)", flex: 1 }}>{opt}</span>
+              {i === 0 && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", padding: "2px 6px", border: "1px solid rgba(34,211,238,0.3)", borderRadius: 4 }}>A+</span>}
+              <button onClick={() => setAplusOptions(a => { const n=[...a]; const t=n[i]; n.splice(i,1); if(i>0) n.splice(i-1,0,t); return n; })} disabled={i===0} style={{ background:"none",border:"none",cursor:i===0?"not-allowed":"pointer",color:"var(--text-tertiary)",fontSize:14,padding:"0 2px" }}>▲</button>
+              <button onClick={() => setAplusOptions(a => { const n=[...a]; const t=n[i]; n.splice(i,1); if(i<n.length) n.splice(i+1,0,t); return n; })} disabled={i===aplusOptions.length-1} style={{ background:"none",border:"none",cursor:i===aplusOptions.length-1?"not-allowed":"pointer",color:"var(--text-tertiary)",fontSize:14,padding:"0 2px" }}>▼</button>
+              <button onClick={() => setAplusOptions(a => a.filter((_,j)=>j!==i))} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--red)",fontSize:16,padding:"0 4px" }}>×</button>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <input style={{ ...inputStyle, flex: 1 }} value={newAplus} onChange={e=>setNewAplus(e.target.value)} placeholder="New quality label..." maxLength={40} onKeyDown={e=>{ if(e.key==="Enter"&&newAplus.trim()){ setAplusOptions(a=>[...a,newAplus.trim()]); setNewAplus(""); }}} />
+            <button onClick={()=>{ if(newAplus.trim()){ setAplusOptions(a=>[...a,newAplus.trim()]); setNewAplus(""); }}} style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:700,padding:"9px 16px",borderRadius:6,cursor:"pointer",background:"var(--bg-tertiary)",border:"1px solid var(--border-primary)",color:"var(--text-primary)" }}>Add</button>
+          </div>
+        </div>
+
+        {/* Setup Tags */}
+        <label style={{ ...label, marginTop: 20 }}>Setup Tags</label>
+        <div style={{ marginBottom: 12 }}>
+          {tags.map((tag, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border-primary)" }}>
+              <input type="color" value={tag.color} onChange={e=>setTags(t=>t.map((x,j)=>j===i?{...x,color:e.target.value}:x))} style={{ width:28,height:28,border:"none",background:"none",cursor:"pointer",padding:0,flexShrink:0 }} />
+              <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:"var(--text-primary)",flex:1 }}>#{tag.label}</span>
+              <button onClick={()=>setTags(t=>t.filter((_,j)=>j!==i))} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--red)",fontSize:16,padding:"0 4px" }}>×</button>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+            <input type="color" value={newTagColor} onChange={e=>setNewTagColor(e.target.value)} style={{ width:32,height:32,border:"1px solid var(--border-primary)",borderRadius:6,cursor:"pointer",background:"none",padding:2,flexShrink:0 }} />
+            <input style={{ ...inputStyle, flex:1 }} value={newTagLabel} onChange={e=>setNewTagLabel(e.target.value.toUpperCase())} placeholder="TAG NAME" maxLength={15} onKeyDown={e=>{ if(e.key==="Enter"&&newTagLabel.trim()){ setTags(t=>[...t,{label:newTagLabel.trim(),color:newTagColor}]); setNewTagLabel(""); }}} />
+            <button onClick={()=>{ if(newTagLabel.trim()){ setTags(t=>[...t,{label:newTagLabel.trim(),color:newTagColor}]); setNewTagLabel(""); }}} style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:700,padding:"9px 16px",borderRadius:6,cursor:"pointer",background:"var(--bg-tertiary)",border:"1px solid var(--border-primary)",color:"var(--text-primary)",flexShrink:0 }}>Add</button>
+          </div>
+        </div>
+
+        {/* App toggles */}
+        <div style={{ marginTop: 20 }}>
+          <label style={label}>App Preferences</label>
+          {toggle(dark, () => setDark(d => !d), "Dark Mode", "Switch between dark and light theme")}
+          {toggle(privacyMode, () => setPrivacyMode(p => !p), "Privacy Mode", "Mask all dollar amounts with ••••")}
+        </div>
+
+        <button style={saveBtn(savingPrefs)} onClick={savePreferences} disabled={savingPrefs}>{savingPrefs ? "Saving..." : "Save Preferences"}</button>
+      </div>
+
+      {/* ── Section 4: Integrations ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>Integrations</div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <label style={{ ...label, marginBottom: 0 }}>Anthropic API Key</label>
+            {apiKey ? <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"rgba(52,211,153,0.12)",color:"var(--green)",border:"1px solid rgba(52,211,153,0.3)" }}>ACTIVE</span>
+              : <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"var(--bg-tertiary)",color:"var(--text-tertiary)",border:"1px solid var(--border-primary)" }}>NOT SET</span>}
+          </div>
+          <div style={{ position: "relative" }}>
+            <input style={{ ...inputStyle, paddingRight: 44 }} type={showKey ? "text" : "password"} value={editApiKey} onChange={e=>setEditApiKey(e.target.value)} placeholder="sk-ant-..." />
+            <button onClick={()=>setShowKey(s=>!s)} style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"var(--text-tertiary)" }}>
+              {showKey ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+            </button>
+          </div>
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,color:"var(--text-tertiary)",marginTop:4 }}>Powers AI trading summaries. Stored securely in your profile.</div>
+        </div>
+
+        <div style={{ marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <label style={{ ...label, marginBottom: 0 }}>Google Sheets URL</label>
+            {editGsUrl ? <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"rgba(52,211,153,0.12)",color:"var(--green)",border:"1px solid rgba(52,211,153,0.3)" }}>CONNECTED</span>
+              : <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"var(--bg-tertiary)",color:"var(--text-tertiary)",border:"1px solid var(--border-primary)" }}>NOT SET</span>}
+          </div>
+          <input style={inputStyle} value={editGsUrl} onChange={e=>setEditGsUrl(e.target.value)} placeholder="https://script.google.com/..." />
+          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,color:"var(--text-tertiary)",marginTop:4 }}>Syncs trade data to Google Sheets on each journal entry.</div>
+        </div>
+
+        <button style={saveBtn(savingIntegrations)} onClick={saveIntegrations} disabled={savingIntegrations}>{savingIntegrations ? "Saving..." : "Save Integrations"}</button>
+      </div>
+
+      {/* ── Section 5: Account ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>Account</div>
+        <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:"var(--text-secondary)",marginBottom:16 }}>Signed in as <strong style={{ color:"var(--text-primary)" }}>{user?.email}</strong></div>
+        <button
+          onClick={handleSignOut}
+          style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"9px 20px",borderRadius:6,cursor:"pointer",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"var(--red)" }}
+        >Sign Out</button>
+      </div>
     </div>
   );
 }
@@ -704,6 +1091,7 @@ export default function TraderRoadmapXP() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const avatarInputRef = useRef(null);
+  const [userPrefs, setUserPrefs] = useState(null);
 
   // Trading app state
   const [trades, setTrades] = useState([]);
@@ -772,6 +1160,27 @@ export default function TraderRoadmapXP() {
   }, [user]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Load user preferences
+  const loadPreferences = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle();
+    if (data) setUserPrefs(data);
+  }, [user]);
+
+  useEffect(() => { loadPreferences(); }, [loadPreferences]);
+
+  const ICT_DEFAULTS = {
+    aplus_options: ["Yes", "No", "Yes to No", "Yes But Execution Sucked"],
+    tags: [
+      { label: "GXT", color: "#22d3ee" }, { label: "TTFM", color: "#a78bfa" },
+      { label: "CISD", color: "#f59e0b" }, { label: "ICCISD", color: "#fb923c" },
+      { label: "1STG", color: "#34d399" }, { label: "2STG", color: "#60a5fa" },
+      { label: "SMT", color: "#f472b6" }, { label: "PSP", color: "#2dd4bf" },
+      { label: "SSMT", color: "#f87171" }, { label: "SMTFILL", color: "#c084fc" },
+    ],
+  };
+  const prefs = userPrefs ?? ICT_DEFAULTS;
 
   // Load trades from Supabase
   const loadTrades = useCallback(async () => {
@@ -1304,7 +1713,7 @@ export default function TraderRoadmapXP() {
 
       {/* ── Quick Log Modal ── */}
       {showQuickLog && (
-        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} syncToSheets={syncToSheets} />
+        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} syncToSheets={syncToSheets} prefs={prefs} />
       )}
 
       {/* ── Tilt Alert Modal ── */}
@@ -1466,238 +1875,6 @@ export default function TraderRoadmapXP() {
       )}
 
       {/* ── Profile Editor Modal ── */}
-      {showProfileEditor && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "var(--modal-overlay)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
-          onClick={(e) => e.target === e.currentTarget && setShowProfileEditor(false)}
-        >
-          <Card className="modal-card" style={{ maxWidth: 520, padding: 0, width: "100%", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", overflow: "hidden" }}>
-            {/* Saved confirmation overlay */}
-            {profileSaved && (
-              <div style={{
-                position: "absolute", inset: 0, zIndex: 10, borderRadius: 10,
-                background: dark ? "rgba(11,13,19,0.95)" : "rgba(255,255,255,0.95)",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                animation: "fadeSlideIn 0.2s ease",
-              }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent-dim)", border: "2px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: 22, color: "var(--accent)" }}>✓</span>
-                </div>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>Settings Saved</div>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginTop: 4 }}>All changes confirmed</div>
-              </div>
-            )}
-
-            {/* Modal header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px 16px", borderBottom: "1px solid var(--border-primary)" }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Profile Settings</div>
-              <button onClick={() => setShowProfileEditor(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 4, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <div style={{ padding: "20px 24px 24px" }}>
-              {/* Avatar + name row */}
-              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <div
-                    onClick={() => avatarInputRef.current?.click()}
-                    style={{
-                      width: 72, height: 72, borderRadius: "50%",
-                      background: profile.avatar_url ? `url(${profile.avatar_url}) center/cover` : `linear-gradient(135deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      cursor: "pointer", border: "3px solid var(--border-primary)", position: "relative",
-                      overflow: "visible",
-                    }}
-                  >
-                    {!profile.avatar_url && <span style={{ fontSize: 28, color: "var(--bg-primary)" }}>{displayName[0]?.toUpperCase()}</span>}
-                  </div>
-                  <div
-                    onClick={() => avatarInputRef.current?.click()}
-                    style={{
-                      position: "absolute", bottom: 0, right: 0,
-                      width: 24, height: 24, borderRadius: "50%",
-                      background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
-                      border: `2px solid ${dark ? "#0b0d13" : "#f8f9fc"}`, cursor: "pointer",
-                      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                    }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={dark ? "#0b0d13" : "#fff"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                      <circle cx="12" cy="13" r="4"/>
-                    </svg>
-                  </div>
-                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }}
-                    onChange={(e) => { if (e.target.files?.[0]) uploadAvatar(e.target.files[0]); }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Display Name</label>
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onFocus={() => setFocusedField("name")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Your trader name..."
-                    style={{ width: "100%", padding: "10px 14px", fontSize: 13, border: focusedField === "name" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", boxShadow: focusedField === "name" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
-                  />
-                </div>
-              </div>
-
-              {/* Integrations divider */}
-              <div style={{ borderTop: "1px solid var(--border-primary)", margin: "4px 0 18px", position: "relative" }}>
-                <span style={{
-                  position: "absolute", top: -8, left: 12, padding: "0 8px",
-                  background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
-                }}>Integrations</span>
-              </div>
-
-              {/* Google Sheets row */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="9" x2="15" y2="21"/>
-                  </svg>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                    <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Google Sheets URL</label>
-                    {gsUrl && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>CONNECTED</span>}
-                  </div>
-                  <input
-                    value={editGsUrl}
-                    onChange={(e) => setEditGsUrl(e.target.value)}
-                    onFocus={() => setFocusedField("gs")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Paste your Apps Script URL here..."
-                    style={{ width: "100%", padding: "10px 14px", fontSize: 12, border: focusedField === "gs" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", boxShadow: focusedField === "gs" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s" }}
-                  />
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
-                    Syncs trade data to Google Sheets on each journal entry.
-                  </div>
-                </div>
-              </div>
-
-              {/* Anthropic API Key row */}
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="7.5" cy="15.5" r="5.5"/><line x1="21" y1="2" x2="11" y2="12"/><line x1="17" y1="2" x2="21" y2="6"/><line x1="14" y1="7" x2="18" y2="3"/>
-                  </svg>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                    <label style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Anthropic API Key</label>
-                    {apiKey && <span style={{ fontSize: 9, color: "var(--green)", fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(5,150,105,0.12)" }}>ACTIVE</span>}
-                  </div>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type={showApiKey ? "text" : "password"}
-                      value={editApiKey}
-                      onChange={(e) => setEditApiKey(e.target.value)}
-                      onFocus={() => setFocusedField("api")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="sk-ant-..."
-                      style={{ width: "100%", padding: "10px 40px 10px 14px", fontSize: 12, border: focusedField === "api" ? "1px solid var(--accent)" : "1px solid var(--border-primary)", borderRadius: 6, outline: "none", background: "var(--bg-input)", color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', monospace", boxSizing: "border-box", boxShadow: focusedField === "api" ? "0 0 0 3px var(--accent-dim)" : "none", transition: "border-color 0.15s, box-shadow 0.15s", letterSpacing: (!showApiKey && editApiKey) ? 1 : 0 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey((v) => !v)}
-                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      {showApiKey ? (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                          <line x1="1" y1="1" x2="23" y2="23"/>
-                        </svg>
-                      ) : (
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                          <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
-                    Powers AI trading summaries. Stored securely in your profile.
-                  </div>
-                </div>
-              </div>
-
-              {/* Roadmap Progress divider */}
-              <div style={{ borderTop: "1px solid var(--border-primary)", margin: "4px 0 18px", position: "relative" }}>
-                <span style={{
-                  position: "absolute", top: -8, left: 12, padding: "0 8px",
-                  background: "var(--bg-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em",
-                }}>Roadmap Progress</span>
-              </div>
-
-              {/* XP Progress card */}
-              <div style={{ background: "var(--bg-tertiary)", borderRadius: 10, padding: "14px 16px", border: "1px solid var(--border-primary)", marginBottom: 20 }}>
-                {/* Level name + tier + XP counter */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 18 }}>{currentLevel.icon}</span>
-                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{currentLevel.name}</div>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40`, fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.06em" }}>{currentLevel.tier}</span>
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{currentXP}</span>{" / "}{nextLevel ? nextLevel.xpRequired : TOTAL_XP} XP
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div style={{ height: 7, borderRadius: 4, background: "var(--border-primary)", overflow: "hidden", marginBottom: 6 }}>
-                  <div style={{
-                    height: "100%", borderRadius: 4,
-                    background: `linear-gradient(90deg, ${currentLevel.accent}, ${currentLevel.accent}cc)`,
-                    width: `${nextLevel ? Math.min(100, Math.round(((currentXP - currentLevel.xpRequired) / (nextLevel.xpRequired - currentLevel.xpRequired)) * 100)) : 100}%`,
-                    transition: "width 0.6s ease",
-                    boxShadow: `0 0 8px ${currentLevel.accent}55`,
-                  }} />
-                </div>
-
-                {/* Next level hint */}
-                {nextLevel ? (
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginBottom: 10 }}>
-                    <span style={{ color: nextLevel.accent, fontWeight: 600 }}>{nextLevel.xpRequired - currentXP} XP</span> to reach {nextLevel.name} — {nextLevel.subtitle}
-                  </div>
-                ) : (
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--green)", fontWeight: 600, marginBottom: 10 }}>
-                    Max level reached — Full Independence
-                  </div>
-                )}
-
-                {/* Mini stats row */}
-                <div style={{ display: "flex", gap: 20 }}>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{completed.size}</span> / {ALL_ACH.length} quests
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{Math.round((currentXP / TOTAL_XP) * 100)}%</span> overall progress
-                  </div>
-                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
-                    <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{TOTAL_XP - currentXP}</span> XP remaining
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setShowProfileEditor(false)}
-                  style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: "12px", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", borderRadius: 6, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  Cancel
-                </button>
-                <button onClick={saveProfile}
-                  style={{ flex: 1, fontSize: 13, fontWeight: 700, padding: "12px", background: "var(--accent)", border: "none", color: dark ? "#0b0d13" : "#fff", borderRadius: 6, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
 
       {/* ── Sidebar + Content Layout ── */}
       <div style={{ display: "flex", minHeight: "calc(100vh)" }}>
@@ -1873,7 +2050,7 @@ export default function TraderRoadmapXP() {
             borderBottom: "1px solid var(--border-primary)",
           }}>
             <div
-              onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); }}
+              onClick={() => setViewAndPersist("settings")}
               style={{ cursor: "pointer", padding: "10px 12px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
             >
               {/* Avatar + name row */}
@@ -1891,6 +2068,7 @@ export default function TraderRoadmapXP() {
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40` }}>{currentLevel.tier}</span>
                   </div>
                 </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               </div>
               {/* XP progress */}
               <div>
@@ -2089,7 +2267,7 @@ export default function TraderRoadmapXP() {
               {/* Profile */}
               <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border-primary)" }}>
                 <div
-                  onClick={() => { setEditName(profile.display_name); setEditGsUrl(gsUrl); setEditApiKey(apiKey); setProfileSaved(false); setShowProfileEditor(true); setMobileMenu(false); }}
+                  onClick={() => { setViewAndPersist("settings"); setMobileMenu(false); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "8px 10px", borderRadius: 6, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)" }}
                 >
                   <div style={{
@@ -2099,10 +2277,11 @@ export default function TraderRoadmapXP() {
                   }}>
                     {!profile.avatar_url && <span style={{ fontSize: 11, color: "var(--bg-primary)", fontWeight: 700 }}>{displayName[0]?.toUpperCase()}</span>}
                   </div>
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)" }}>{currentXP.toLocaleString()} XP</div>
                   </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </div>
               </div>
 
@@ -2192,7 +2371,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2255,11 +2434,11 @@ export default function TraderRoadmapXP() {
           </div>
 
           {/* ── Content ── */}
-          <div className="main-content" style={{ maxWidth: 960, margin: "0 auto", padding: "28px 32px 60px" }}>
+          <div className="main-content" style={{ maxWidth: view === "settings" ? "none" : 960, margin: "0 auto", padding: view === "settings" ? 0 : "28px 32px 60px" }}>
 
         {/* HOME — default view */}
         {view === "map" && (
-          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} displayName={displayName} privacyMode={privacyMode} />
+          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
         )}
 
         {/* ROADMAP VIEW */}
@@ -2273,12 +2452,12 @@ export default function TraderRoadmapXP() {
 
         {/* JOURNAL VIEW (with collapsible checklist) */}
         {view === "journal" && (
-          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} />
+          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} prefs={prefs} />
         )}
 
         {/* STATS VIEW — Trade performance data */}
         {view === "stats" && (
-          <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} privacyMode={privacyMode} />
+          <TradeStatsView supabase={supabase} user={user} trades={trades} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} onNavigate={setViewAndPersist} />
         )}
 
         {/* WATCHLIST VIEW */}
@@ -2306,8 +2485,25 @@ export default function TraderRoadmapXP() {
           <EdgeChatView supabase={supabase} user={user} trades={trades} />
         )}
 
-
           </div>{/* close main-content */}
+
+        {/* SETTINGS VIEW — full width, outside the narrow content container */}
+        {view === "settings" && (
+          <SettingsView
+            supabase={supabase} user={user}
+            profile={profile} setProfile={setProfile}
+            apiKey={apiKey} setApiKey={setApiKey}
+            dark={dark} setDark={setDark}
+            privacyMode={privacyMode} setPrivacyMode={setPrivacyMode}
+            userPrefs={userPrefs} setUserPrefs={setUserPrefs}
+            gsUrl={gsUrl} setGsUrl={setGsUrl}
+            uploadAvatar={uploadAvatar}
+            handleSignOut={handleSignOut}
+            currentXP={currentXP} currentLevel={currentLevel}
+            nextLevel={nextLevel} levels={LEVELS} completed={completed}
+            onNavigate={setViewAndPersist}
+          />
+        )}
 
           {/* Footer */}
           <div style={{ textAlign: "center", padding: "16px 0 28px" }}>

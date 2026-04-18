@@ -96,7 +96,6 @@ const DEFAULT_CHECKLIST_ITEMS = [
 
 const TIMER_ITEM = { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "Take 10 seconds. Be honest with yourself.", timer: true };
 
-const ASSETS = ["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const TRADE_TAGS = [
@@ -112,9 +111,9 @@ const TRADE_TAGS = [
   { label: "SMTFILL", color: "#c084fc" },
 ];
 
-const TagPicker = ({ selected, onChange }) => (
+const TagPicker = ({ selected, onChange, tags = TRADE_TAGS }) => (
   <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-    {TRADE_TAGS.map(({ label, color }) => {
+    {tags.map(({ label, color }) => {
       const active = selected.includes(label);
       return (
         <button
@@ -137,12 +136,12 @@ const TagPicker = ({ selected, onChange }) => (
   </div>
 );
 
-const TradeTagChips = ({ tags }) => {
+const TradeTagChips = ({ tags, allTags = TRADE_TAGS }) => {
   if (!tags || tags.length === 0) return null;
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
       {tags.map(label => {
-        const def = TRADE_TAGS.find(t => t.label === label);
+        const def = allTags.find(t => t.label === label);
         const color = def ? def.color : "var(--text-tertiary)";
         return (
           <span key={label} style={{
@@ -192,12 +191,13 @@ function safeUrl(url) {
   return null;
 }
 
-const VALID_ASSETS = new Set(["$NQ", "$ES", "$GC", "$SI", "$YM", "$CL"]);
+// Assets are free-text — any symbol is valid
 const VALID_DIRECTIONS = new Set(["Long", "Short", ""]);
-const VALID_APLUS = new Set(["Yes", "No", "Yes to No", "Yes But Execution Sucked", ""]);
-const VALID_TAKEN = new Set(["Missed", "Personal", "Eval", "PA & Funded", "Crypto", "Funded Account", ""]);
+// A+ options are configured per-user — no static validation set needed
+// Taken options are loaded dynamically from the user's accounts table
 const VALID_BIAS = new Set(["Bullish", "Bearish", ""]);
 const MAX_TEXT_LENGTH = 5000;
+
 
 function sanitizeText(str, maxLen = MAX_TEXT_LENGTH) {
   if (!str) return "";
@@ -259,10 +259,10 @@ function calcTradingXP(trades, dayMap) {
 
 function validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter }) {
   if (!formDt || !formAsset) return "Please fill in Date & Time and Asset at minimum.";
-  if (!VALID_ASSETS.has(formAsset)) return "Invalid asset selected.";
+  if (formAsset && formAsset.length > 30) return "Asset symbol too long.";
   if (formDirection && !VALID_DIRECTIONS.has(formDirection)) return "Invalid direction.";
   if (formAplus && !VALID_APLUS.has(formAplus)) return "Invalid A+ value.";
-  if (formTaken && !VALID_TAKEN.has(formTaken)) return "Invalid Taken value.";
+  // taken is validated against user's dynamic accounts list — no static check needed
   if (formBias && !VALID_BIAS.has(formBias)) return "Invalid bias value.";
   if (formProfit && isNaN(parseFloat(formProfit))) return "Personal P&L must be a number.";
   if (formProfitFunded && isNaN(parseFloat(formProfitFunded))) return "Funded P&L must be a number.";
@@ -1231,7 +1231,7 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 // JOURNAL TAB — Pre-Trade Plan + Log a Trade
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl }) {
+export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, prefs }) {
   const toast = useToast();
   // Plan state (loaded silently for Sheets trade sync)
   const [plan, setPlan] = useState({ session_plan: "" });
@@ -1262,6 +1262,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
   const [formBias, setFormBias] = useState("");
   const [formProfit, setFormProfit] = useState("");
   const [formProfitFunded, setFormProfitFunded] = useState("");
+  const [formRisk, setFormRisk] = useState(prefs?.default_risk ? String(prefs.default_risk) : "");
   const [formChart, setFormChart] = useState("");
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -1314,6 +1315,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
       ...(formTags.length > 0 ? { tags: formTags } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
+      risk: formRisk !== "" ? parseFloat(formRisk) : null,
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (error) { toast("Error saving trade: " + error.message); return; }
@@ -1328,7 +1330,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
     });
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
     setFormAsset(""); setFormDirection(""); setFormAplus("");
-    setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormChart("");
+    setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormRisk(prefs?.default_risk ? String(prefs.default_risk) : ""); setFormChart("");
     setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
     loadTrades();
   };
@@ -1345,10 +1347,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
             <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
           </Field>
           <Field label="Asset">
-            <select style={selectStyle} value={formAsset} onChange={(e) => setFormAsset(e.target.value)}>
-              <option value="">Select...</option>
-              {ASSETS.map((a) => <option key={a}>{a}</option>)}
-            </select>
+            <input type="text" style={inputStyle} value={formAsset} onChange={(e) => setFormAsset(e.target.value.toUpperCase())} placeholder="e.g. NQ, EUR/USD, AAPL" maxLength={30} />
           </Field>
           <Field label="Direction">
             <select style={selectStyle} value={formDirection} onChange={(e) => setFormDirection(e.target.value)}>
@@ -1357,24 +1356,29 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
               <option>Short</option>
             </select>
           </Field>
-          <Field label="A+ Trade?">
+          <Field label="Setup Quality">
             <select style={selectStyle} value={formAplus} onChange={(e) => setFormAplus(e.target.value)}>
               <option value="">Select...</option>
-              <option>Yes</option>
-              <option>No</option>
-              <option>Yes to No</option>
-              <option>Yes But Execution Sucked</option>
+              {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </Field>
           <Field label="Taken?">
             <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
               <option value="">Select...</option>
-              <option>Missed</option>
-              <option>Personal</option>
-              <option>Eval</option>
-              <option>PA &amp; Funded</option>
-              <option>Crypto</option>
-              <option>Funded Account</option>
+              <option value="Missed">Missed</option>
+              {accounts.filter(a => a.status !== "inactive").length > 0
+                ? accounts.filter(a => a.status !== "inactive").map(a => (
+                    <option key={a.id} value={a.account_name}>
+                      {a.account_name}{a.account_type ? ` (${a.account_type})` : ""}
+                    </option>
+                  ))
+                : <>
+                    <option>Personal</option>
+                    <option>Live Funded</option>
+                    <option>Evaluation</option>
+                    <option>Paper</option>
+                  </>
+              }
             </select>
           </Field>
           <Field label="My Bias For the Day">
@@ -1389,6 +1393,9 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
           </Field>
           <Field label="Funded P&L ($)">
             <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+          </Field>
+          <Field label={<>Risk ($) <span style={{ fontWeight: 400, opacity: 0.45, textTransform: "none", letterSpacing: 0 }}>optional</span></>}>
+            <input type="number" style={inputStyle} value={formRisk} onChange={(e) => setFormRisk(e.target.value)} placeholder={prefs?.default_risk ? String(prefs.default_risk) : "e.g. 500"} />
           </Field>
           <Field label="Personal Account">
             <select style={selectStyle} value={formAccountPersonal} onChange={(e) => setFormAccountPersonal(e.target.value)}>
@@ -1417,7 +1424,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
           </Field>
           <Field label="After Trade Thoughts" full>
             <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
-            <TagPicker selected={formTags} onChange={setFormTags} />
+            <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
           </Field>
         </div>
         <button onClick={logTrade} style={{
@@ -1436,7 +1443,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl })
 // QUICK LOG MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
+export function QuickLogModal({ supabase, user, onClose, syncToSheets, prefs }) {
   const toast = useToast();
   const [formDt, setFormDt] = useState(nowLocal());
   const [formAsset, setFormAsset] = useState("");
@@ -1450,6 +1457,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formAfterThoughts, setFormAfterThoughts] = useState("");
+  const [formRisk, setFormRisk] = useState(prefs?.default_risk ? String(prefs.default_risk) : "");
   const [formTags, setFormTags] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
@@ -1481,6 +1489,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
       ...(formTags.length > 0 ? { tags: formTags } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
+      risk: formRisk !== "" ? parseFloat(formRisk) : null,
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     setSaving(false);
@@ -1538,10 +1547,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
               <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
             </Field>
             <Field label="Asset">
-              <select style={selectStyle} value={formAsset} onChange={(e) => setFormAsset(e.target.value)}>
-                <option value="">Select...</option>
-                {ASSETS.map((a) => <option key={a}>{a}</option>)}
-              </select>
+              <input type="text" style={inputStyle} value={formAsset} onChange={(e) => setFormAsset(e.target.value.toUpperCase())} placeholder="e.g. NQ, EUR/USD, AAPL" maxLength={30} />
             </Field>
             <Field label="Direction">
               <select style={selectStyle} value={formDirection} onChange={(e) => setFormDirection(e.target.value)}>
@@ -1550,24 +1556,29 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
                 <option>Short</option>
               </select>
             </Field>
-            <Field label="A+ Trade?">
+            <Field label="Setup Quality">
               <select style={selectStyle} value={formAplus} onChange={(e) => setFormAplus(e.target.value)}>
                 <option value="">Select...</option>
-                <option>Yes</option>
-                <option>No</option>
-                <option>Yes to No</option>
-                <option>Yes But Execution Sucked</option>
+                {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
             <Field label="Taken?">
               <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
                 <option value="">Select...</option>
-                <option>Missed</option>
-                <option>Personal</option>
-                <option>Eval</option>
-                <option>PA &amp; Funded</option>
-                <option>Crypto</option>
-                <option>Funded Account</option>
+                <option value="Missed">Missed</option>
+                {accounts.filter(a => a.status !== "inactive").length > 0
+                  ? accounts.filter(a => a.status !== "inactive").map(a => (
+                      <option key={a.id} value={a.account_name}>
+                        {a.account_name}{a.account_type ? ` (${a.account_type})` : ""}
+                      </option>
+                    ))
+                  : <>
+                      <option>Personal</option>
+                      <option>Live Funded</option>
+                      <option>Evaluation</option>
+                      <option>Paper</option>
+                    </>
+                }
               </select>
             </Field>
             <Field label="My Bias">
@@ -1582,6 +1593,9 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
             </Field>
             <Field label="Funded P&L ($)">
               <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+            </Field>
+            <Field label={<>Risk ($) <span style={{ fontWeight: 400, opacity: 0.45, textTransform: "none", letterSpacing: 0 }}>optional</span></>}>
+              <input type="number" style={inputStyle} value={formRisk} onChange={(e) => setFormRisk(e.target.value)} placeholder={prefs?.default_risk ? String(prefs.default_risk) : "e.g. 500"} />
             </Field>
             <Field label="Personal Account">
               <select style={selectStyle} value={formAccountPersonal} onChange={(e) => setFormAccountPersonal(e.target.value)}>
@@ -1610,7 +1624,7 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets }) {
             </Field>
             <Field label="After Trade Thoughts" full>
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="What did I learn? What would I do differently?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
-              <TagPicker selected={formTags} onChange={setFormTags} />
+              <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
             </Field>
           </div>
           <button onClick={logTrade} disabled={saving || saved} style={{
@@ -1644,7 +1658,7 @@ const aplusColor = (v) => {
 };
 
 
-function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacyMode }) {
+function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacyMode, prefs }) {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [filterMonth, setFilterMonth] = useState(currentMonth);
@@ -1909,7 +1923,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                       </td>
                       <td style={{ padding: "12px 16px", color: "var(--text-tertiary)", minWidth: 200, maxWidth: 300, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontSize: 12 }}>
                         {t.after_thoughts || "—"}
-                        <TradeTagChips tags={t.tags} />
+                        <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
                       <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                         <button onClick={() => openExpand(t)} style={{
@@ -1931,10 +1945,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Asset</div>
-                                  <select value={ed.asset} onChange={e => setField(t.id, "asset", e.target.value)} style={inpStyle}>
-                                    <option value="">—</option>
-                                    {ASSETS.map(a => <option key={a}>{a}</option>)}
-                                  </select>
+                                  <input type="text" value={ed.asset || ""} onChange={e => setField(t.id, "asset", e.target.value.toUpperCase())} style={inpStyle} placeholder="Symbol" maxLength={30} />
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Direction</div>
@@ -1981,7 +1992,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                               </div>
                               <div style={{ marginBottom: 14 }}>
                                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Tags</div>
-                                <TagPicker selected={ed.tags || []} onChange={val => setField(t.id, "tags", val)} />
+                                <TagPicker selected={ed.tags || []} onChange={val => setField(t.id, "tags", val)} tags={prefs?.tags} />
                               </div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                                 <div>
@@ -2057,7 +2068,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
 // STATS TAB — Trade stats, equity curve, calendar, trade history
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode }) {
+export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode, prefs, onNavigate }) {
   const [confirmDeleteTrade, setConfirmDeleteTrade] = useState(null);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -2151,6 +2162,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       aplus: trade.aplus || "", taken: trade.taken || "",
       bias: trade.bias || "", profit: trade.profit != null ? String(trade.profit) : "",
       profit_funded: trade.profit_funded != null ? String(trade.profit_funded) : "",
+      risk: trade.risk != null ? String(trade.risk) : "",
       chart: trade.chart || "", after_chart: trade.after_chart || "",
       notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
       tags: trade.tags || [],
@@ -2168,6 +2180,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       aplus: editForm.aplus, taken: editForm.taken, bias: editForm.bias,
       profit: editForm.profit ? parseFloat(editForm.profit) : null,
       profit_funded: editForm.profit_funded ? parseFloat(editForm.profit_funded) : null,
+      risk: editForm.risk !== "" && editForm.risk != null ? parseFloat(editForm.risk) : null,
       chart: editForm.chart, after_chart: editForm.after_chart, notes: editForm.notes,
       after_thoughts: editForm.after_thoughts,
       tags: editForm.tags && editForm.tags.length > 0 ? editForm.tags : null,
@@ -2234,6 +2247,17 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
     return longWR >= shortWR ? "Long" : "Short";
   })();
 
+  // Expectancy, Avg Win/Loss, Avg R
+  const winTrades = takenTrades.filter(t => getPnlForMode(t, pnlMode) > 0);
+  const lossTrades = takenTrades.filter(t => getPnlForMode(t, pnlMode) < 0);
+  const avgWin = winTrades.length ? winTrades.reduce((s, t) => s + getPnlForMode(t, pnlMode), 0) / winTrades.length : 0;
+  const avgLoss = lossTrades.length ? Math.abs(lossTrades.reduce((s, t) => s + getPnlForMode(t, pnlMode), 0) / lossTrades.length) : 0;
+  const winRate = takenTrades.length ? winTrades.length / takenTrades.length : 0;
+  const tradesWithR = takenTrades.filter(t => t.risk != null || prefs?.default_risk);
+  const avgR = tradesWithR.length
+    ? tradesWithR.reduce((s, t) => s + getPnlForMode(t, pnlMode) / (t.risk ?? prefs.default_risk), 0) / tradesWithR.length
+    : null;
+
   // Calendar
   const calPrev = () => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); };
   const calNext = () => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); };
@@ -2260,11 +2284,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
         subtitle="P&L calendar, equity curve, and trade history — your performance at a glance."
       />
 
-      {/* Stats Bar */}
-      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>
-        {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })} Stats
-      </div>
-      <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
+      {/* Stats — Row 1: 5 narrow cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={total} label="Logged" color="var(--text-secondary)" />
         <StatBox value={taken} label="Taken" color="var(--text-secondary)" />
         <StatBox value={aplus} label="A+ Setups" color="var(--green)" />
@@ -2272,13 +2293,45 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
         <StatBox value={privacyMode ? MASK : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}`} label="Net P&L" color={pnl >= 0 ? "var(--green)" : "var(--red)"} />
       </div>
 
-      {/* Extended Stats */}
-      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
+      {/* Stats — Row 2: 4 medium cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.12) 0%, transparent 100%)" }} />
+        <StatBox value={privacyMode ? MASK : (avgWin > 0 ? `$${avgWin.toFixed(0)}` : "—")} label="Avg Win" color="var(--green)" />
+        <StatBox value={privacyMode ? MASK : (avgLoss > 0 ? `$${avgLoss.toFixed(0)}` : "—")} label="Avg Loss" color="var(--red)" />
+        <StatBox
+          value={avgR !== null ? `${avgR >= 0 ? "+" : ""}${avgR.toFixed(2)}R` : "—"}
+          label="Avg R"
+          color={avgR !== null ? (avgR >= 0 ? "var(--green)" : "var(--red)") : "var(--text-tertiary)"}
+        />
+      </div>
+
+      {/* Stats — Row 3: 3 wide cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, transparent 100%)" }} />
         <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12) 0%, transparent 100%)" }} />
         <StatBox value={bestDirection} label="Best Direction" color="var(--green)" style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.12) 0%, transparent 100%)" }} />
       </div>
+
+      {/* Empty state for month */}
+      {monthTrades.length === 0 && (
+        <TCard style={{ padding: "32px 24px", marginBottom: 24, textAlign: "center", border: "1px solid var(--border-primary)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+            No trades logged for {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}
+          </div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginBottom: 20, lineHeight: 1.6 }}>
+            Head to the Journal tab to log trades and they'll appear here.
+          </div>
+          <button
+            onClick={() => onNavigate?.("journal")}
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+              padding: "9px 22px", borderRadius: 6, cursor: "pointer",
+              border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}
+          >+ Log a Trade</button>
+        </TCard>
+      )}
 
       {/* Equity Curve */}
       <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden" }}>
@@ -2490,13 +2543,16 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           </div>
         </div>
         {!monthTrades.length ? (
-          <div style={{ textAlign: "center", padding: 48, color: "var(--text-tertiary)", fontSize: 16 }}>No trades logged for {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}.</div>
+          <div style={{ textAlign: "center", padding: "40px 24px" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", marginBottom: 14 }}>No trades logged for {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}.</div>
+            <button onClick={() => onNavigate?.("journal")} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, padding: "8px 20px", borderRadius: 6, cursor: "pointer", border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.06em", textTransform: "uppercase" }}>+ Log a Trade</button>
+          </div>
         ) : (
           <div className="trade-table" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-primary)" }}>
-                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "Personal", "Funded", "Chart", "After", "Notes", ""].map((h) => (
+                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "Personal", "Funded", "R", "Chart", "After", "Notes", ""].map((h) => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-tertiary)", fontSize: 10, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: "0.1em", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
@@ -2537,6 +2593,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                         {t.profit_funded != null ? <span style={{ color: pf >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? MASK : `${pf >= 0 ? "+" : ""}${pf.toFixed(0)}`}</span> : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
                       </td>
                       <td style={cellStyle}>
+                        {(() => {
+                          const eff = t.risk ?? prefs?.default_risk;
+                          if (!eff || t.taken === "Missed") return <span style={{ color: "var(--text-tertiary)" }}>—</span>;
+                          const r = getPnlForMode(t, pnlMode) / eff;
+                          return <span style={{ color: r >= 0 ? "var(--green)" : "var(--red)", fontWeight: 600 }}>{r >= 0 ? "+" : ""}{r.toFixed(2)}R</span>;
+                        })()}
+                      </td>
+                      <td style={cellStyle}>
                         {safeUrl(t.chart) ? <a href={safeUrl(t.chart)} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-secondary)", textDecoration: "none" }}>VIEW</a> : "—"}
                       </td>
                       <td style={cellStyle}>
@@ -2544,7 +2608,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                       </td>
                       <td style={{ ...cellStyle, maxWidth: 160, color: "var(--text-tertiary)", overflow: "hidden", textOverflow: "ellipsis" }} title={t.notes}>
                         <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.notes || "—"}</div>
-                        <TradeTagChips tags={t.tags} />
+                        <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
                         <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent-secondary)", padding: "2px 6px", display: "flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -2567,6 +2631,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           user={user}
           loadTrades={loadTrades}
           privacyMode={privacyMode}
+          prefs={prefs}
           onClose={() => setShowReview(false)}
         />
       )}
@@ -2584,10 +2649,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                 <input type="datetime-local" style={inputStyle} value={editForm.dt} onChange={(e) => setEditForm({ ...editForm, dt: e.target.value })} />
               </Field>
               <Field label="Asset">
-                <select style={selectStyle} value={editForm.asset} onChange={(e) => setEditForm({ ...editForm, asset: e.target.value })}>
-                  <option value="">Select...</option>
-                  {ASSETS.map((a) => <option key={a}>{a}</option>)}
-                </select>
+                <input type="text" style={inputStyle} value={editForm.asset || ""} onChange={(e) => setEditForm({ ...editForm, asset: e.target.value.toUpperCase() })} placeholder="e.g. NQ, EUR/USD, AAPL" maxLength={30} />
               </Field>
               <Field label="Direction">
                 <select style={selectStyle} value={editForm.direction} onChange={(e) => setEditForm({ ...editForm, direction: e.target.value })}>
@@ -2596,13 +2658,10 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   <option>Short</option>
                 </select>
               </Field>
-              <Field label="A+ Trade?">
+              <Field label="Setup Quality">
                 <select style={selectStyle} value={editForm.aplus} onChange={(e) => setEditForm({ ...editForm, aplus: e.target.value })}>
                   <option value="">Select...</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                  <option>Yes to No</option>
-                  <option>Yes But Execution Sucked</option>
+                  {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </Field>
               <Field label="Taken?">
@@ -2628,6 +2687,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               </Field>
               <Field label="Funded P&L ($)">
                 <input type="number" style={inputStyle} placeholder="Leave blank if not taken on funded" value={editForm.profit_funded} onChange={(e) => setEditForm({ ...editForm, profit_funded: e.target.value })} />
+              </Field>
+              <Field label={<>Risk ($) <span style={{ fontWeight: 400, opacity: 0.45, textTransform: "none", letterSpacing: 0 }}>optional</span></>}>
+                <input type="number" style={inputStyle} value={editForm.risk || ""} onChange={(e) => setEditForm({ ...editForm, risk: e.target.value })} placeholder={prefs?.default_risk ? String(prefs.default_risk) : "e.g. 500"} />
               </Field>
               <Field label="Personal Account">
                 <select style={selectStyle} value={editForm.account_id_personal || ""} onChange={(e) => setEditForm({ ...editForm, account_id_personal: e.target.value })}>
@@ -3575,7 +3637,7 @@ function ProgressBar({ pct, color, height = 8 }) {
 }
 
 
-export function DashboardView({ supabase, user, trades, syncToSheets, displayName, privacyMode }) {
+export function DashboardView({ supabase, user, trades, syncToSheets, displayName, privacyMode, onNavigate }) {
   const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
@@ -3677,6 +3739,30 @@ export function DashboardView({ supabase, user, trades, syncToSheets, displayNam
           Welcome Back, {displayName || "Trader"}
         </h1>
       </div>
+
+      {/* First-time empty state */}
+      {trades.length === 0 && (
+        <TCard style={{ padding: "40px 32px", marginBottom: 24, textAlign: "center", border: "1px solid var(--border-primary)" }}>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>
+            Your journey starts here
+          </div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: 400, margin: "0 auto 24px" }}>
+            Log your first trade to unlock your dashboard stats, equity curve, and performance insights.
+          </div>
+          <button
+            onClick={() => onNavigate?.("journal")}
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
+              padding: "11px 28px", borderRadius: 6, cursor: "pointer",
+              border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)",
+              letterSpacing: "0.06em", textTransform: "uppercase",
+            }}
+          >+ Log Your First Trade</button>
+        </TCard>
+      )}
 
       {/* Today's Stats */}
       <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
@@ -4633,6 +4719,8 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
   const [entryDates, setEntryDates] = useState(new Set());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [showCal, setShowCal] = useState(false);
+  const calRef = useRef(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiOutput, setAiOutput] = useState("");
   const [aiPeriod, setAiPeriod] = useState("");
@@ -4733,6 +4821,22 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
   const calPrev = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); };
   const calNext = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); };
 
+  const goDay = (dir) => {
+    const d = new Date(selectedDate + "T12:00:00");
+    d.setDate(d.getDate() + dir);
+    const newDate = d.toISOString().slice(0, 10);
+    setSelectedDate(newDate);
+    setCalMonth(d.getMonth());
+    setCalYear(d.getFullYear());
+  };
+
+  useEffect(() => {
+    if (!showCal) return;
+    const handler = (e) => { if (calRef.current && !calRef.current.contains(e.target)) setShowCal(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showCal]);
+
   const generateAI = async (period) => {
     setAiLoading(true); setAiOutput(""); setAiPeriod(period);
 
@@ -4828,35 +4932,82 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       <style>{`
         @media (max-width: 768px) {
-          .notebook-layout { grid-template-columns: 1fr !important; }
-          .notebook-calendar { order: 2; }
-          .notebook-editor { order: 1; }
           .pretrade-grid { grid-template-columns: 1fr !important; }
           .ai-header { flex-direction: column !important; align-items: flex-start !important; }
           .ai-buttons { flex-wrap: wrap !important; }
+          .nb-date-bar { flex-wrap: wrap !important; }
         }
       `}</style>
       <PageBanner label="NOTEBOOK" title="Write it down. Own the day." subtitle="Pre-market gameplan, trade recap, and EOD reflection — in one place. AI coached." />
 
-      <div className="notebook-layout" style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 20, alignItems: "start" }}>
+      {/* ── Date Navigation Bar ── */}
+      <div ref={calRef} style={{ position: "relative", marginBottom: 20 }}>
+        <TCard style={{ padding: "12px 18px" }}>
+          <div className="nb-date-bar" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Prev / Next */}
+            <button onClick={() => goDay(-1)} style={{ background: "none", border: "1px solid var(--border-primary)", borderRadius: 4, color: "var(--text-secondary)", cursor: "pointer", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            {/* Date display — click to toggle calendar */}
+            <button onClick={() => setShowCal(v => !v)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{selectedDateDisplay}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>
+                {selectedDate === today ? "Today" : ""}{entryDates.has(selectedDate) ? (selectedDate === today ? " · " : "") + "Entry saved" : ""}
+              </div>
+            </button>
+            <button onClick={() => goDay(1)} style={{ background: "none", border: "1px solid var(--border-primary)", borderRadius: 4, color: "var(--text-secondary)", cursor: "pointer", width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            {/* Calendar toggle */}
+            <button onClick={() => setShowCal(v => !v)} title="Open calendar" style={{
+              background: showCal ? "var(--accent-dim)" : "none", border: `1px solid ${showCal ? "var(--accent)" : "var(--border-primary)"}`,
+              borderRadius: 4, color: showCal ? "var(--accent)" : "var(--text-tertiary)", cursor: "pointer",
+              width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </button>
+            {/* Jump to today */}
+            {selectedDate !== today && (
+              <button onClick={() => { setSelectedDate(today); setCalMonth(new Date().getMonth()); setCalYear(new Date().getFullYear()); }} style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "5px 10px", borderRadius: 4, cursor: "pointer", border: "1px solid var(--accent)",
+                background: "var(--accent-dim)", color: "var(--accent)", whiteSpace: "nowrap",
+              }}>TODAY</button>
+            )}
+            {/* Entries count */}
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, color: "var(--accent)", lineHeight: 1 }}>{entryDates.size}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 1 }}>entries</div>
+            </div>
+          </div>
+        </TCard>
 
-        {/* ── Left: Calendar + stats ── */}
-        <div className="notebook-calendar" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <TCard style={{ padding: 0, overflow: "hidden" }}>
+        {/* Calendar dropdown */}
+        {showCal && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 100,
+            background: "var(--bg-primary)", border: "1px solid var(--border-primary)",
+            borderRadius: 10, boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            padding: 0, overflow: "hidden", minWidth: 280,
+          }}>
             {/* Month nav */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: "1px solid var(--border-primary)" }}>
-              <button onClick={calPrev} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", fontSize: 12, padding: 4, lineHeight: 1 }}>◀</button>
-              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>{MONTHS[calMonth]} {calYear}</span>
-              <button onClick={calNext} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", fontSize: 12, padding: 4, lineHeight: 1 }}>▶</button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid var(--border-primary)" }}>
+              <button onClick={calPrev} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 4, display: "flex" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{MONTHS[calMonth]} {calYear}</span>
+              <button onClick={calNext} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", padding: 4, display: "flex" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
             </div>
             {/* Day labels */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "8px 10px 2px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "10px 14px 4px" }}>
               {["S","M","T","W","T","F","S"].map((d, i) => (
-                <div key={i} style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, color: "var(--text-tertiary)", fontWeight: 600, padding: "2px 0" }}>{d}</div>
+                <div key={i} style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", fontWeight: 600 }}>{d}</div>
               ))}
             </div>
             {/* Day grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "2px 10px 12px", gap: 2 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", padding: "4px 14px 14px", gap: 3 }}>
               {Array.from({ length: firstDay }, (_, i) => <div key={`e${i}`} />)}
               {Array.from({ length: daysInMonth }, (_, i) => {
                 const d = i + 1;
@@ -4865,12 +5016,12 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
                 const isToday = dateStr === today;
                 const hasEntry = entryDates.has(dateStr);
                 return (
-                  <button key={d} onClick={() => setSelectedDate(dateStr)} style={{
+                  <button key={d} onClick={() => { setSelectedDate(dateStr); setShowCal(false); }} style={{
                     position: "relative", width: "100%", aspectRatio: "1", borderRadius: 4,
                     background: isSelected ? "var(--accent)" : "transparent",
                     border: isToday && !isSelected ? "1px solid var(--accent)" : "1px solid transparent",
                     color: isSelected ? "var(--bg-primary)" : isToday ? "var(--accent)" : "var(--text-secondary)",
-                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10,
+                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11,
                     fontWeight: isSelected || isToday ? 700 : 400,
                     cursor: "pointer", display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center", gap: 1, transition: "all 0.1s",
@@ -4881,145 +5032,129 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
                 );
               })}
             </div>
-          </TCard>
-
-          {/* Stats */}
-          <TCard style={{ padding: "16px 18px", textAlign: "center" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 28, fontWeight: 800, color: "var(--accent)" }}>{entryDates.size}</div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>Entries Written</div>
-          </TCard>
-        </div>
-
-        {/* ── Right: Entry editor ── */}
-        <div className="notebook-editor">
-          {/* Date header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-            <div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{selectedDateDisplay}</div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: saving ? "var(--text-tertiary)" : saved ? "var(--green)" : "var(--text-tertiary)", marginTop: 2, transition: "color 0.3s" }}>
-                {saving ? "Saving..." : saved ? "✓ Saved" : selectedDate === today ? "Today" : ""}
-              </div>
-            </div>
           </div>
+        )}
+      </div>
 
-          {/* Pre-Trade Plan */}
-          <TCard style={{ padding: 20, marginBottom: 14 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 14 }}>PRE-TRADE PLAN</div>
-            <div className="pretrade-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-              <Field label="Daily Bias">
-                <select style={{ ...selectStyle, fontSize: 12 }} value={plan.bias} onChange={(e) => setPlan(p => ({ ...p, bias: e.target.value }))}>
-                  <option value="">Select...</option>
-                  <option>Bullish</option>
-                  <option>Bearish</option>
-                  <option>Neutral</option>
-                </select>
-              </Field>
-              <Field label="Max Trades">
-                <select style={{ ...selectStyle, fontSize: 12 }} value={plan.max_trades} onChange={(e) => setPlan(p => ({ ...p, max_trades: e.target.value }))}>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Session Plan">
-              <textarea
-                style={{ ...inputStyle, resize: "vertical", overflow: "auto", minHeight: 140, lineHeight: 1.7, fontSize: 12 }}
-                placeholder="What's your plan for today's NY session? Setups, confluences, anything to avoid..."
-                value={plan.session_plan}
-                onChange={(e) => setPlan(p => ({ ...p, session_plan: e.target.value }))}
-                onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+      {/* ── Entry editor (full width) ── */}
+      <div>
+        {/* Pre-Trade Plan */}
+        <TCard style={{ padding: 24, marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 16 }}>PRE-TRADE PLAN</div>
+          <div className="pretrade-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <Field label="Daily Bias">
+              <select style={{ ...selectStyle, fontSize: 13 }} value={plan.bias} onChange={(e) => setPlan(p => ({ ...p, bias: e.target.value }))}>
+                <option value="">Select...</option>
+                <option>Bullish</option>
+                <option>Bearish</option>
+                <option>Neutral</option>
+              </select>
+            </Field>
+            <Field label="Max Trades">
+              <select style={{ ...selectStyle, fontSize: 13 }} value={plan.max_trades} onChange={(e) => setPlan(p => ({ ...p, max_trades: e.target.value }))}>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="Session Plan">
+            <textarea
+              style={{ ...inputStyle, resize: "vertical", overflow: "auto", minHeight: 140, lineHeight: 1.75, fontSize: 14 }}
+              placeholder="What's your plan for today's NY session? Setups, confluences, anything to avoid..."
+              value={plan.session_plan}
+              onChange={(e) => setPlan(p => ({ ...p, session_plan: e.target.value }))}
+              onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+            />
+          </Field>
+          <div style={{ marginTop: 14 }}>
+            <Field label="How are you feeling?">
+              <input
+                type="text"
+                style={{ ...inputStyle, fontSize: 13 }}
+                placeholder="e.g. focused, tired, anxious, in the zone..."
+                value={moodText}
+                onChange={(e) => setMoodText(e.target.value)}
               />
             </Field>
-            <div style={{ marginTop: 12 }}>
-              <Field label="How are you feeling?">
-                <input
-                  type="text"
-                  style={{ ...inputStyle, fontSize: 12 }}
-                  placeholder="e.g. focused, tired, anxious, in the zone..."
-                  value={moodText}
-                  onChange={(e) => setMoodText(e.target.value)}
-                />
-              </Field>
+          </div>
+        </TCard>
+
+        {/* Recap + EOD sections */}
+        {NOTEBOOK_SECTIONS.map(({ key, label, placeholder }) => (
+          <TCard key={key} style={{ padding: 24, marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 12 }}>{label}</div>
+            <textarea
+              value={entry[key]}
+              onChange={(e) => setEntry(prev => ({ ...prev, [key]: e.target.value }))}
+              onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+              onBlur={(e) => handleBlur(key, e.target.value)}
+              onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
+              placeholder={placeholder}
+              rows={6}
+              style={{
+                width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-primary)",
+                borderRadius: 6, padding: "14px 16px", resize: "vertical", overflow: "auto",
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-primary)",
+                lineHeight: 1.8, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
+              }}
+            />
+            <div style={{ textAlign: "right", marginTop: 6, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>
+              {wordCount(entry[key])} words
             </div>
           </TCard>
+        ))}
 
-          {/* Recap + EOD sections */}
-          {NOTEBOOK_SECTIONS.map(({ key, label, placeholder }) => (
-            <TCard key={key} style={{ padding: 20, marginBottom: 14 }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 10 }}>{label}</div>
-              <textarea
-                value={entry[key]}
-                onChange={(e) => setEntry(prev => ({ ...prev, [key]: e.target.value }))}
-                onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
-                onBlur={(e) => handleBlur(key, e.target.value)}
-                onFocus={(e) => e.target.style.borderColor = "var(--accent)"}
-                placeholder={placeholder}
-                rows={5}
-                style={{
-                  width: "100%", background: "var(--bg-input)", border: "1px solid var(--border-primary)",
-                  borderRadius: 6, padding: "12px 14px", resize: "vertical", overflow: "auto",
-                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-primary)",
-                  lineHeight: 1.75, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
-                }}
-              />
-              <div style={{ textAlign: "right", marginTop: 6, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>
-                {wordCount(entry[key])} words
-              </div>
-            </TCard>
-          ))}
+        {/* Save Entry */}
+        <button onClick={saveAll} disabled={saving} style={{
+          width: "100%", marginBottom: 16,
+          fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
+          padding: "14px", borderRadius: 6, cursor: saving ? "not-allowed" : "pointer",
+          border: saved ? "1px solid var(--green)" : "1px solid var(--accent)",
+          background: saved ? "rgba(5,150,105,0.08)" : "var(--accent-dim)",
+          color: saved ? "var(--green)" : "var(--accent)",
+          letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.2s",
+          opacity: saving ? 0.7 : 1,
+        }}>
+          {saving ? "Saving..." : saved ? "✓ Entry Saved" : "Save Entry"}
+        </button>
 
-          {/* Save Entry */}
-          <button onClick={saveAll} disabled={saving} style={{
-            width: "100%", marginBottom: 14,
-            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700,
-            padding: "13px", borderRadius: 6, cursor: saving ? "not-allowed" : "pointer",
-            border: saved ? "1px solid var(--green)" : "1px solid var(--accent)",
-            background: saved ? "rgba(5,150,105,0.08)" : "var(--accent-dim)",
-            color: saved ? "var(--green)" : "var(--accent)",
-            letterSpacing: "0.06em", textTransform: "uppercase", transition: "all 0.2s",
-            opacity: saving ? 0.7 : 1,
-          }}>
-            {saving ? "Saving..." : saved ? "✓ Entry Saved" : "Save Entry"}
-          </button>
-
-          {/* AI Coaching Summary */}
-          <TCard style={{ padding: 24, border: "1px solid rgba(34,211,238,0.15)" }}>
-            <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
-              <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(5,150,105,0.12)", color: "var(--green)" }}>
-                  AI ENABLED
-                </span>
-                {["day", "week", "month"].map(p => (
-                  <button key={p} onClick={() => generateAI(p)} disabled={aiLoading} style={{
-                    fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "6px 14px",
-                    borderRadius: 4, cursor: aiLoading ? "not-allowed" : "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
-                    border: aiPeriod === p ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
-                    background: aiPeriod === p ? "var(--accent-dim)" : "var(--bg-tertiary)",
-                    color: aiPeriod === p ? "var(--accent)" : "var(--text-secondary)",
-                    transition: "all 0.15s", opacity: aiLoading ? 0.6 : 1,
-                  }}>{p === "day" ? "Today" : p === "week" ? "This Week" : "This Month"}</button>
-                ))}
-              </div>
+        {/* AI Coaching Summary */}
+        <TCard style={{ padding: 24, border: "1px solid rgba(34,211,238,0.15)" }}>
+          <div className="ai-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>AI COACHING SUMMARY</div>
+            <div className="ai-buttons" style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "rgba(5,150,105,0.12)", color: "var(--green)" }}>
+                AI ENABLED
+              </span>
+              {["day", "week", "month"].map(p => (
+                <button key={p} onClick={() => generateAI(p)} disabled={aiLoading} style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "6px 14px",
+                  borderRadius: 4, cursor: aiLoading ? "not-allowed" : "pointer", letterSpacing: "0.05em", textTransform: "uppercase",
+                  border: aiPeriod === p ? "1px solid var(--accent)" : "1px solid var(--border-primary)",
+                  background: aiPeriod === p ? "var(--accent-dim)" : "var(--bg-tertiary)",
+                  color: aiPeriod === p ? "var(--accent)" : "var(--text-secondary)",
+                  transition: "all 0.15s", opacity: aiLoading ? 0.6 : 1,
+                }}>{p === "day" ? "Today" : p === "week" ? "This Week" : "This Month"}</button>
+              ))}
             </div>
-            {aiLoading && (
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", padding: "24px 0", textAlign: "center" }}>
-                Analyzing your entries...
-              </div>
-            )}
-            {aiOutput && !aiLoading && (
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.8, whiteSpace: "pre-wrap", padding: "16px 20px", background: "var(--bg-tertiary)", borderRadius: 6, border: "1px solid var(--border-primary)" }}>
-                {aiOutput}
-              </div>
-            )}
-            {!aiOutput && !aiLoading && (
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", padding: "24px 0", textAlign: "center", lineHeight: 1.6 }}>
-                Select Today, This Week, or This Month to get a coaching summary based on your journal entries and trade data.
-              </div>
-            )}
-          </TCard>
-        </div>
+          </div>
+          {aiLoading && (
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", padding: "24px 0", textAlign: "center" }}>
+              Analyzing your entries...
+            </div>
+          )}
+          {aiOutput && !aiLoading && (
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.8, whiteSpace: "pre-wrap", padding: "16px 20px", background: "var(--bg-tertiary)", borderRadius: 6, border: "1px solid var(--border-primary)" }}>
+              {aiOutput}
+            </div>
+          )}
+          {!aiOutput && !aiLoading && (
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-tertiary)", padding: "24px 0", textAlign: "center", lineHeight: 1.6 }}>
+              Select Today, This Week, or This Month to get a coaching summary based on your journal entries and trade data.
+            </div>
+          )}
+        </TCard>
       </div>
     </div>
   );
@@ -5429,7 +5564,9 @@ export function EducationView({ supabase, user }) {
       {/* Empty state */}
       {!filtered.length && (
         <TCard style={{ padding: 56, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📚</div>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>
             {resources.length === 0 ? "Start your learning library" : "No resources match your filters"}
           </div>
