@@ -503,7 +503,7 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
 
 // ─── JOURNAL + CHECKLIST COMBINED ────────────────────────────────────────────
 
-function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl, setGsUrl, privacyMode, prefs }) {
+function JournalWithChecklist({ supabase, user, loadTrades, privacyMode, prefs }) {
   const [checklistOpen, setChecklistOpen] = useState(() => {
     const stored = sessionStorage.getItem("checklistOpen");
     return stored === null ? true : stored === "true";
@@ -544,14 +544,14 @@ function JournalWithChecklist({ supabase, user, loadTrades, syncToSheets, gsUrl,
         )}
       </div>
       {/* Journal */}
-      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} prefs={prefs} />
+      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} />
     </div>
   );
 }
 
 // ─── SETTINGS VIEW ───────────────────────────────────────────────────────────
 
-function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, dark, setDark, privacyMode, setPrivacyMode, userPrefs, setUserPrefs, gsUrl, setGsUrl, uploadAvatar, handleSignOut, currentXP, currentLevel, nextLevel, levels, completed, onNavigate }) {
+function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, dark, setDark, privacyMode, setPrivacyMode, userPrefs, setUserPrefs, uploadAvatar, handleSignOut, currentXP, currentLevel, nextLevel, levels, completed, onNavigate }) {
   const addToast = useToast();
   const avatarRef = useRef(null);
 
@@ -586,7 +586,6 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
 
   // Section: Integrations
   const [editApiKey, setEditApiKey] = useState(apiKey || "");
-  const [editGsUrl, setEditGsUrl] = useState(gsUrl || "");
   const [showKey, setShowKey] = useState(false);
   const [savingIntegrations, setSavingIntegrations] = useState(false);
 
@@ -656,8 +655,6 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
       await supabase.from("profiles").upsert({ id: user.id, anthropic_api_key: trimmedKey, updated_at: new Date().toISOString() });
       setApiKey(trimmedKey);
     }
-    try { localStorage.setItem("gsUrl", editGsUrl.trim()); } catch {}
-    setGsUrl(editGsUrl.trim());
     setSavingIntegrations(false);
     addToast("Integrations saved");
   };
@@ -842,7 +839,7 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
 
       {/* ── Section 3: Preferences ── */}
       <div style={sectionCard}>
-        <div style={sectionTitle}>Preferences</div>
+        <div style={sectionTitle}>Trade Journal Preferences</div>
 
         {/* Quality Labels */}
         <label style={label}>Setup Quality Labels</label>
@@ -866,28 +863,43 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
         {/* Setup Tags */}
         <label style={{ ...label, marginTop: 20 }}>Setup Tags</label>
         <div style={{ marginBottom: 12 }}>
-          {tags.map((tag, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border-primary)" }}>
-              <input type="color" value={tag.color} onChange={e=>setTags(t=>t.map((x,j)=>j===i?{...x,color:e.target.value}:x))} style={{ width:28,height:28,border:"none",background:"none",cursor:"pointer",padding:0,flexShrink:0 }} />
-              <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:"var(--text-primary)",flex:1 }}>#{tag.label}</span>
-              <button onClick={()=>setTags(t=>t.filter((_,j)=>j!==i))} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--red)",fontSize:16,padding:"0 4px" }}>×</button>
+          {tags.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "4px 0 12px" }}>
+              {tags.map((tag, i) => (
+                <span key={i} style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "5px 10px 5px 12px", borderRadius: 6,
+                  border: `1px solid ${tag.color}`,
+                  background: `${tag.color}1a`,
+                  color: tag.color,
+                }}>
+                  #{tag.label}
+                  <button onClick={() => setTags(t => t.filter((_, j) => j !== i))} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: tag.color, opacity: 0.7, fontSize: 14, lineHeight: 1,
+                    padding: 0, display: "flex", alignItems: "center",
+                  }}>×</button>
+                </span>
+              ))}
             </div>
-          ))}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+          )}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: tags.length > 0 ? 0 : 4 }}>
             <input type="color" value={newTagColor} onChange={e=>setNewTagColor(e.target.value)} style={{ width:32,height:32,border:"1px solid var(--border-primary)",borderRadius:6,cursor:"pointer",background:"none",padding:2,flexShrink:0 }} />
             <input style={{ ...inputStyle, flex:1 }} value={newTagLabel} onChange={e=>setNewTagLabel(e.target.value.toUpperCase())} placeholder="TAG NAME" maxLength={15} onKeyDown={e=>{ if(e.key==="Enter"&&newTagLabel.trim()){ setTags(t=>[...t,{label:newTagLabel.trim(),color:newTagColor}]); setNewTagLabel(""); }}} />
             <button onClick={()=>{ if(newTagLabel.trim()){ setTags(t=>[...t,{label:newTagLabel.trim(),color:newTagColor}]); setNewTagLabel(""); }}} style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:700,padding:"9px 16px",borderRadius:6,cursor:"pointer",background:"var(--bg-tertiary)",border:"1px solid var(--border-primary)",color:"var(--text-primary)",flexShrink:0 }}>Add</button>
           </div>
         </div>
 
-        {/* App toggles */}
-        <div style={{ marginTop: 20 }}>
-          <label style={label}>App Preferences</label>
-          {toggle(dark, () => setDark(d => !d), "Dark Mode", "Switch between dark and light theme")}
-          {toggle(privacyMode, () => setPrivacyMode(p => !p), "Privacy Mode", "Mask all dollar amounts with ••••")}
-        </div>
-
         <button style={saveBtn(savingPrefs)} onClick={savePreferences} disabled={savingPrefs}>{savingPrefs ? "Saving..." : "Save Preferences"}</button>
+      </div>
+
+      {/* ── App Preferences ── */}
+      <div style={sectionCard}>
+        <div style={sectionTitle}>App Preferences</div>
+        {toggle(dark, () => setDark(d => !d), "Dark Mode", "Switch between dark and light theme")}
+        {toggle(privacyMode, () => setPrivacyMode(p => !p), "Privacy Mode", "Mask all dollar amounts with ••••")}
       </div>
 
       {/* ── Section 4: Integrations ── */}
@@ -908,16 +920,6 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
             </button>
           </div>
           <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,color:"var(--text-tertiary)",marginTop:4 }}>Powers AI trading summaries. Stored securely in your profile.</div>
-        </div>
-
-        <div style={{ marginBottom: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <label style={{ ...label, marginBottom: 0 }}>Google Sheets URL</label>
-            {editGsUrl ? <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"rgba(52,211,153,0.12)",color:"var(--green)",border:"1px solid rgba(52,211,153,0.3)" }}>CONNECTED</span>
-              : <span style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:9,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"2px 8px",borderRadius:20,background:"var(--bg-tertiary)",color:"var(--text-tertiary)",border:"1px solid var(--border-primary)" }}>NOT SET</span>}
-          </div>
-          <input style={inputStyle} value={editGsUrl} onChange={e=>setEditGsUrl(e.target.value)} placeholder="https://script.google.com/..." />
-          <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,color:"var(--text-tertiary)",marginTop:4 }}>Syncs trade data to Google Sheets on each journal entry.</div>
         </div>
 
         <button style={saveBtn(savingIntegrations)} onClick={saveIntegrations} disabled={savingIntegrations}>{savingIntegrations ? "Saving..." : "Save Integrations"}</button>
@@ -1084,7 +1086,6 @@ export default function TraderRoadmapXP() {
   }, [showFocus]);
 
   const [editName, setEditName] = useState("");
-  const [editGsUrl, setEditGsUrl] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
@@ -1095,17 +1096,6 @@ export default function TraderRoadmapXP() {
 
   // Trading app state
   const [trades, setTrades] = useState([]);
-  const [gsUrl, setGsUrl] = useState(() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } });
-
-  const syncToSheets = useCallback(async (data) => {
-    const url = gsUrl || (() => { try { return localStorage.getItem("gsUrl") || ""; } catch { return ""; } })();
-    if (!url) return;
-    try {
-      await fetch(url, { method: "POST", body: JSON.stringify(data), mode: "no-cors" });
-    } catch (e) {
-      console.error("[Sheets] Sync error:", e.message);
-    }
-  }, [gsUrl]);
 
   // Auth listener
   const wasAuthenticatedRef = useRef(false);
@@ -1225,10 +1215,6 @@ export default function TraderRoadmapXP() {
     });
     setProfile((p) => ({ ...p, display_name: editName.trim() }));
     if (trimmedKey) setApiKey(trimmedKey);
-    // Save GS URL to localStorage
-    const trimmedGs = editGsUrl.trim();
-    setGsUrl(trimmedGs);
-    try { localStorage.setItem("gsUrl", trimmedGs); } catch {}
     // Show confirmation
     setProfileSaved(true);
     setTimeout(() => { setProfileSaved(false); setShowProfileEditor(false); }, 1200);
@@ -1713,7 +1699,7 @@ export default function TraderRoadmapXP() {
 
       {/* ── Quick Log Modal ── */}
       {showQuickLog && (
-        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} syncToSheets={syncToSheets} prefs={prefs} />
+        <QuickLogModal supabase={supabase} user={user} onClose={() => setShowQuickLog(false)} prefs={prefs} />
       )}
 
       {/* ── Tilt Alert Modal ── */}
@@ -2438,7 +2424,7 @@ export default function TraderRoadmapXP() {
 
         {/* HOME — default view */}
         {view === "map" && (
-          <DashboardView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
+          <DashboardView supabase={supabase} user={user} trades={trades} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
         )}
 
         {/* ROADMAP VIEW */}
@@ -2452,7 +2438,7 @@ export default function TraderRoadmapXP() {
 
         {/* JOURNAL VIEW (with collapsible checklist) */}
         {view === "journal" && (
-          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} syncToSheets={syncToSheets} gsUrl={gsUrl} setGsUrl={setGsUrl} privacyMode={privacyMode} prefs={prefs} />
+          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} />
         )}
 
         {/* STATS VIEW — Trade performance data */}
@@ -2472,7 +2458,7 @@ export default function TraderRoadmapXP() {
 
         {/* NOTEBOOK VIEW */}
         {view === "notebook" && (
-          <NotebookView supabase={supabase} user={user} trades={trades} syncToSheets={syncToSheets} />
+          <NotebookView supabase={supabase} user={user} trades={trades} />
         )}
 
         {/* EDUCATION VIEW */}
@@ -2496,7 +2482,6 @@ export default function TraderRoadmapXP() {
             dark={dark} setDark={setDark}
             privacyMode={privacyMode} setPrivacyMode={setPrivacyMode}
             userPrefs={userPrefs} setUserPrefs={setUserPrefs}
-            gsUrl={gsUrl} setGsUrl={setGsUrl}
             uploadAvatar={uploadAvatar}
             handleSignOut={handleSignOut}
             currentXP={currentXP} currentLevel={currentLevel}

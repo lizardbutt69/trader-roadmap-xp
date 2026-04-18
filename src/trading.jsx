@@ -1231,9 +1231,9 @@ export function ChecklistView({ supabase, user, embedded = false }) {
 // JOURNAL TAB — Pre-Trade Plan + Log a Trade
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, prefs }) {
+export function JournalView({ supabase, user, loadTrades, prefs }) {
   const toast = useToast();
-  // Plan state (loaded silently for Sheets trade sync)
+  // Plan state
   const [plan, setPlan] = useState({ session_plan: "" });
   const [mood, setMood] = useState(null);
 
@@ -1250,7 +1250,6 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, p
     setMood(m);
     const today = new Date().toISOString().slice(0, 10);
     await supabase.from("daily_moods").upsert({ user_id: user.id, mood_date: today, mood: m }, { onConflict: "user_id,mood_date" });
-    if (syncToSheets) syncToSheets({ type: "mood", mood: m, dt: new Date().toISOString(), dtFormatted: fmtDate(new Date()) });
   };
 
   // Form state
@@ -1319,15 +1318,6 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, p
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (error) { toast("Error saving trade: " + error.message); return; }
-    if (syncToSheets) syncToSheets({
-      type: "trade",
-      ...tradeData,
-      tags: tradeData.tags ? tradeData.tags.join(",") : "",
-      after: tradeData.after_chart,
-      dtFormatted: fmtDate(formDt),
-      preMarketJournal: plan.session_plan || "",
-      mood: mood || "",
-    });
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
     setFormAsset(""); setFormDirection(""); setFormAplus("");
     setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormRisk(prefs?.default_risk ? String(prefs.default_risk) : ""); setFormChart("");
@@ -1443,7 +1433,7 @@ export function JournalView({ supabase, user, loadTrades, syncToSheets, gsUrl, p
 // QUICK LOG MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function QuickLogModal({ supabase, user, onClose, syncToSheets, prefs }) {
+export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const toast = useToast();
   const [formDt, setFormDt] = useState(nowLocal());
   const [formAsset, setFormAsset] = useState("");
@@ -1494,15 +1484,6 @@ export function QuickLogModal({ supabase, user, onClose, syncToSheets, prefs }) 
     const { error } = await supabase.from("trades").insert(tradeData);
     setSaving(false);
     if (error) { toast("Error saving trade: " + error.message); return; }
-    if (syncToSheets) syncToSheets({
-      type: "trade",
-      ...tradeData,
-      tags: tradeData.tags ? tradeData.tags.join(",") : "",
-      after: tradeData.after_chart,
-      dtFormatted: fmtDate(formDt),
-      preMarketJournal: "",
-      mood: "",
-    });
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
     setSaved(true);
     setTimeout(() => onClose(), 900);
@@ -2507,21 +2488,22 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           {monthTrades.length > 0 && (
             <button
               onClick={() => {
+                const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
                 const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Tags", "Chart URL", "After Chart URL"];
                 const rows = monthTrades.map((t) => [
-                  t.dt ? new Date(t.dt).toLocaleString() : "",
-                  t.asset || "",
-                  t.direction || "",
-                  t.aplus || "",
-                  t.taken || "",
-                  t.bias || "",
+                  csvCell(t.dt ? new Date(t.dt).toLocaleString() : ""),
+                  csvCell(t.asset),
+                  csvCell(t.direction),
+                  csvCell(t.aplus),
+                  csvCell(t.taken),
+                  csvCell(t.bias),
                   t.profit != null ? t.profit : "",
                   t.profit_funded != null ? t.profit_funded : "",
-                  `"${(t.notes || "").replace(/"/g, '""')}"`,
-                  `"${(t.after_thoughts || "").replace(/"/g, '""')}"`,
-                  (t.tags || []).map(tag => `#${tag}`).join(" "),
-                  t.chart || "",
-                  t.after_chart || "",
+                  csvCell(t.notes),
+                  csvCell(t.after_thoughts),
+                  csvCell((t.tags || []).map(tag => `#${tag}`).join(" ")),
+                  csvCell(t.chart),
+                  csvCell(t.after_chart),
                 ]);
                 const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
                 const blob = new Blob([csv], { type: "text/csv" });
@@ -3637,7 +3619,7 @@ function ProgressBar({ pct, color, height = 8 }) {
 }
 
 
-export function DashboardView({ supabase, user, trades, syncToSheets, displayName, privacyMode, onNavigate }) {
+export function DashboardView({ supabase, user, trades, displayName, privacyMode, onNavigate }) {
   const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
@@ -4711,7 +4693,7 @@ const NOTEBOOK_SECTIONS = [
   { key: "eod_reflection", label: "EOD REFLECTION", placeholder: "What did you do well today? What needs work? Did you follow your rules? How's your mindset heading into tomorrow?" },
 ];
 
-export function NotebookView({ supabase, user, trades, syncToSheets }) {
+export function NotebookView({ supabase, user, trades }) {
   const today = todayKey();
   const [selectedDate, setSelectedDate] = useState(today);
   const [entry, setEntry] = useState({ recap: "", eod_reflection: "", mood: null, ai_summary: "" });
@@ -4780,12 +4762,6 @@ export function NotebookView({ supabase, user, trades, syncToSheets }) {
       saves.push(supabase.from("daily_moods").upsert({ user_id: user.id, mood_date: selectedDate, mood: moodText.trim() }, { onConflict: "user_id,mood_date" }));
     }
     await Promise.all(saves);
-    if (syncToSheets && selectedDate === today) {
-      const dt = new Date().toISOString();
-      const dtFormatted = fmtDate(new Date());
-      syncToSheets({ type: "plan", dt, dtFormatted, preMarketJournal: plan.session_plan || "" });
-      if (moodText.trim()) syncToSheets({ type: "mood", mood: moodText.trim(), dt, dtFormatted });
-    }
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
