@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, useToast } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, ChartsView, useToast } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
@@ -955,6 +955,7 @@ export default function TraderRoadmapXP() {
   // NYSE Clock
   const [nyClock, setNyClock] = useState(() => new Date());
   const bellPlayedRef = useRef(null); // tracks which date's bell already rang
+  const preOpenShownRef = useRef(null); // tracks which date's pre-open focus modal was auto-shown
   useEffect(() => {
     const id = setInterval(() => setNyClock(new Date()), 1000);
     return () => clearInterval(id);
@@ -970,6 +971,9 @@ export default function TraderRoadmapXP() {
   const isWeekday = nyDay !== "Saturday" && nyDay !== "Sunday";
   const isMarketOpen = isWeekday && nyTotalMin >= 570 && nyTotalMin < 960; // 9:30 AM - 4:00 PM ET
   const isPreMarket = isWeekday && nyTotalMin >= 240 && nyTotalMin < 570; // 4:00 AM - 9:30 AM ET
+  const secsToOpen = Math.max(0, 34200 - (nyHour * 3600 + nyMin * 60 + nySec)); // seconds until 9:30 AM ET
+  const minsToOpen = Math.floor(secsToOpen / 60);
+  const secsToOpenRem = secsToOpen % 60;
 
   // NYSE Opening Bell chime at 9:30 AM ET
   useEffect(() => {
@@ -1003,6 +1007,16 @@ export default function TraderRoadmapXP() {
         playTone(1245, 1.2, 1.6, 0.04);
         setTimeout(() => ctx.close(), 4000);
       } catch (e) { /* AudioContext not available */ }
+    }
+  }, [nyClock]);
+
+  // Pre-market focus modal — auto-show at 9:27 AM ET
+  useEffect(() => {
+    if (!isWeekday) return;
+    const dateKey = nyClock.toLocaleDateString("en-US", nyOpts);
+    if (nyHour === 9 && nyMin === 27 && nySec < 3 && preOpenShownRef.current !== dateKey) {
+      preOpenShownRef.current = dateKey;
+      setShowFocus(true);
     }
   }, [nyClock]);
 
@@ -1043,8 +1057,6 @@ export default function TraderRoadmapXP() {
   const [showTilt, setShowTilt] = useState(false);
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [showFocus, setShowFocus] = useState(false);
-  const [focusSecs, setFocusSecs] = useState(180);
-  const focusTimerRef = useRef(null);
   const todayKey = new Date().toISOString().slice(0, 10);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [ripples, setRipples] = useState([]);
@@ -1068,22 +1080,13 @@ export default function TraderRoadmapXP() {
       if (confirm) { setConfirm(null); return; }
       if (viewingProof) { setViewingProof(null); return; }
       if (showTilt) { setShowTilt(false); return; }
-      if (showFocus) { clearInterval(focusTimerRef.current); setShowFocus(false); return; }
+      if (showFocus) { setShowFocus(false); return; }
       if (showSessionNotes) { setShowSessionNotes(false); return; }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [showProfileEditor, confirm, viewingProof, showTilt, showFocus, showSessionNotes]);
 
-  // Focus Mode timer — must be after showFocus/focusSecs/focusTimerRef declarations
-  useEffect(() => {
-    if (showFocus && focusSecs > 0) {
-      focusTimerRef.current = setInterval(() => setFocusSecs(s => s - 1), 1000);
-    } else {
-      clearInterval(focusTimerRef.current);
-    }
-    return () => clearInterval(focusTimerRef.current);
-  }, [showFocus]);
 
   const [editName, setEditName] = useState("");
   const [editApiKey, setEditApiKey] = useState("");
@@ -1774,29 +1777,86 @@ export default function TraderRoadmapXP() {
       {/* ── Focus Mode Modal ── */}
       {showFocus && (
         <div
-          onClick={() => { clearInterval(focusTimerRef.current); setShowFocus(false); }}
+          onClick={() => setShowFocus(false)}
           style={{ position: "fixed", inset: 0, zIndex: 500, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, animation: "fadeSlideIn 0.2s ease" }}
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 18, padding: "44px 40px", maxWidth: 420, width: "100%", boxShadow: "0 0 60px rgba(34,211,238,0.10)", display: "flex", flexDirection: "column", alignItems: "center", gap: 28, textAlign: "center" }}
+            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 18, padding: "36px 40px 40px", maxWidth: 420, width: "100%", boxShadow: "0 0 60px rgba(34,211,238,0.10)", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", position: "relative" }}
           >
-            <TradeSharpLogo size={52} />
-            <div style={{ fontSize: 56, fontWeight: 800, fontVariantNumeric: "tabular-nums", letterSpacing: 3, color: "var(--accent)", lineHeight: 1, fontFamily: "ui-monospace, monospace" }}>
-              {String(Math.floor(focusSecs / 60)).padStart(2, "0")}:{String(focusSecs % 60).padStart(2, "0")}
+            {/* X dismiss — top right */}
+            <button
+              onClick={() => setShowFocus(false)}
+              style={{ position: "absolute", top: 14, right: 14, background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 6, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", transition: "color 0.15s" }}
+              onMouseEnter={e => e.currentTarget.style.color = "var(--text-primary)"}
+              onMouseLeave={e => e.currentTarget.style.color = "var(--text-tertiary)"}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            {/* Clock card — styled like the sidebar NYSE widget, scaled up */}
+            <div style={{
+              width: "100%", borderRadius: 10, overflow: "hidden",
+              background: dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+              border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+              backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+            }}>
+              {/* Gradient top bar */}
+              <div style={{
+                height: 3,
+                background: isMarketOpen
+                  ? "linear-gradient(90deg, #059669, #22d3ee)"
+                  : isPreMarket
+                    ? "linear-gradient(90deg, #d97706, #f59e0b)"
+                    : "linear-gradient(90deg, var(--text-tertiary), transparent)",
+                opacity: isMarketOpen ? 1 : 0.6,
+              }} />
+              <div style={{ padding: "16px 20px 18px" }}>
+                {/* NYSE label + status badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--text-tertiary)" }}>NYSE</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, letterSpacing: 0.5,
+                    padding: "3px 8px", borderRadius: 4,
+                    background: isMarketOpen ? "rgba(5,150,105,0.15)" : isPreMarket ? "rgba(217,119,6,0.15)" : dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                    color: isMarketOpen ? "#059669" : isPreMarket ? "#d97706" : "var(--text-tertiary)",
+                  }}>
+                    {isMarketOpen ? "OPEN" : isPreMarket ? "PRE-MKT" : "CLOSED"}
+                  </span>
+                </div>
+                {/* Big time */}
+                <div style={{ fontSize: 38, fontWeight: 700, fontVariantNumeric: "tabular-nums", letterSpacing: -0.5, color: "var(--text-primary)", lineHeight: 1.1, marginBottom: 6 }}>
+                  {nyClock.toLocaleTimeString("en-US", { ...nyOpts, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+                </div>
+                {/* Date + opens-in line */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", letterSpacing: 0.3 }}>{nyDate} · ET</span>
+                  {isPreMarket && secsToOpen > 0 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#d97706" }}>
+                      Opens in {minsToOpen}:{String(secsToOpenRem).padStart(2, "0")}
+                    </span>
+                  )}
+                  {isMarketOpen && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#059669" }}>Session live</span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.85, fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", flexDirection: "column", gap: 4 }}>
+
+            {/* Motivational text */}
+            <div style={{ color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.85, fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", flexDirection: "column", gap: 4 }}>
               <p style={{ margin: 0 }}>You don't need to catch every move.</p>
               <p style={{ margin: 0 }}>You need to catch <em>your</em> move.</p>
-              <p style={{ margin: 0 }}>The market will do what it does.</p>
               <p style={{ margin: "8px 0 0" }}>Your only job is to wait for the one thing you recognize — and execute it cleanly.</p>
-              <p style={{ margin: "16px 0 0", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.02em" }}>Not faster. Not smarter. Just disciplined.</p>
+              <p style={{ margin: "12px 0 0", fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.02em" }}>Not faster. Not smarter. Just disciplined.</p>
             </div>
+
+            {/* Dismiss button */}
             <button
-              onClick={() => { clearInterval(focusTimerRef.current); setShowFocus(false); }}
+              onClick={() => setShowFocus(false)}
               style={{ padding: "11px 32px", borderRadius: 6, background: "var(--accent)", border: "none", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}
             >
-              I'm Ready
+              Dismiss
             </button>
           </div>
         </div>
@@ -1942,6 +2002,7 @@ export default function TraderRoadmapXP() {
               { key: "watchlist", label: "Watchlist", reset: false },
               { key: "accounts", label: "Accounts", reset: false },
               { key: "stats", label: "Stats", reset: false },
+              { key: "charts", label: "Charts", reset: false },
               { key: "education", label: "Education", reset: false },
               { key: "edge-chat", label: "Edge AI", reset: false },
             ].map((tab) => {
@@ -1954,6 +2015,7 @@ export default function TraderRoadmapXP() {
                 watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
                 accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
                 stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+                charts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="4" height="10" rx="1"/><rect x="10" y="7" width="4" height="6" rx="1"/><rect x="17" y="5" width="4" height="8" rx="1"/><line x1="1" y1="20" x2="23" y2="20"/></svg>,
                 education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
                 ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>,
                 "edge-chat": <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
@@ -2013,7 +2075,7 @@ export default function TraderRoadmapXP() {
           {/* Focus Mode trigger */}
           <div style={{ padding: "8px 12px", borderTop: "1px solid var(--border-primary)" }}>
             <button
-              onClick={() => { setFocusSecs(180); setShowFocus(true); }}
+              onClick={() => setShowFocus(true)}
               title="Focus Mode"
               style={{
                 width: "100%", display: "flex", alignItems: "center", gap: 10,
@@ -2210,6 +2272,7 @@ export default function TraderRoadmapXP() {
                   { key: "watchlist", label: "Watchlist" },
                   { key: "accounts", label: "Accounts" },
                   { key: "stats", label: "Stats" },
+                  { key: "charts", label: "Charts" },
                   { key: "education", label: "Education" },
                   { key: "edge-chat", label: "Edge AI" },
                 ].map((tab) => {
@@ -2357,7 +2420,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "charts" ? "Charts" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2459,6 +2522,11 @@ export default function TraderRoadmapXP() {
         {/* NOTEBOOK VIEW */}
         {view === "notebook" && (
           <NotebookView supabase={supabase} user={user} trades={trades} />
+        )}
+
+        {/* CHARTS VIEW */}
+        {view === "charts" && (
+          <ChartsView />
         )}
 
         {/* EDUCATION VIEW */}

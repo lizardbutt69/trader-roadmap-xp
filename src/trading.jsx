@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
+import { createChart, CandlestickSeries } from "lightweight-charts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
@@ -5132,6 +5133,184 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
           )}
         </TCard>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHARTS VIEW — Lightweight candlestick chart for NQ1!
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CHART_INTERVALS = [
+  { label: "1m", interval: "1m", range: "1d" },
+  { label: "5m", interval: "5m", range: "1d" },
+  { label: "15m", interval: "15m", range: "5d" },
+  { label: "1H", interval: "1h", range: "1mo" },
+  { label: "4H", interval: "4h", range: "3mo" },
+  { label: "1D", interval: "1d", range: "1y" },
+];
+
+export function ChartsView() {
+  const chartContainerRef = useRef(null);
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const [activeInterval, setActiveInterval] = useState("5m");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [meta, setMeta] = useState(null);
+
+  const loadCandles = useCallback(async (intervalLabel) => {
+    const cfg = CHART_INTERVALS.find(c => c.label === intervalLabel);
+    if (!cfg) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/market-data?ticker=NQ%3DF&interval=${cfg.interval}&range=${cfg.range}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (seriesRef.current && data.candles?.length) {
+        seriesRef.current.setData(data.candles);
+        chartRef.current?.timeScale().fitContent();
+      }
+      setMeta(data.meta);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+
+    const chart = createChart(chartContainerRef.current, {
+      width: chartContainerRef.current.clientWidth,
+      height: 500,
+      layout: {
+        background: { color: isDark ? "#0b0d13" : "#ffffff" },
+        textColor: isDark ? "#94a3b8" : "#374151",
+      },
+      grid: {
+        vertLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+        horzLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)" },
+      timeScale: {
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#34d399",
+      downColor: "#f87171",
+      borderUpColor: "#34d399",
+      borderDownColor: "#f87171",
+      wickUpColor: "#34d399",
+      wickDownColor: "#f87171",
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    const ro = new ResizeObserver(() => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    });
+    ro.observe(chartContainerRef.current);
+
+    loadCandles("5m");
+
+    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+  }, [loadCandles]);
+
+  const handleInterval = (label) => {
+    setActiveInterval(label);
+    loadCandles(label);
+  };
+
+  const price = meta?.regularMarketPrice;
+  const prevClose = meta?.chartPreviousClose;
+  const change = price && prevClose ? price - prevClose : null;
+  const changePct = change && prevClose ? (change / prevClose) * 100 : null;
+  const isUp = change >= 0;
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="CHARTS"
+        title="Market Overview"
+        subtitle="Live candlestick charts powered by Yahoo Finance."
+      />
+
+      <TCard style={{ padding: "20px 24px", marginBottom: 16 }}>
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
+                NQ1! <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.05em" }}>E-MINI NASDAQ-100</span>
+              </div>
+              {meta && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>
+                    {price?.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  {change != null && (
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: isUp ? "var(--green)" : "var(--red)" }}>
+                      {isUp ? "+" : ""}{change.toFixed(2)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Interval selector */}
+          <div style={{ display: "flex", gap: 4 }}>
+            {CHART_INTERVALS.map(({ label }) => (
+              <button
+                key={label}
+                onClick={() => handleInterval(label)}
+                style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                  padding: "5px 10px", borderRadius: 4, cursor: "pointer",
+                  border: "1px solid",
+                  borderColor: activeInterval === label ? "var(--accent)" : "var(--border-primary)",
+                  background: activeInterval === label ? "var(--accent-dim)" : "var(--bg-tertiary)",
+                  color: activeInterval === label ? "var(--accent)" : "var(--text-secondary)",
+                  letterSpacing: "0.04em",
+                }}
+              >{label}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chart container */}
+        <div style={{ position: "relative" }}>
+          <div ref={chartContainerRef} style={{ width: "100%", height: 500, borderRadius: 6, overflow: "hidden" }} />
+          {loading && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,13,19,0.6)", borderRadius: 6 }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>Loading...</span>
+            </div>
+          )}
+          {error && (
+            <div style={{ padding: "40px 24px", textAlign: "center" }}>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--red)", marginBottom: 6 }}>Failed to load chart data</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>{error}</div>
+            </div>
+          )}
+        </div>
+
+        {meta?.exchangeName && (
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 8, letterSpacing: "0.04em" }}>
+            {meta.exchangeName} · Data via Yahoo Finance · Delayed
+          </div>
+        )}
+      </TCard>
     </div>
   );
 }
