@@ -5487,6 +5487,295 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
 // CHARTS VIEW — Lightweight candlestick chart for NQ1!
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TRADE REPLAY VIEW (full-page sidebar feature)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function ReplayChartPanel({ trade, privacyMode, prefs }) {
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const containerRef = useRef(null);
+  const defaultInterval = trade.timeframe || "5m";
+  const [activeInterval, setActiveInterval] = useState(
+    REPLAY_INTERVALS.includes(defaultInterval.toUpperCase())
+      ? defaultInterval.toUpperCase()
+      : REPLAY_INTERVALS.find(i => i.toLowerCase() === defaultInterval.toLowerCase()) || "5m"
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [oldDataWarning, setOldDataWarning] = useState(false);
+
+  const MASK = "••••";
+  const pnl = trade.profit ?? trade.profit_funded;
+  const risk = trade.risk ?? prefs?.default_risk;
+  const rVal = pnl != null && risk ? (pnl / risk).toFixed(2) : null;
+  const isWin = pnl > 0;
+
+  const loadData = useCallback(async (intervalLabel) => {
+    if (!seriesRef.current) return;
+    setLoading(true);
+    setError(null);
+    setOldDataWarning(false);
+    const ticker = assetToYahooSymbol(trade.asset);
+    const apiInterval = REPLAY_INTERVAL_MAP[intervalLabel] || "5m";
+    const rangeMap = { "1m": "1d", "5m": "5d", "15m": "1mo", "1h": "3mo", "4h": "6mo", "1d": "1y" };
+    const range = rangeMap[apiInterval] || "5d";
+    try {
+      const res = await fetch(`/api/market-data?ticker=${encodeURIComponent(ticker)}&interval=${apiInterval}&range=${range}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.candles?.length) throw new Error("No candle data returned. Check the asset symbol.");
+      seriesRef.current.setData(data.candles);
+      if (trade.entry_price != null) {
+        seriesRef.current.createPriceLine({ price: trade.entry_price, color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: "Entry" });
+      }
+      if (trade.stop_loss != null) {
+        seriesRef.current.createPriceLine({ price: trade.stop_loss, color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL" });
+      }
+      if (trade.take_profit != null) {
+        seriesRef.current.createPriceLine({ price: trade.take_profit, color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP" });
+      }
+      if (trade.exit_price != null && trade.exit_price !== trade.take_profit) {
+        seriesRef.current.createPriceLine({ price: trade.exit_price, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Exit" });
+      }
+      chartRef.current?.timeScale().fitContent();
+      if (trade.dt && tradeAgeMs(trade) > 7 * 24 * 60 * 60 * 1000 && ["1m","5m"].includes(apiInterval)) {
+        setOldDataWarning(true);
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }, [trade]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 640,
+      layout: {
+        background: { color: isDark ? "#0b0d13" : "#ffffff" },
+        textColor: isDark ? "#94a3b8" : "#374151",
+      },
+      grid: {
+        vertLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+        horzLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)" },
+      timeScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)", timeVisible: true, secondsVisible: false },
+    });
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#34d399", downColor: "#f87171",
+      borderUpColor: "#34d399", borderDownColor: "#f87171",
+      wickUpColor: "#34d399", wickDownColor: "#f87171",
+    });
+    chartRef.current = chart;
+    seriesRef.current = series;
+    const ro = new ResizeObserver(() => { if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth }); });
+    ro.observe(containerRef.current);
+    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    if (seriesRef.current) loadData(activeInterval);
+  }, [loadData, activeInterval]);
+
+  const priceItem = (label, value, color) => value != null ? (
+    <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-tertiary)", textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 700, color: color || "var(--text-primary)" }}>{typeof value === "number" ? value.toLocaleString() : value}</div>
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Trade header strip */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, padding: "14px 18px", background: "var(--bg-tertiary)", borderRadius: 10, border: "1px solid var(--border-primary)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 200 }}>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, color: "var(--text-primary)" }}>{trade.asset}</span>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 4, letterSpacing: "0.07em", background: trade.direction === "Long" ? "rgba(52,211,153,0.12)" : "rgba(251,113,133,0.12)", color: trade.direction === "Long" ? "var(--green)" : "var(--red)" }}>{(trade.direction || "").toUpperCase()}</span>
+          {trade.dt && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)" }}>{new Date(trade.dt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} {new Date(trade.dt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+        </div>
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "center" }}>
+          {trade.entry_price != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>Entry <strong style={{ color: "#34d399" }}>{trade.entry_price.toLocaleString()}</strong></span>}
+          {trade.exit_price != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>Exit <strong style={{ color: "#f59e0b" }}>{trade.exit_price.toLocaleString()}</strong></span>}
+          {trade.stop_loss != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>SL <strong style={{ color: "#ef4444" }}>{trade.stop_loss.toLocaleString()}</strong></span>}
+          {trade.take_profit != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>TP <strong style={{ color: "#22c55e" }}>{trade.take_profit.toLocaleString()}</strong></span>}
+          {pnl != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>P&L <strong style={{ color: isWin ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${isWin ? "+" : ""}$${pnl.toFixed(0)}`}</strong></span>}
+          {rVal != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>R <strong style={{ color: isWin ? "var(--green)" : "var(--red)" }}>{rVal > 0 ? "+" : ""}{rVal}R</strong></span>}
+          {trade.aplus && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.06em" }}>{trade.aplus}</span>}
+        </div>
+      </div>
+
+      {/* Interval selector */}
+      <div style={{ display: "flex", gap: 4 }}>
+        {REPLAY_INTERVALS.map(i => (
+          <button key={i} onClick={() => setActiveInterval(i)} style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+            padding: "5px 12px", borderRadius: 4, cursor: "pointer", letterSpacing: "0.04em",
+            border: "1px solid", transition: "all 0.15s",
+            borderColor: activeInterval === i ? "var(--accent)" : "var(--border-primary)",
+            background: activeInterval === i ? "var(--accent-dim)" : "var(--bg-tertiary)",
+            color: activeInterval === i ? "var(--accent)" : "var(--text-secondary)",
+          }}>{i}</button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", alignSelf: "center", letterSpacing: "0.04em" }}>
+          {assetToYahooSymbol(trade.asset)} · Yahoo Finance · Delayed
+        </span>
+      </div>
+
+      {/* Chart */}
+      <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-primary)" }}>
+        <div ref={containerRef} style={{ width: "100%", height: 640 }} />
+        {loading && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,13,19,0.65)" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>Loading candles...</span>
+          </div>
+        )}
+        {error && !loading && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(11,13,19,0.85)", gap: 8 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--red)" }}>Failed to load chart data</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", maxWidth: 380, textAlign: "center" }}>{error}</div>
+          </div>
+        )}
+      </div>
+
+      {oldDataWarning && (
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "#f59e0b", padding: "6px 12px", background: "rgba(245,158,11,0.08)", borderRadius: 4, border: "1px solid rgba(245,158,11,0.2)" }}>
+          Intraday data unavailable for trades older than 7 days. Showing higher timeframe candles.
+        </div>
+      )}
+
+      {/* Trade details card */}
+      <TCard style={{ padding: "18px 20px" }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: 14 }}>Trade Details</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "14px 20px", marginBottom: 16 }}>
+          {priceItem("Entry", trade.entry_price, "#34d399")}
+          {priceItem("Exit", trade.exit_price, "#f59e0b")}
+          {priceItem("Stop Loss", trade.stop_loss, "#ef4444")}
+          {priceItem("Take Profit", trade.take_profit, "#22c55e")}
+          {trade.bias && priceItem("Bias", trade.bias, trade.bias === "Bullish" ? "var(--green)" : "var(--red)")}
+          {trade.aplus && priceItem("A+ Grade", trade.aplus, "var(--accent)")}
+          {trade.timeframe && priceItem("Timeframe", trade.timeframe, "var(--text-primary)")}
+          {risk != null && priceItem("Risk", `$${risk}`, "var(--text-primary)")}
+        </div>
+        {trade.notes && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: 6 }}>Notes</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>{trade.notes}</div>
+          </div>
+        )}
+        {trade.after_thoughts && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: 6 }}>After Thoughts</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>{trade.after_thoughts}</div>
+          </div>
+        )}
+        {trade.tags?.length > 0 && <TradeTagChips tags={trade.tags} allTags={prefs?.tags} />}
+      </TCard>
+    </div>
+  );
+}
+
+function tradeAgeMs(trade) {
+  return trade.dt ? Date.now() - new Date(trade.dt).getTime() : 0;
+}
+
+export function TradeReplayView({ supabase, user, privacyMode }) {
+  const [trades, setTrades] = useState([]);
+  const [selectedTrade, setSelectedTrade] = useState(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [prefs, setPrefs] = useState(null);
+
+  const MASK = "••••";
+
+  useEffect(() => {
+    if (!user) return;
+    Promise.all([
+      supabase.from("trades").select("*").eq("user_id", user.id).not("entry_price", "is", null).order("dt", { ascending: false }),
+      supabase.from("user_preferences").select("*").eq("user_id", user.id).single(),
+    ]).then(([{ data: tradeData }, { data: prefData }]) => {
+      const list = tradeData || [];
+      setTrades(list);
+      setSelectedTrade(list[0] || null);
+      setPrefs(prefData);
+      setListLoading(false);
+    });
+  }, [user]);
+
+  return (
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="TRADE REPLAY"
+        title="Replay Your Trades"
+        subtitle="Review your entries, exits, and price levels on an interactive chart."
+      />
+
+      <div style={{ display: "flex", gap: 0, minHeight: 700, border: "1px solid var(--border-primary)", borderRadius: 12, overflow: "hidden", background: "var(--bg-secondary)" }}>
+
+        {/* Left panel — trade list */}
+        <div style={{ width: 264, flexShrink: 0, borderRight: "1px solid var(--border-primary)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border-primary)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-tertiary)" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "var(--text-tertiary)", textTransform: "uppercase" }}>Replay Library</span>
+            {!listLoading && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "var(--accent-dim)", color: "var(--accent)" }}>{trades.length}</span>}
+          </div>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {listLoading ? (
+              <div style={{ padding: 24, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", textAlign: "center" }}>Loading...</div>
+            ) : trades.length === 0 ? (
+              <div style={{ padding: 24, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.6, textAlign: "center" }}>
+                No replay data yet.<br /><br />Fill in <strong>Entry Price</strong> when logging a trade to enable replay.
+              </div>
+            ) : trades.map(t => {
+              const tPnl = t.profit ?? t.profit_funded;
+              const isSelected = selectedTrade?.id === t.id;
+              const isWin = tPnl > 0;
+              return (
+                <button key={t.id} onClick={() => setSelectedTrade(t)} style={{
+                  width: "100%", textAlign: "left", background: isSelected ? "var(--accent-dim)" : "transparent",
+                  border: "none", borderBottom: "1px solid var(--border-primary)",
+                  borderLeft: `3px solid ${isSelected ? "var(--accent)" : "transparent"}`,
+                  padding: "12px 14px", cursor: "pointer", transition: "all 0.12s",
+                }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", letterSpacing: "0.04em", marginBottom: 4 }}>
+                    {t.dt ? new Date(t.dt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800, color: isSelected ? "var(--accent)" : "var(--text-primary)" }}>{t.asset}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3, letterSpacing: "0.06em", background: t.direction === "Long" ? "rgba(52,211,153,0.12)" : "rgba(251,113,133,0.12)", color: t.direction === "Long" ? "var(--green)" : "var(--red)" }}>
+                      {(t.direction || "").toUpperCase()}
+                    </span>
+                  </div>
+                  {tPnl != null && (
+                    <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: isWin ? "var(--green)" : "var(--red)" }}>
+                      {privacyMode ? MASK : `${isWin ? "+" : ""}$${tPnl.toFixed(0)}`}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right panel — chart + details */}
+        <div style={{ flex: 1, minWidth: 0, padding: "20px 24px", overflowY: "auto" }}>
+          {!selectedTrade ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 400, gap: 12 }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5,3 19,12 5,21"/></svg>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-tertiary)" }}>Select a trade to replay</div>
+            </div>
+          ) : (
+            <ReplayChartPanel key={selectedTrade.id} trade={selectedTrade} privacyMode={privacyMode} prefs={prefs} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const CHART_INTERVALS = [
   { label: "1m", interval: "1m", range: "1d" },
   { label: "5m", interval: "5m", range: "1d" },

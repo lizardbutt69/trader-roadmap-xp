@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, ChartsView, useToast } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
@@ -2002,7 +2002,7 @@ export default function TraderRoadmapXP() {
               { key: "watchlist", label: "Watchlist", reset: false },
               { key: "accounts", label: "Accounts", reset: false },
               { key: "stats", label: "Stats", reset: false },
-              { key: "charts", label: "Charts", reset: false },
+              { key: "charts", label: "Trade Replay", reset: false },
               { key: "education", label: "Education", reset: false },
               { key: "edge-chat", label: "Edge AI", reset: false },
             ].map((tab) => {
@@ -2015,7 +2015,7 @@ export default function TraderRoadmapXP() {
                 watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
                 accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
                 stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
-                charts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="4" height="10" rx="1"/><rect x="10" y="7" width="4" height="6" rx="1"/><rect x="17" y="5" width="4" height="8" rx="1"/><line x1="1" y1="20" x2="23" y2="20"/></svg>,
+                charts: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>,
                 education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
                 ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>,
                 "edge-chat": <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
@@ -2272,7 +2272,7 @@ export default function TraderRoadmapXP() {
                   { key: "watchlist", label: "Watchlist" },
                   { key: "accounts", label: "Accounts" },
                   { key: "stats", label: "Stats" },
-                  { key: "charts", label: "Charts" },
+                  { key: "charts", label: "Trade Replay" },
                   { key: "education", label: "Education" },
                   { key: "edge-chat", label: "Edge AI" },
                 ].map((tab) => {
@@ -2285,6 +2285,7 @@ export default function TraderRoadmapXP() {
                     watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
                     accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
                     stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+                    charts: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>,
                     education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
                     ai: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>,
                     "edge-chat": <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
@@ -2483,7 +2484,7 @@ export default function TraderRoadmapXP() {
           </div>
 
           {/* ── Content ── */}
-          <div className="main-content" style={{ maxWidth: view === "settings" ? "none" : 960, margin: "0 auto", padding: view === "settings" ? 0 : "28px 32px 60px" }}>
+          <div className="main-content" style={{ maxWidth: (view === "settings" || view === "charts") ? "none" : 960, margin: "0 auto", padding: view === "settings" ? 0 : "28px 32px 60px" }}>
 
         {/* HOME — default view */}
         {view === "map" && (
@@ -2524,9 +2525,9 @@ export default function TraderRoadmapXP() {
           <NotebookView supabase={supabase} user={user} trades={trades} />
         )}
 
-        {/* CHARTS VIEW */}
+        {/* TRADE REPLAY VIEW */}
         {view === "charts" && (
-          <ChartsView />
+          <TradeReplayView supabase={supabase} user={user} privacyMode={privacyMode} />
         )}
 
         {/* EDUCATION VIEW */}
