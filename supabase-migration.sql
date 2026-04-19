@@ -134,6 +134,13 @@ alter table trades add column if not exists account_id_funded uuid references ac
 -- Per-trade risk amount (overrides default_risk from user_preferences for R multiple calc)
 alter table trades add column if not exists risk numeric;
 
+-- Trade Replay columns (optional — fill to enable chart replay on a trade)
+alter table trades add column if not exists entry_price numeric;
+alter table trades add column if not exists exit_price numeric;
+alter table trades add column if not exists stop_loss numeric;
+alter table trades add column if not exists take_profit numeric;
+alter table trades add column if not exists timeframe text;
+
 -- Watchlist table (trade ideas)
 create table if not exists watchlist (
   id uuid default gen_random_uuid() primary key,

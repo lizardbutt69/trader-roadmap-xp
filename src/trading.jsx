@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
-import { createChart, CandlestickSeries } from "lightweight-charts";
+import { createChart, CandlestickSeries, createSeriesMarkers, LineStyle } from "lightweight-charts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
@@ -1270,6 +1270,12 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   const [formTags, setFormTags] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
+  const [formEntryPrice, setFormEntryPrice] = useState("");
+  const [formExitPrice, setFormExitPrice] = useState("");
+  const [formStopLoss, setFormStopLoss] = useState("");
+  const [formTakeProfit, setFormTakeProfit] = useState("");
+  const [formTimeframe, setFormTimeframe] = useState("");
+  const [showReplayFields, setShowReplayFields] = useState(false);
 
   // Accounts for selectors
   const [accounts, setAccounts] = useState([]);
@@ -1316,6 +1322,11 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
       risk: formRisk !== "" ? parseFloat(formRisk) : null,
+      ...(formEntryPrice !== "" ? { entry_price: parseFloat(formEntryPrice) } : {}),
+      ...(formExitPrice !== "" ? { exit_price: parseFloat(formExitPrice) } : {}),
+      ...(formStopLoss !== "" ? { stop_loss: parseFloat(formStopLoss) } : {}),
+      ...(formTakeProfit !== "" ? { take_profit: parseFloat(formTakeProfit) } : {}),
+      ...(formTimeframe ? { timeframe: formTimeframe } : {}),
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     if (error) { toast("Error saving trade: " + error.message); return; }
@@ -1323,6 +1334,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
     setFormAsset(""); setFormDirection(""); setFormAplus("");
     setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormRisk(prefs?.default_risk ? String(prefs.default_risk) : ""); setFormChart("");
     setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
+    setFormEntryPrice(""); setFormExitPrice(""); setFormStopLoss(""); setFormTakeProfit(""); setFormTimeframe("");
     loadTrades();
   };
 
@@ -1418,6 +1430,29 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
             <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
           </Field>
         </div>
+        {/* Replay Data collapsible */}
+        <div style={{ marginBottom: 16 }}>
+          <button onClick={() => setShowReplayFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showReplayFields ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="9 18 15 12 9 6"/></svg>
+            Replay Data <span style={{ fontWeight: 400, opacity: 0.5 }}>(optional — fill to enable chart replay)</span>
+          </button>
+          {showReplayFields && (
+            <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 12 }}>
+              <Field label="Entry Price"><input type="number" step="0.01" style={inputStyle} value={formEntryPrice} onChange={e => setFormEntryPrice(e.target.value)} placeholder="e.g. 18450.25" /></Field>
+              <Field label="Exit Price"><input type="number" step="0.01" style={inputStyle} value={formExitPrice} onChange={e => setFormExitPrice(e.target.value)} placeholder="e.g. 18510.50" /></Field>
+              <Field label="Stop Loss"><input type="number" step="0.01" style={inputStyle} value={formStopLoss} onChange={e => setFormStopLoss(e.target.value)} placeholder="e.g. 18400.00" /></Field>
+              <Field label="Take Profit"><input type="number" step="0.01" style={inputStyle} value={formTakeProfit} onChange={e => setFormTakeProfit(e.target.value)} placeholder="e.g. 18550.00" /></Field>
+              <Field label="Timeframe" full>
+                <select style={selectStyle} value={formTimeframe} onChange={e => setFormTimeframe(e.target.value)}>
+                  <option value="">Auto-detect</option>
+                  <option value="1m">1m</option><option value="5m">5m</option><option value="15m">15m</option>
+                  <option value="1H">1H</option><option value="4H">4H</option><option value="1D">1D</option>
+                </select>
+              </Field>
+            </div>
+          )}
+        </div>
+
         <button onClick={logTrade} style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 13, fontSize: 13, fontWeight: 700, border: "1px solid rgba(34,211,238,0.25)", borderRadius: 4, cursor: "pointer",
           background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.08em", textTransform: "uppercase",
@@ -1452,6 +1487,12 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const [formTags, setFormTags] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
+  const [formEntryPrice, setFormEntryPrice] = useState("");
+  const [formExitPrice, setFormExitPrice] = useState("");
+  const [formStopLoss, setFormStopLoss] = useState("");
+  const [formTakeProfit, setFormTakeProfit] = useState("");
+  const [formTimeframe, setFormTimeframe] = useState("");
+  const [showReplayFields, setShowReplayFields] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1481,6 +1522,11 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
       risk: formRisk !== "" ? parseFloat(formRisk) : null,
+      ...(formEntryPrice !== "" ? { entry_price: parseFloat(formEntryPrice) } : {}),
+      ...(formExitPrice !== "" ? { exit_price: parseFloat(formExitPrice) } : {}),
+      ...(formStopLoss !== "" ? { stop_loss: parseFloat(formStopLoss) } : {}),
+      ...(formTakeProfit !== "" ? { take_profit: parseFloat(formTakeProfit) } : {}),
+      ...(formTimeframe ? { timeframe: formTimeframe } : {}),
     };
     const { error } = await supabase.from("trades").insert(tradeData);
     setSaving(false);
@@ -1609,6 +1655,29 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
               <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
             </Field>
           </div>
+          {/* Replay Data collapsible */}
+          <div style={{ marginBottom: 14 }}>
+            <button onClick={() => setShowReplayFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showReplayFields ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="9 18 15 12 9 6"/></svg>
+              Replay Data <span style={{ fontWeight: 400, opacity: 0.5 }}>(optional)</span>
+            </button>
+            {showReplayFields && (
+              <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+                <Field label="Entry Price"><input type="number" step="0.01" style={inputStyle} value={formEntryPrice} onChange={e => setFormEntryPrice(e.target.value)} placeholder="e.g. 18450.25" /></Field>
+                <Field label="Exit Price"><input type="number" step="0.01" style={inputStyle} value={formExitPrice} onChange={e => setFormExitPrice(e.target.value)} placeholder="e.g. 18510.50" /></Field>
+                <Field label="Stop Loss"><input type="number" step="0.01" style={inputStyle} value={formStopLoss} onChange={e => setFormStopLoss(e.target.value)} placeholder="e.g. 18400.00" /></Field>
+                <Field label="Take Profit"><input type="number" step="0.01" style={inputStyle} value={formTakeProfit} onChange={e => setFormTakeProfit(e.target.value)} placeholder="e.g. 18550.00" /></Field>
+                <Field label="Timeframe" full>
+                  <select style={selectStyle} value={formTimeframe} onChange={e => setFormTimeframe(e.target.value)}>
+                    <option value="">Auto-detect</option>
+                    <option value="1m">1m</option><option value="5m">5m</option><option value="15m">15m</option>
+                    <option value="1H">1H</option><option value="4H">4H</option><option value="1D">1D</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+          </div>
+
           <button onClick={logTrade} disabled={saving || saved} style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif", width: "100%", padding: 13, fontSize: 13, fontWeight: 700,
             border: saved ? "1px solid var(--green)" : "1px solid var(--accent)", borderRadius: 4,
@@ -1619,6 +1688,262 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
           }}>
             {saving ? "SAVING..." : saved ? "✓ LOGGED" : "+ LOG TRADE"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRADE REPLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+function assetToYahooSymbol(asset) {
+  if (!asset) return asset;
+  const map = {
+    "NQ": "NQ=F", "NQ1!": "NQ=F", "MNQ": "NQ=F",
+    "ES": "ES=F", "ES1!": "ES=F", "MES": "ES=F",
+    "YM": "YM=F", "YM1!": "YM=F", "MYM": "YM=F",
+    "RTY": "RTY=F", "RTY1!": "RTY=F", "M2K": "RTY=F",
+    "CL": "CL=F", "CL1!": "CL=F", "MCL": "CL=F",
+    "GC": "GC=F", "GC1!": "GC=F", "MGC": "GC=F",
+    "SI": "SI=F", "SI1!": "SI=F",
+    "EUR/USD": "EURUSD=X", "EURUSD": "EURUSD=X",
+    "GBP/USD": "GBPUSD=X", "GBPUSD": "GBPUSD=X",
+    "USD/JPY": "USDJPY=X", "USDJPY": "USDJPY=X",
+    "BTC": "BTC-USD", "BTCUSD": "BTC-USD",
+    "ETH": "ETH-USD", "ETHUSD": "ETH-USD",
+  };
+  return map[asset.toUpperCase()] || asset;
+}
+
+function autoInterval(tradeMs) {
+  if (tradeMs < 30 * 60 * 1000) return "1m";
+  if (tradeMs < 2 * 60 * 60 * 1000) return "5m";
+  if (tradeMs < 8 * 60 * 60 * 1000) return "15m";
+  if (tradeMs < 3 * 24 * 60 * 60 * 1000) return "1h";
+  return "1d";
+}
+
+const REPLAY_INTERVALS = ["1m", "5m", "15m", "1H", "4H", "1D"];
+const REPLAY_INTERVAL_MAP = { "1m": "1m", "5m": "5m", "15m": "15m", "1H": "1h", "4H": "4h", "1D": "1d" };
+
+function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
+  const chartRef = useRef(null);
+  const seriesRef = useRef(null);
+  const containerRef = useRef(null);
+  const markersRef = useRef(null);
+  const entryTime = trade.dt ? Math.floor(new Date(trade.dt).getTime() / 1000) : null;
+  const defaultInterval = trade.timeframe || autoInterval(0);
+  const [activeInterval, setActiveInterval] = useState(
+    REPLAY_INTERVALS.includes(defaultInterval.toUpperCase()) ? defaultInterval.toUpperCase() :
+    REPLAY_INTERVALS.find(i => i.toLowerCase() === defaultInterval.toLowerCase()) || "5m"
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [oldDataWarning, setOldDataWarning] = useState(false);
+
+  const MASK = "••••";
+
+  const loadData = useCallback(async (intervalLabel) => {
+    if (!entryTime || !seriesRef.current) return;
+    setLoading(true);
+    setError(null);
+    setOldDataWarning(false);
+
+    const ticker = assetToYahooSymbol(trade.asset);
+    const apiInterval = REPLAY_INTERVAL_MAP[intervalLabel] || "5m";
+    const padMs = 60 * 60 * 1000; // 1h padding
+    const period1 = Math.floor((new Date(trade.dt).getTime() - padMs) / 1000);
+    const period2 = Math.floor((new Date(trade.dt).getTime() + 3 * padMs) / 1000);
+
+    try {
+      const res = await fetch(`/api/market-data?ticker=${encodeURIComponent(ticker)}&interval=${apiInterval}&period1=${period1}&period2=${period2}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.candles?.length) throw new Error("No candle data returned for this time window.");
+
+      seriesRef.current.setData(data.candles);
+
+      // Remove old markers
+      if (markersRef.current) { try { markersRef.current.setMarkers([]); } catch {} }
+
+      // Entry/exit markers
+      const markers = [];
+      if (trade.entry_price != null) {
+        markers.push({
+          time: entryTime,
+          position: trade.direction === "Long" ? "belowBar" : "aboveBar",
+          color: "#34d399",
+          shape: trade.direction === "Long" ? "arrowUp" : "arrowDown",
+          text: `Entry ${trade.entry_price}`,
+        });
+      }
+      if (trade.exit_price != null) {
+        markers.push({
+          time: entryTime + 60,
+          position: trade.direction === "Long" ? "aboveBar" : "belowBar",
+          color: "#f87171",
+          shape: trade.direction === "Long" ? "arrowDown" : "arrowUp",
+          text: `Exit ${trade.exit_price}`,
+        });
+      }
+      if (markers.length) {
+        markersRef.current = createSeriesMarkers(seriesRef.current, markers);
+      }
+
+      // SL / TP price lines
+      if (trade.stop_loss != null) {
+        seriesRef.current.createPriceLine({ price: trade.stop_loss, color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL" });
+      }
+      if (trade.take_profit != null) {
+        seriesRef.current.createPriceLine({ price: trade.take_profit, color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP" });
+      }
+
+      chartRef.current?.timeScale().fitContent();
+
+      const tradeAgeMs = Date.now() - new Date(trade.dt).getTime();
+      if (tradeAgeMs > 7 * 24 * 60 * 60 * 1000 && ["1m","5m"].includes(apiInterval)) {
+        setOldDataWarning(true);
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }, [trade, entryTime]);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 420,
+      layout: {
+        background: { color: isDark ? "#0b0d13" : "#ffffff" },
+        textColor: isDark ? "#94a3b8" : "#374151",
+      },
+      grid: {
+        vertLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+        horzLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)" },
+      timeScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)", timeVisible: true, secondsVisible: false },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#34d399", downColor: "#f87171",
+      borderUpColor: "#34d399", borderDownColor: "#f87171",
+      wickUpColor: "#34d399", wickDownColor: "#f87171",
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    const ro = new ResizeObserver(() => { if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth }); });
+    ro.observe(containerRef.current);
+
+    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    if (seriesRef.current) loadData(activeInterval);
+  }, [loadData, activeInterval]);
+
+  const pnl = trade.profit ?? trade.profit_funded;
+  const risk = trade.risk ?? prefs?.default_risk;
+  const rVal = pnl != null && risk ? (pnl / risk).toFixed(2) : null;
+  const isWin = pnl > 0;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "fadeSlideIn 0.2s ease" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", borderRadius: 12, width: "100%", maxWidth: 860, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase" }}>▶ TRADE REPLAY</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--text-tertiary)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+
+        <div style={{ padding: "20px 24px 24px" }}>
+          {/* Trade summary strip */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 16, padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-primary)" }}>
+            <div>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{trade.asset}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, color: trade.direction === "Long" ? "var(--green)" : "var(--red)", marginLeft: 8 }}>{trade.direction}</span>
+              {trade.dt && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginLeft: 8 }}>{new Date(trade.dt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} {new Date(trade.dt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+              {trade.entry_price != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>Entry <strong style={{ color: "var(--green)" }}>{trade.entry_price.toLocaleString()}</strong></span>}
+              {trade.exit_price != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>Exit <strong style={{ color: "var(--red)" }}>{trade.exit_price.toLocaleString()}</strong></span>}
+              {trade.stop_loss != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>SL <strong style={{ color: "#ef4444" }}>{trade.stop_loss.toLocaleString()}</strong></span>}
+              {trade.take_profit != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>TP <strong style={{ color: "#22c55e" }}>{trade.take_profit.toLocaleString()}</strong></span>}
+              {pnl != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>P&L <strong style={{ color: isWin ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${isWin ? "+" : ""}$${pnl.toFixed(0)}`}</strong></span>}
+              {rVal != null && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)" }}>R <strong style={{ color: isWin ? "var(--green)" : "var(--red)" }}>{rVal > 0 ? "+" : ""}{rVal}R</strong></span>}
+              {trade.aplus && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "var(--accent-dim)", color: "var(--accent)", letterSpacing: "0.06em" }}>{trade.aplus}</span>}
+            </div>
+          </div>
+
+          {/* Interval selector */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+            {REPLAY_INTERVALS.map(i => (
+              <button key={i} onClick={() => setActiveInterval(i)} style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+                padding: "5px 10px", borderRadius: 4, cursor: "pointer", letterSpacing: "0.04em",
+                border: "1px solid", transition: "all 0.15s",
+                borderColor: activeInterval === i ? "var(--accent)" : "var(--border-primary)",
+                background: activeInterval === i ? "var(--accent-dim)" : "var(--bg-tertiary)",
+                color: activeInterval === i ? "var(--accent)" : "var(--text-secondary)",
+              }}>{i}</button>
+            ))}
+          </div>
+
+          {/* Chart */}
+          <div style={{ position: "relative", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+            <div ref={containerRef} style={{ width: "100%", height: 420 }} />
+            {loading && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(11,13,19,0.6)" }}>
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>Loading candles...</span>
+              </div>
+            )}
+            {error && !loading && (
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(11,13,19,0.85)", gap: 8 }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--red)" }}>Failed to load chart data</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", maxWidth: 360, textAlign: "center" }}>{error}</div>
+              </div>
+            )}
+          </div>
+
+          {oldDataWarning && (
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "#f59e0b", marginBottom: 12, padding: "6px 12px", background: "rgba(245,158,11,0.08)", borderRadius: 4, border: "1px solid rgba(245,158,11,0.2)" }}>
+              Intraday data unavailable for trades older than 7 days. Showing higher timeframe candles.
+            </div>
+          )}
+
+          {/* Notes */}
+          {(trade.notes || trade.after_thoughts || (trade.tags?.length > 0)) && (
+            <div style={{ padding: "14px 16px", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border-primary)" }}>
+              {trade.notes && (
+                <div style={{ marginBottom: trade.after_thoughts ? 10 : 0 }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: 4 }}>Notes</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{trade.notes}</div>
+                </div>
+              )}
+              {trade.after_thoughts && (
+                <div style={{ marginTop: trade.notes ? 10 : 0, marginBottom: trade.tags?.length ? 10 : 0 }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: "var(--text-tertiary)", textTransform: "uppercase", marginBottom: 4 }}>After Thoughts</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{trade.after_thoughts}</div>
+                </div>
+              )}
+              {trade.tags?.length > 0 && <TradeTagChips tags={trade.tags} allTags={prefs?.tags} />}
+            </div>
+          )}
+
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 12, letterSpacing: "0.04em" }}>
+            Data via Yahoo Finance · Delayed · {assetToYahooSymbol(trade.asset)}
+          </div>
         </div>
       </div>
     </div>
@@ -2052,6 +2377,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
 
 export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode, prefs, onNavigate }) {
   const [confirmDeleteTrade, setConfirmDeleteTrade] = useState(null);
+  const [replayTrade, setReplayTrade] = useState(null);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [dayPopup, setDayPopup] = useState(null);
@@ -2150,6 +2476,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       tags: trade.tags || [],
       account_id_personal: trade.account_id_personal || "",
       account_id_funded: trade.account_id_funded || "",
+      entry_price: trade.entry_price != null ? String(trade.entry_price) : "",
+      exit_price: trade.exit_price != null ? String(trade.exit_price) : "",
+      stop_loss: trade.stop_loss != null ? String(trade.stop_loss) : "",
+      take_profit: trade.take_profit != null ? String(trade.take_profit) : "",
+      timeframe: trade.timeframe || "",
     });
   };
 
@@ -2168,6 +2499,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       tags: editForm.tags && editForm.tags.length > 0 ? editForm.tags : null,
       account_id_personal: editForm.account_id_personal || null,
       account_id_funded: editForm.account_id_funded || null,
+      entry_price: editForm.entry_price !== "" && editForm.entry_price != null ? parseFloat(editForm.entry_price) : null,
+      exit_price: editForm.exit_price !== "" && editForm.exit_price != null ? parseFloat(editForm.exit_price) : null,
+      stop_loss: editForm.stop_loss !== "" && editForm.stop_loss != null ? parseFloat(editForm.stop_loss) : null,
+      take_profit: editForm.take_profit !== "" && editForm.take_profit != null ? parseFloat(editForm.take_profit) : null,
+      timeframe: editForm.timeframe || null,
     }).eq("id", editing);
     // Recalc any accounts that were affected (old or new)
     const affectedPersonal = new Set([prevTrade?.account_id_personal, editForm.account_id_personal].filter(Boolean));
@@ -2594,7 +2930,12 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                         <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
-                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent-secondary)", padding: "2px 6px", display: "flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                        {t.entry_price != null && t.exit_price != null && (
+                          <button onClick={() => setReplayTrade(t)} title="Replay trade" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "2px 6px", display: "inline-flex", alignItems: "center" }}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                          </button>
+                        )}
+                        <button onClick={() => openEdit(t)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent-secondary)", padding: "2px 6px", display: "inline-flex", alignItems: "center" }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                         <DeletePopover id={t.id} confirmId={confirmDeleteTrade} setConfirmId={setConfirmDeleteTrade} onConfirm={deleteTrade} buttonStyle={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)", padding: "2px 6px" }}>✕</DeletePopover>
                       </td>
                     </tr>
@@ -2616,6 +2957,16 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
           privacyMode={privacyMode}
           prefs={prefs}
           onClose={() => setShowReview(false)}
+        />
+      )}
+
+      {/* Trade Replay Modal */}
+      {replayTrade && (
+        <TradeReplayModal
+          trade={replayTrade}
+          privacyMode={privacyMode}
+          prefs={prefs}
+          onClose={() => setReplayTrade(null)}
         />
       )}
 
@@ -2702,6 +3053,17 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               <Field label="After Trade Thoughts" full>
                 <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently?" value={editForm.after_thoughts} onChange={(e) => setEditForm({ ...editForm, after_thoughts: e.target.value })} />
                 <TagPicker selected={editForm.tags || []} onChange={(val) => setEditForm({ ...editForm, tags: val })} />
+              </Field>
+              <Field label="Entry Price"><input type="number" step="0.01" style={inputStyle} value={editForm.entry_price || ""} onChange={e => setEditForm({ ...editForm, entry_price: e.target.value })} placeholder="e.g. 18450.25" /></Field>
+              <Field label="Exit Price"><input type="number" step="0.01" style={inputStyle} value={editForm.exit_price || ""} onChange={e => setEditForm({ ...editForm, exit_price: e.target.value })} placeholder="e.g. 18510.50" /></Field>
+              <Field label="Stop Loss"><input type="number" step="0.01" style={inputStyle} value={editForm.stop_loss || ""} onChange={e => setEditForm({ ...editForm, stop_loss: e.target.value })} placeholder="e.g. 18400.00" /></Field>
+              <Field label="Take Profit"><input type="number" step="0.01" style={inputStyle} value={editForm.take_profit || ""} onChange={e => setEditForm({ ...editForm, take_profit: e.target.value })} placeholder="e.g. 18550.00" /></Field>
+              <Field label="Timeframe" full>
+                <select style={selectStyle} value={editForm.timeframe || ""} onChange={e => setEditForm({ ...editForm, timeframe: e.target.value })}>
+                  <option value="">Auto-detect</option>
+                  <option value="1m">1m</option><option value="5m">5m</option><option value="15m">15m</option>
+                  <option value="1H">1H</option><option value="4H">4H</option><option value="1D">1D</option>
+                </select>
               </Field>
             </div>
             <div style={{ display: "flex", gap: 12 }}>

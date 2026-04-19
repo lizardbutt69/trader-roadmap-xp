@@ -16,10 +16,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const { ticker = "NQ=F", interval = "5m", range = "1d" } = req.query;
+  const { ticker = "NQ=F", interval = "5m", range = "1d", period1, period2 } = req.query;
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}&includePrePost=false`;
+    const base = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&includePrePost=false`;
+    const url = period1 && period2
+      ? `${base}&period1=${period1}&period2=${period2}`
+      : `${base}&range=${range}`;
     const r = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
