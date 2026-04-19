@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
-import { createChart, CandlestickSeries, createSeriesMarkers, LineStyle } from "lightweight-charts";
+import { createChart, CandlestickSeries, LineStyle } from "lightweight-charts";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
@@ -1733,7 +1733,6 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const containerRef = useRef(null);
-  const markersRef = useRef(null);
   const entryTime = trade.dt ? Math.floor(new Date(trade.dt).getTime() / 1000) : null;
   const defaultInterval = trade.timeframe || autoInterval(0);
   const [activeInterval, setActiveInterval] = useState(
@@ -1765,39 +1764,18 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
 
       seriesRef.current.setData(data.candles);
 
-      // Remove old markers
-      if (markersRef.current) { try { markersRef.current.setMarkers([]); } catch {} }
-
-      // Entry/exit markers
-      const markers = [];
+      // Price lines (no arrows — we don't know exact candle without broker sync)
       if (trade.entry_price != null) {
-        markers.push({
-          time: entryTime,
-          position: trade.direction === "Long" ? "belowBar" : "aboveBar",
-          color: "#34d399",
-          shape: trade.direction === "Long" ? "arrowUp" : "arrowDown",
-          text: `Entry ${trade.entry_price}`,
-        });
+        seriesRef.current.createPriceLine({ price: trade.entry_price, color: "#34d399", lineWidth: 2, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: "Entry" });
       }
-      if (trade.exit_price != null) {
-        markers.push({
-          time: entryTime + 60,
-          position: trade.direction === "Long" ? "aboveBar" : "belowBar",
-          color: "#f87171",
-          shape: trade.direction === "Long" ? "arrowDown" : "arrowUp",
-          text: `Exit ${trade.exit_price}`,
-        });
-      }
-      if (markers.length) {
-        markersRef.current = createSeriesMarkers(seriesRef.current, markers);
-      }
-
-      // SL / TP price lines
       if (trade.stop_loss != null) {
         seriesRef.current.createPriceLine({ price: trade.stop_loss, color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "SL" });
       }
       if (trade.take_profit != null) {
         seriesRef.current.createPriceLine({ price: trade.take_profit, color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "TP" });
+      }
+      if (trade.exit_price != null && trade.exit_price !== trade.take_profit) {
+        seriesRef.current.createPriceLine({ price: trade.exit_price, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Exit" });
       }
 
       chartRef.current?.timeScale().fitContent();
@@ -2936,7 +2914,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                         <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
                       <td style={{ ...cellStyle, whiteSpace: "nowrap" }}>
-                        {t.entry_price != null && t.exit_price != null && (
+                        {t.entry_price != null && (
                           <button onClick={() => setReplayTrade(t)} title="Replay trade" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", padding: "2px 6px", display: "inline-flex", alignItems: "center" }}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                           </button>
