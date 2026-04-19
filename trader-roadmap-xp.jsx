@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast, useAchievement, computeBadges, buildDayMap } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
@@ -1190,6 +1190,21 @@ export default function TraderRoadmapXP() {
 
   useEffect(() => { loadTrades(); }, [loadTrades]);
 
+  const triggerAchievement = useAchievement();
+  useEffect(() => {
+    if (!trades.length || !triggerAchievement) return;
+    const dayMap = buildDayMap(trades);
+    const current = computeBadges(trades, dayMap);
+    const unlockedNames = current.filter((b) => b.unlocked).map((b) => b.name);
+    const stored = JSON.parse(localStorage.getItem("ts_unlocked_badges") || "[]");
+    const newlyUnlocked = unlockedNames.filter((n) => !stored.includes(n));
+    newlyUnlocked.forEach((name) => {
+      const badge = current.find((b) => b.name === name);
+      if (badge) triggerAchievement(badge);
+    });
+    localStorage.setItem("ts_unlocked_badges", JSON.stringify(unlockedNames));
+  }, [trades, triggerAchievement]);
+
   const prevUser = useRef(null);
   useEffect(() => {
     prevUser.current = user;
@@ -1320,6 +1335,9 @@ export default function TraderRoadmapXP() {
     @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
     @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
     @keyframes subtleGlow { 0%,100% { box-shadow: 0 0 0 0 var(--accent-glow); } 50% { box-shadow: 0 0 20px 0 var(--accent-glow); } }
+    @keyframes achieveSlideIn { from { opacity:0; transform:translateX(110%); } to { opacity:1; transform:translateX(0); } }
+    @keyframes achieveSlideOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(110%); } }
+    @keyframes achieveBar { from { width:100%; } to { width:0%; } }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { background: var(--bg-primary); color: var(--text-primary); font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; transition: background 0.3s ease, color 0.3s ease; }
     *, *::before, *::after { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease; }

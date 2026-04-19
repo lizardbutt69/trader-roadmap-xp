@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } from "react";
 import { createChart, CandlestickSeries, LineStyle } from "lightweight-charts";
 import { motion, AnimatePresence } from "framer-motion";
+import { Flame, Target, Crosshair, Shield, TrendingUp, Rocket, BookOpen, Trophy, Calendar, Activity, ShieldCheck, X as XIcon } from "lucide-react";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 import MotivationalQuotesBar from "./components/MotivationalQuotesBar";
@@ -48,6 +49,167 @@ export function ToastProvider({ children }) {
 
 export function useToast() {
   return useContext(ToastContext);
+}
+
+// ─── ACHIEVEMENT ALERT SYSTEM ─────────────────────────────────────────────────
+const BADGE_ICONS = {
+  "On Fire": Flame,
+  "Disciplined": Target,
+  "Sniper": Crosshair,
+  "Rule Keeper": Shield,
+  "Green Week": TrendingUp,
+  "Best Day Ever": Rocket,
+  "Journaler": BookOpen,
+  "Elite": Trophy,
+  "Green Month": Calendar,
+  "Marathon": Activity,
+  "Ironclad": ShieldCheck,
+};
+
+const AchievementAlertContext = createContext(null);
+
+export function AchievementAlertProvider({ children }) {
+  const [alerts, setAlerts] = useState([]);
+
+  const dismiss = useCallback((id) => {
+    setAlerts((a) => a.filter((x) => x.id !== id));
+  }, []);
+
+  const triggerAchievement = useCallback((badge) => {
+    const id = Date.now() + Math.random();
+    setAlerts((a) => [...a, { ...badge, id }]);
+    setTimeout(() => dismiss(id), 5000);
+  }, [dismiss]);
+
+  return (
+    <AchievementAlertContext.Provider value={triggerAchievement}>
+      {children}
+      <div style={{ position: "fixed", top: 20, right: 20, zIndex: 10000, display: "flex", flexDirection: "column", gap: 10, pointerEvents: "none" }}>
+        <AnimatePresence>
+          {alerts.map((a) => (
+            <AchievementAlertCard key={a.id} alert={a} onDismiss={() => dismiss(a.id)} />
+          ))}
+        </AnimatePresence>
+      </div>
+    </AchievementAlertContext.Provider>
+  );
+}
+
+export function useAchievement() {
+  return useContext(AchievementAlertContext);
+}
+
+function AchievementAlertCard({ alert, onDismiss }) {
+  const { name, desc, color } = alert;
+  const Icon = BADGE_ICONS[name] || Trophy;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      style={{
+        pointerEvents: "auto",
+        width: 340,
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(135deg, ${color}1a 0%, rgba(11,13,19,0.96) 55%)`,
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderRadius: 14,
+        border: `1px solid ${color}30`,
+        boxShadow: `0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)`,
+        padding: 16,
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+      }}
+    >
+      {/* Ambient blur blobs */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", top: -12, left: -12, width: 72, height: 72, borderRadius: "50%", background: color, filter: "blur(28px)", opacity: 0.18 }} />
+        <div style={{ position: "absolute", bottom: -12, right: -12, width: 72, height: 72, borderRadius: "50%", background: color, filter: "blur(28px)", opacity: 0.12 }} />
+      </div>
+
+      {/* Content row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, position: "relative" }}>
+        {/* Spring icon pill */}
+        <motion.div
+          initial={{ rotate: -15, scale: 0.5 }}
+          animate={{ rotate: 0, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          style={{
+            padding: 10,
+            borderRadius: 12,
+            background: `linear-gradient(135deg, ${color}, ${color}bb)`,
+            boxShadow: `0 4px 12px ${color}44`,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Icon size={18} color="#fff" strokeWidth={2.5} />
+        </motion.div>
+
+        {/* Text */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.08 }}
+            style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color, marginBottom: 4 }}
+          >
+            Achievement Unlocked
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15 }}
+            style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", marginBottom: 2 }}
+          >
+            {name}
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.22 }}
+            style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}
+          >
+            {desc}
+          </motion.div>
+        </div>
+
+        {/* Close */}
+        <button
+          onClick={onDismiss}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.25)", padding: 4, display: "flex", flexShrink: 0 }}
+        >
+          <XIcon size={14} />
+        </button>
+      </div>
+
+      {/* Badge pill — spring in */}
+      <motion.div
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.3 }}
+        style={{
+          position: "absolute", top: 10, right: 34,
+          fontSize: 10, fontWeight: 600, letterSpacing: "0.06em",
+          color, background: `${color}20`,
+          border: `1px solid ${color}40`,
+          borderRadius: 20, padding: "2px 8px",
+        }}
+      >
+        New
+      </motion.div>
+
+      {/* Timer bar */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.06)" }}>
+        <div style={{ height: "100%", background: color, animation: "achieveBar 5s linear forwards" }} />
+      </div>
+    </motion.div>
+  );
 }
 
 // ─── DELETE POPOVER CONFIRM ──────────────────────────────────────────────────
@@ -246,7 +408,7 @@ function getPnlForMode(t, mode) {
   return parseFloat(t.profit) || 0; // "personal" default
 }
 
-function calcTradingXP(trades, dayMap) {
+export function calcTradingXP(trades, dayMap) {
   let xp = 0;
   trades.forEach((t) => {
     xp += 10;
@@ -256,6 +418,35 @@ function calcTradingXP(trades, dayMap) {
   });
   Object.values(dayMap).forEach((d) => { if (d.pnl > 0) xp += 25; });
   return xp;
+}
+
+export function computeBadges(trades, dayMap) {
+  const sorted = [...trades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
+  const keys = Object.keys(dayMap).sort();
+  let maxGreen = 0, cur = 0;
+  keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; maxGreen = Math.max(maxGreen, cur); } else cur = 0; });
+  let maxAplus = 0, curA = 0;
+  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; maxAplus = Math.max(maxAplus, curA); } else curA = 0; });
+  let maxWin = 0, curW = 0;
+  sorted.forEach((t) => { if (parseFloat(t.profit) > 0) { curW++; maxWin = Math.max(maxWin, curW); } else curW = 0; });
+  const aplusTrades = trades.filter((t) => t.aplus === "Yes").length;
+  const now = new Date(); const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
+  const weekPnl = trades.filter((t) => t.dt && new Date(t.dt) >= weekStart).reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const bestDay = Object.values(dayMap).reduce((b, d) => d.pnl > b ? d.pnl : b, 0);
+  const xp = calcTradingXP(trades, dayMap);
+  return [
+    { name: "On Fire", desc: "3 green days in a row", color: "#f97316", unlocked: maxGreen >= 3 },
+    { name: "Disciplined", desc: "5 A+ trades in a row", color: "#22d3ee", unlocked: maxAplus >= 5 },
+    { name: "Sniper", desc: "5 winning trades in a row", color: "#22c55e", unlocked: maxWin >= 5 },
+    { name: "Rule Keeper", desc: "10 A+ trades total", color: "#a855f7", unlocked: aplusTrades >= 10 },
+    { name: "Green Week", desc: "Profitable week", color: "#22c55e", unlocked: weekPnl > 0 },
+    { name: "Best Day Ever", desc: "Single day P&L > $500", color: "#f59e0b", unlocked: bestDay >= 500 },
+    { name: "Journaler", desc: "Log 20+ trades", color: "#60a5fa", unlocked: trades.length >= 20 },
+    { name: "Elite", desc: "Reach 1000 XP", color: "#f59e0b", unlocked: xp >= 1000 },
+    { name: "Green Month", desc: "Finish a month profitable", color: "#22c55e", unlocked: (() => { const months = {}; keys.forEach((k) => { const m = k.slice(0, 7); if (!months[m]) months[m] = 0; months[m] += dayMap[k].pnl; }); const curM = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`; return Object.entries(months).some(([m, p]) => m !== curM && p > 0); })() },
+    { name: "Marathon", desc: "Log 50+ trades", color: "#f97316", unlocked: trades.length >= 50 },
+    { name: "Ironclad", desc: "5 green days in a row", color: "#6366f1", unlocked: maxGreen >= 5 },
+  ];
 }
 
 function validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter }) {
@@ -282,7 +473,7 @@ async function recalcAccountPnl(supabase, accountId, pnlField) {
   await supabase.from("accounts").update({ current_pnl: parseFloat(total.toFixed(2)) }).eq("id", accountId);
 }
 
-function buildDayMap(trades, mode = "personal") {
+export function buildDayMap(trades, mode = "personal") {
   const m = {};
   trades.forEach((t) => {
     if (!t.dt) return;
@@ -3241,36 +3432,7 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
 // ═══════════════════════════════════════════════════════════════════════════
 
 function BadgesSection({ trades, dayMap }) {
-  const sorted = [...trades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
-  const keys = Object.keys(dayMap).sort();
-
-  let maxGreen = 0, cur = 0;
-  keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; maxGreen = Math.max(maxGreen, cur); } else cur = 0; });
-  let maxAplus = 0, curA = 0;
-  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; maxAplus = Math.max(maxAplus, curA); } else curA = 0; });
-  let maxWin = 0, curW = 0;
-  sorted.forEach((t) => { if (parseFloat(t.profit) > 0) { curW++; maxWin = Math.max(maxWin, curW); } else curW = 0; });
-  const aplusTrades = trades.filter((t) => t.aplus === "Yes").length;
-  const now = new Date(); const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
-  const weekPnl = trades.filter((t) => t.dt && new Date(t.dt) >= weekStart).reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
-  const bestDay = Object.values(dayMap).reduce((b, d) => d.pnl > b ? d.pnl : b, 0);
-
-  // XP calc for Elite badge
-  const xp = calcTradingXP(trades, dayMap);
-
-  const badges = [
-    { icon: "🔥", name: "On Fire", desc: "3 green days in a row", unlocked: maxGreen >= 3 },
-    { icon: "🧘", name: "Disciplined", desc: "5 A+ trades in a row", unlocked: maxAplus >= 5 },
-    { icon: "🎯", name: "Sniper", desc: "5 winning trades in a row", unlocked: maxWin >= 5 },
-    { icon: "💎", name: "Rule Keeper", desc: "10 A+ trades total", unlocked: aplusTrades >= 10 },
-    { icon: "📈", name: "Green Week", desc: "Profitable week", unlocked: weekPnl > 0 },
-    { icon: "🚀", name: "Best Day Ever", desc: "Single day P&L > $500", unlocked: bestDay >= 500 },
-    { icon: "📝", name: "Journaler", desc: "Log 20+ trades", unlocked: trades.length >= 20 },
-    { icon: "🏆", name: "Elite", desc: "Reach 1000 XP", unlocked: xp >= 1000 },
-    { icon: "📅", name: "Green Month", desc: "Finish a month profitable", unlocked: (() => { const months = {}; keys.forEach((k) => { const m = k.slice(0, 7); if (!months[m]) months[m] = 0; months[m] += dayMap[k].pnl; }); const cur = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`; return Object.entries(months).some(([m, p]) => m !== cur && p > 0); })() },
-    { icon: "🏃", name: "Marathon", desc: "Log 50+ trades", unlocked: trades.length >= 50 },
-    { icon: "🛡️", name: "Ironclad", desc: "5 green days in a row", unlocked: maxGreen >= 5 },
-  ];
+  const badges = computeBadges(trades, dayMap);
 
   return (
     <TCard style={{ padding: 28, marginTop: 24 }}>
@@ -3279,12 +3441,11 @@ function BadgesSection({ trades, dayMap }) {
         {badges.map((b, i) => (
           <div key={i} style={{
             textAlign: "center", padding: 16, borderRadius: 8,
-            background: b.unlocked ? "var(--accent-glow)" : "var(--bg-tertiary)",
-            border: b.unlocked ? "1.5px solid var(--accent-dim)" : "1.5px solid var(--border-primary)",
+            background: b.unlocked ? `${b.color}14` : "var(--bg-tertiary)",
+            border: b.unlocked ? `1.5px solid ${b.color}44` : "1.5px solid var(--border-primary)",
             opacity: b.unlocked ? 1 : 0.5,
-            boxShadow: b.unlocked ? "0 0 0 1px var(--accent-dim)" : "none",
+            boxShadow: b.unlocked ? `0 0 12px ${b.color}22` : "none",
           }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>{b.icon}</div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: b.unlocked ? "var(--text-primary)" : "var(--text-secondary)" }}>{b.name}</div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>{b.desc}</div>
           </div>

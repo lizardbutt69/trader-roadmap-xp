@@ -6,7 +6,7 @@ import AuthPage from './pages/AuthPage.jsx'
 import TraderRoadmapXP from '../trader-roadmap-xp.jsx'
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx'
 import TermsAndConditions from './pages/TermsAndConditions.jsx'
-import { ToastProvider } from './trading.jsx'
+import { ToastProvider, AchievementAlertProvider } from './trading.jsx'
 import { supabase } from './supabase.js'
 
 class ErrorBoundary extends React.Component {
@@ -81,6 +81,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <BrowserRouter>
         <ToastProvider>
+          <AchievementAlertProvider>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<AuthPage />} />
@@ -89,6 +90,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </AchievementAlertProvider>
         </ToastProvider>
       </BrowserRouter>
     </ErrorBoundary>
