@@ -1099,6 +1099,7 @@ export default function TraderRoadmapXP() {
 
   // Trading app state
   const [trades, setTrades] = useState([]);
+  const [tradesLoading, setTradesLoading] = useState(true);
 
   // Auth listener
   const wasAuthenticatedRef = useRef(false);
@@ -1184,6 +1185,7 @@ export default function TraderRoadmapXP() {
       .eq("user_id", user.id)
       .order("dt", { ascending: false });
     if (data) setTrades(data);
+    setTradesLoading(false);
   }, [user]);
 
   useEffect(() => { loadTrades(); }, [loadTrades]);
@@ -1325,7 +1327,10 @@ export default function TraderRoadmapXP() {
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-glow); }
-    button, input, textarea, select { font-family: inherit; }
+    button, input, textarea, select { font-family: inherit; touch-action: manipulation; }
+    @media (max-width: 768px) {
+      .main-content input, .main-content select, .main-content textarea { font-size: 16px; }
+    }
     textarea:focus, input:focus, select:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-glow) !important; outline: none; }
     ::selection { background: var(--accent-dim); color: var(--text-primary); }
     .sidebar-nav { transition: width 0.2s ease; }
@@ -1357,6 +1362,7 @@ export default function TraderRoadmapXP() {
       .header-title { font-size: 15px !important; }
     }
     @media (max-width: 640px) {
+      .grid-3 { grid-template-columns: 1fr 1fr !important; }
       .grid-4 { grid-template-columns: 1fr 1fr !important; }
       .grid-5 { grid-template-columns: repeat(2, 1fr) !important; }
       .grid-week { grid-template-columns: repeat(5, 1fr) !important; gap: 4px !important; }
@@ -1395,6 +1401,7 @@ export default function TraderRoadmapXP() {
       .welcome-title { font-size: 24px !important; }
     }
     @media (max-width: 420px) {
+      .grid-3 { grid-template-columns: 1fr !important; }
       .grid-4 { grid-template-columns: 1fr !important; }
       .grid-5 { grid-template-columns: 1fr 1fr !important; }
       .acct-summary { grid-template-columns: 1fr !important; }
@@ -2488,7 +2495,7 @@ export default function TraderRoadmapXP() {
 
         {/* HOME — default view */}
         {view === "map" && (
-          <DashboardView supabase={supabase} user={user} trades={trades} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
+          <DashboardView supabase={supabase} user={user} trades={trades} tradesLoading={tradesLoading} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
         )}
 
         {/* ROADMAP VIEW */}

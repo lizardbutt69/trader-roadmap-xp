@@ -4,7 +4,8 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
 ];
 
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY || "d776c6pr01qp6afkd4ngd776c6pr01qp6afkd4o0";
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
+if (!FINNHUB_KEY) console.error("[news] FINNHUB_API_KEY env var not set");
 
 export default async function handler(req, res) {
   const origin = req.headers.origin;

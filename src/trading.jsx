@@ -2587,7 +2587,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       />
 
       {/* Stats — Row 1: 5 narrow cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
+      <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={total} label="Logged" color="var(--text-secondary)" />
         <StatBox value={taken} label="Taken" color="var(--text-secondary)" />
         <StatBox value={aplus} label="A+ Setups" color="var(--green)" />
@@ -2596,7 +2596,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       </div>
 
       {/* Stats — Row 2: 4 medium cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+      <div className="grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
         <StatBox value={profitFactor} label="Profit Factor" color="var(--accent)" style={{ background: "linear-gradient(135deg, rgba(34,211,238,0.12) 0%, transparent 100%)" }} />
         <StatBox value={privacyMode ? MASK : (avgWin > 0 ? `$${avgWin.toFixed(0)}` : "—")} label="Avg Win" color="var(--green)" />
         <StatBox value={privacyMode ? MASK : (avgLoss > 0 ? `$${avgLoss.toFixed(0)}` : "—")} label="Avg Loss" color="var(--red)" />
@@ -2608,7 +2608,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       </div>
 
       {/* Stats — Row 3: 3 wide cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+      <div className="grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
         <StatBox value={bestAsset} label="Best Asset" color="var(--purple)" style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.12) 0%, transparent 100%)" }} />
         <StatBox value={bestDay} label="Best Day" color="var(--gold)" style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.12) 0%, transparent 100%)" }} />
         <StatBox value={bestDirection} label="Best Direction" color="var(--green)" style={{ background: "linear-gradient(135deg, rgba(52,211,153,0.12) 0%, transparent 100%)" }} />
@@ -3206,6 +3206,7 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
         headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
       });
+      if (!res.ok) throw new Error(`AI service error: ${res.status}`);
       const data = await res.json();
       if (data.error) { setOutput(data.error); setLoading(false); return; }
       setOutput(data.content?.map((c) => c.text || "").join("") || "No response received.");
@@ -3966,7 +3967,7 @@ function ProgressBar({ pct, color, height = 8 }) {
 }
 
 
-export function DashboardView({ supabase, user, trades, displayName, privacyMode, onNavigate }) {
+export function DashboardView({ supabase, user, trades, tradesLoading, displayName, privacyMode, onNavigate }) {
   const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
@@ -4069,8 +4070,8 @@ export function DashboardView({ supabase, user, trades, displayName, privacyMode
         </h1>
       </div>
 
-      {/* First-time empty state */}
-      {trades.length === 0 && (
+      {/* First-time empty state — only show after trades have loaded */}
+      {!tradesLoading && trades.length === 0 && (
         <TCard style={{ padding: "40px 32px", marginBottom: 24, textAlign: "center", border: "1px solid var(--border-primary)" }}>
           <div style={{ width: 52, height: 52, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -4155,7 +4156,6 @@ const LIVE_CHANNELS = [
   { key: "skynews", label: "Sky News", src: "https://www.youtube.com/embed/YDvsBbKfLPA?autoplay=1&mute=1" },
 ];
 
-const FINNHUB_KEY = "d776c6pr01qp6afkd4ngd776c6pr01qp6afkd4o0";
 
 function timeAgo(unixTs) {
   const diff = Math.floor(Date.now() / 1000) - unixTs;
@@ -4176,7 +4176,7 @@ export function NewsView() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const res = await fetch(`https://finnhub.io/api/v1/news?category=general&token=${FINNHUB_KEY}`);
+        const res = await fetch("/api/news?category=general");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setNewsItems(data.slice(0, 20));
@@ -4344,7 +4344,7 @@ export function EconomicCalendarView() {
   const [now, setNow] = useState(new Date());
   const displayTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [alertsEnabled, setAlertsEnabled] = useState(
-    () => localStorage.getItem("newsAlertsEnabled") === "true"
+    () => { try { return localStorage.getItem("newsAlertsEnabled") === "true"; } catch { return false; } }
   );
   const [notifPermission, setNotifPermission] = useState(
     () => (typeof Notification !== "undefined" ? Notification.permission : "unsupported")
@@ -4380,14 +4380,14 @@ export function EconomicCalendarView() {
   async function handleEnableAlerts() {
     if (alertsEnabled) {
       setAlertsEnabled(false);
-      localStorage.setItem("newsAlertsEnabled", "false");
+      try { localStorage.setItem("newsAlertsEnabled", "false"); } catch {}
       return;
     }
     const perm = await requestNotificationPermission();
     setNotifPermission(perm);
     if (perm === "granted" || perm === "denied") {
       setAlertsEnabled(perm === "granted");
-      localStorage.setItem("newsAlertsEnabled", perm === "granted" ? "true" : "false");
+      try { localStorage.setItem("newsAlertsEnabled", perm === "granted" ? "true" : "false"); } catch {}
     }
   }
 
@@ -5234,6 +5234,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
         headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
       });
+      if (!res.ok) throw new Error(`AI service error: ${res.status}`);
       const data = await res.json();
       if (data.error) { setAiOutput(data.error); setAiLoading(false); return; }
       const output = data.content?.map(c => c.text || "").join("") || "No response received.";
@@ -6512,6 +6513,7 @@ export function AIHubView({ supabase, user, trades }) {
     } catch {
       throw new Error("Could not reach the AI service. Make sure you're on the deployed app, not localhost.");
     }
+    if (!res.ok) throw new Error(`AI service error: ${res.status}`);
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch {
@@ -7032,6 +7034,7 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
       headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
       body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, system: systemCtx, messages: apiMessages }),
     });
+    if (!res.ok) throw new Error(`AI service error: ${res.status}`);
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error("Unexpected response from AI service."); }

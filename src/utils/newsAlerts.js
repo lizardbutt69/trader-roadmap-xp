@@ -33,7 +33,8 @@ export function checkNewsAlerts(now, addToast, displayTZ, alertMinutes = [30, 15
   const highImpact = getSortedEvents().filter(
     (e) => e.impact === "high" && e.time !== "allday"
   );
-  const alertsEnabled = localStorage.getItem("newsAlertsEnabled") === "true";
+  let alertsEnabled = false;
+  try { alertsEnabled = localStorage.getItem("newsAlertsEnabled") === "true"; } catch {}
 
   alertMinutes.forEach((mins) => {
     highImpact.forEach((event) => {
