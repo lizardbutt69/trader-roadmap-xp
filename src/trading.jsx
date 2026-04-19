@@ -1700,6 +1700,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
 
 function assetToYahooSymbol(asset) {
   if (!asset) return asset;
+  const clean = asset.replace(/^\$/, "").toUpperCase();
   const map = {
     "NQ": "NQ=F", "NQ1!": "NQ=F", "MNQ": "NQ=F",
     "ES": "ES=F", "ES1!": "ES=F", "MES": "ES=F",
@@ -1714,7 +1715,7 @@ function assetToYahooSymbol(asset) {
     "BTC": "BTC-USD", "BTCUSD": "BTC-USD",
     "ETH": "ETH-USD", "ETHUSD": "ETH-USD",
   };
-  return map[asset.toUpperCase()] || asset;
+  return map[clean] || clean;
 }
 
 function autoInterval(tradeMs) {
@@ -1753,15 +1754,14 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
 
     const ticker = assetToYahooSymbol(trade.asset);
     const apiInterval = REPLAY_INTERVAL_MAP[intervalLabel] || "5m";
-    const padMs = 60 * 60 * 1000; // 1h padding
-    const period1 = Math.floor((new Date(trade.dt).getTime() - padMs) / 1000);
-    const period2 = Math.floor((new Date(trade.dt).getTime() + 3 * padMs) / 1000);
+    const rangeMap = { "1m": "1d", "5m": "5d", "15m": "1mo", "1h": "3mo", "4h": "6mo", "1d": "1y" };
+    const range = rangeMap[apiInterval] || "5d";
 
     try {
-      const res = await fetch(`/api/market-data?ticker=${encodeURIComponent(ticker)}&interval=${apiInterval}&period1=${period1}&period2=${period2}`);
+      const res = await fetch(`/api/market-data?ticker=${encodeURIComponent(ticker)}&interval=${apiInterval}&range=${range}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      if (!data.candles?.length) throw new Error("No candle data returned for this time window.");
+      if (!data.candles?.length) throw new Error("No candle data returned. Check the asset symbol.");
 
       seriesRef.current.setData(data.candles);
 
@@ -1801,6 +1801,12 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
       }
 
       chartRef.current?.timeScale().fitContent();
+      if (entryTime) {
+        setTimeout(() => chartRef.current?.timeScale().scrollToPosition(
+          chartRef.current.timeScale().coordinateToLogical(0) - 5, false
+        ), 100);
+        chartRef.current?.timeScale().scrollToRealTime();
+      }
 
       const tradeAgeMs = Date.now() - new Date(trade.dt).getTime();
       if (tradeAgeMs > 7 * 24 * 60 * 60 * 1000 && ["1m","5m"].includes(apiInterval)) {
