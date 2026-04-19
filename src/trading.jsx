@@ -1817,9 +1817,9 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#34d399", downColor: "#f87171",
-      borderUpColor: "#34d399", borderDownColor: "#f87171",
-      wickUpColor: "#34d399", wickDownColor: "#f87171",
+      upColor: "#d1d4dc", downColor: "#1e222d",
+      borderUpColor: "#d1d4dc", borderDownColor: "#787b86",
+      wickUpColor: "#d1d4dc", wickDownColor: "#787b86",
     });
 
     chartRef.current = chart;
@@ -5567,9 +5567,9 @@ function ReplayChartPanel({ trade, privacyMode, prefs }) {
       timeScale: { borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.1)", timeVisible: true, secondsVisible: false },
     });
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#34d399", downColor: "#f87171",
-      borderUpColor: "#34d399", borderDownColor: "#f87171",
-      wickUpColor: "#34d399", wickDownColor: "#f87171",
+      upColor: "#d1d4dc", downColor: "#1e222d",
+      borderUpColor: "#d1d4dc", borderDownColor: "#787b86",
+      wickUpColor: "#d1d4dc", wickDownColor: "#787b86",
     });
     chartRef.current = chart;
     seriesRef.current = series;
