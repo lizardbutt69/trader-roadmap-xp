@@ -246,18 +246,18 @@ const pm = (val, privacyMode) => privacyMode ? MASK : val;
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
 const DEFAULT_CHECKLIST_ITEMS = [
-  { label: "1 or 2 Stage Crack in Correlation (CIC)", sub: "SMT and/or PSP confirmed" },
+  { label: "Confirmation Signal", sub: "Primary entry signal is confirmed" },
   { label: "Key Level / Liquidity", sub: "Price at significant level or liquidity pool" },
   { label: "Timeframe Alignment", sub: "Higher TF in agreement with entry TF" },
-  { label: "CISD", sub: "Change in state of delivery confirmed" },
-  { label: "ICCISD", sub: "Inter-Candle Change in State of Delivery" },
-  { label: "TTFM", sub: "The Fractal Model" },
-  { label: "Session / Time of Day", sub: "London, NY open or high-probability session" },
+  { label: "State Change", sub: "Market structure shift confirmed on entry timeframe" },
+  { label: "Candle Structure", sub: "Intra-candle structure aligns with direction" },
+  { label: "Model Criteria Met", sub: "All model setup conditions are satisfied" },
+  { label: "Session / Time of Day", sub: "Within your defined high-probability session window" },
   { label: "Risk/Reward Ratio", sub: "Minimum 1:2 R:R confirmed" },
   { label: "Stop Loss Defined", sub: "Clear invalidation level set" },
 ];
 
-const TIMER_ITEM = { label: "Is it reallllllllllllly an A+ trade? 🤔", sub: "Take 10 seconds. Be honest with yourself.", timer: true };
+const TIMER_ITEM = { label: "Is this genuinely your best setup?", sub: "Take 10 seconds. Be honest with yourself.", timer: true };
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -1005,9 +1005,9 @@ export function ChecklistView({ supabase, user, embedded = false }) {
         loaded = data.items.models;
       } else if (Array.isArray(data?.items)) {
         // Migrate old single-list format → "GxT" model
-        loaded = [{ id: makeModelId(), name: "GxT", items: data.items }];
+        loaded = [{ id: makeModelId(), name: "My Model", items: data.items }];
       } else {
-        loaded = [{ id: makeModelId(), name: "GxT", items: DEFAULT_CHECKLIST_ITEMS }];
+        loaded = [{ id: makeModelId(), name: "My Model", items: DEFAULT_CHECKLIST_ITEMS }];
       }
       setModels(loaded);
       setActiveModelId(loaded[0].id);
@@ -1299,40 +1299,9 @@ export function ChecklistView({ supabase, user, embedded = false }) {
                 {isActive && renamingId !== m.id && (
                   <button onClick={() => startRename(m)} title="Rename model" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✎</button>
                 )}
-                {!isActive && models.length > 1 && (
-                  <DeletePopover id={m.id} confirmId={confirmDeleteModel} setConfirmId={setConfirmDeleteModel} onConfirm={deleteModel} buttonStyle={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--text-tertiary)", padding: "0 2px", lineHeight: 1 }}>✕</DeletePopover>
-                )}
               </div>
             );
           })}
-
-          {/* Add new model */}
-          {addingModel ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input
-                autoFocus
-                placeholder="Model name..."
-                value={newModelName}
-                onChange={(e) => setNewModelName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addModel(); if (e.key === "Escape") { setAddingModel(false); setNewModelName(""); } }}
-                maxLength={30}
-                style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
-                  padding: "5px 10px", borderRadius: 20, border: "1.5px solid var(--border-primary)",
-                  background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none", width: 120,
-                }}
-              />
-              <button onClick={addModel} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 20, border: "1px solid var(--green)", background: "transparent", color: "var(--green)", cursor: "pointer" }}>ADD</button>
-              <button onClick={() => { setAddingModel(false); setNewModelName(""); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "var(--text-tertiary)" }}>✕</button>
-            </div>
-          ) : (
-            <button onClick={() => setAddingModel(true)} style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
-              padding: "5px 12px", borderRadius: 20, border: "1px dashed var(--border-primary)",
-              background: "transparent", color: "var(--text-tertiary)", cursor: "pointer", transition: "all 0.15s",
-              letterSpacing: "0.04em",
-            }}>+ New Model</button>
-          )}
 
           {/* Customize active model */}
           <button onClick={openEdit} style={{
@@ -1458,6 +1427,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   const [formAfter, setFormAfter] = useState("");
   const [formNotes, setFormNotes] = useState("");
   const [formAfterThoughts, setFormAfterThoughts] = useState("");
+  const [formModel, setFormModel] = useState("");
   const [formTags, setFormTags] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
@@ -1473,6 +1443,17 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   useEffect(() => {
     if (!user) return;
     supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+  }, [user]);
+
+  // Checklist models for model selector
+  const [tradeModels, setTradeModels] = useState([]);
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("checklist_items").select("items").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        const models = data?.items?.models ?? [];
+        setTradeModels(models.map(m => m.name).filter(Boolean));
+      });
   }, [user]);
 
   const todayStr = todayKey();
@@ -1508,6 +1489,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
       after_chart: safeUrl(formAfter) || "",
       notes: sanitizeText(formNotes),
       ...(formAfterThoughts ? { after_thoughts: sanitizeText(formAfterThoughts) } : {}),
+      ...(formModel ? { model: formModel } : {}),
       ...(formProfitFunded ? { profit_funded: parseFloat(formProfitFunded) } : {}),
       ...(formTags.length > 0 ? { tags: formTags } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
@@ -1524,7 +1506,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
     setFormAsset(""); setFormDirection(""); setFormAplus("");
     setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormRisk(prefs?.default_risk ? String(prefs.default_risk) : ""); setFormChart("");
-    setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
+    setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormModel(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
     setFormEntryPrice(""); setFormExitPrice(""); setFormStopLoss(""); setFormTakeProfit(""); setFormTimeframe("");
     loadTrades();
   };
@@ -1556,6 +1538,14 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
               {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </Field>
+          {tradeModels.length > 0 && (
+            <Field label="Model / Strategy">
+              <select style={selectStyle} value={formModel} onChange={e => setFormModel(e.target.value)}>
+                <option value="">— Select model —</option>
+                {tradeModels.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Taken?">
             <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
               <option value="">Select...</option>
@@ -1675,6 +1665,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const [formNotes, setFormNotes] = useState("");
   const [formAfterThoughts, setFormAfterThoughts] = useState("");
   const [formRisk, setFormRisk] = useState(prefs?.default_risk ? String(prefs.default_risk) : "");
+  const [formModel, setFormModel] = useState("");
   const [formTags, setFormTags] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
@@ -1685,12 +1676,18 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const [formTimeframe, setFormTimeframe] = useState("");
   const [showReplayFields, setShowReplayFields] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [tradeModels, setTradeModels] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("accounts").select("id,firm,account_name,account_type").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+    supabase.from("checklist_items").select("items").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        const models = data?.items?.models ?? [];
+        setTradeModels(models.map(m => m.name).filter(Boolean));
+      });
   }, [user]);
 
   const logTrade = async () => {
@@ -1708,6 +1705,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
       after_chart: safeUrl(formAfter) || "",
       notes: sanitizeText(formNotes),
       ...(formAfterThoughts ? { after_thoughts: sanitizeText(formAfterThoughts) } : {}),
+      ...(formModel ? { model: formModel } : {}),
       ...(formProfitFunded ? { profit_funded: parseFloat(formProfitFunded) } : {}),
       ...(formTags.length > 0 ? { tags: formTags } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
@@ -1781,6 +1779,14 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
                 {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
+            {tradeModels.length > 0 && (
+              <Field label="Model / Strategy">
+                <select style={selectStyle} value={formModel} onChange={e => setFormModel(e.target.value)}>
+                  <option value="">— Select model —</option>
+                  {tradeModels.map(name => <option key={name} value={name}>{name}</option>)}
+                </select>
+              </Field>
+            )}
             <Field label="Taken?">
               <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
                 <option value="">Select...</option>
@@ -2648,6 +2654,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       risk: trade.risk != null ? String(trade.risk) : "",
       chart: trade.chart || "", after_chart: trade.after_chart || "",
       notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
+      model: trade.model || "",
       tags: trade.tags || [],
       account_id_personal: trade.account_id_personal || "",
       account_id_funded: trade.account_id_funded || "",
@@ -2671,6 +2678,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       risk: editForm.risk !== "" && editForm.risk != null ? parseFloat(editForm.risk) : null,
       chart: editForm.chart, after_chart: editForm.after_chart, notes: editForm.notes,
       after_thoughts: editForm.after_thoughts,
+      model: editForm.model || null,
       tags: editForm.tags && editForm.tags.length > 0 ? editForm.tags : null,
       account_id_personal: editForm.account_id_personal || null,
       account_id_funded: editForm.account_id_funded || null,
@@ -3046,7 +3054,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "var(--bg-primary)" }}>
-                  {["Date", "Asset", "Dir", "A+", "Taken", "Bias", "Personal", "Funded", "R", "Chart", "After", "Notes", ""].map((h) => (
+                  {["Date", "Asset", "Model", "Dir", "A+", "Taken", "Bias", "Personal", "Funded", "R", "Chart", "After", "Notes", ""].map((h) => (
                     <th key={h} style={{ padding: "10px 12px", textAlign: "left", color: "var(--text-tertiary)", fontSize: 10, textTransform: "uppercase", whiteSpace: "nowrap", letterSpacing: "0.1em", fontWeight: 600 }}>{h}</th>
                   ))}
                 </tr>
@@ -3068,6 +3076,11 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                     }}>
                       <td style={{ ...cellStyle, color: "var(--text-secondary)" }}>{t.dt ? new Date(t.dt).toLocaleDateString([], { month: "short", day: "numeric" }) : "—"}</td>
                       <td style={{ ...cellStyle, fontWeight: 600, color: "var(--text-primary)" }}>{t.asset}</td>
+                      <td style={cellStyle}>
+                        {t.model
+                          ? <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 3, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t.model}</span>
+                          : <span style={{ color: "var(--text-tertiary)" }}>—</span>}
+                      </td>
                       <td style={cellStyle}>
                         {t.direction === "Long" ? <span style={{ color: "var(--accent-secondary)" }}>LONG</span> : t.direction === "Short" ? <span style={{ color: "var(--red)" }}>SHORT</span> : "—"}
                       </td>
@@ -3173,6 +3186,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </Field>
+              {tradeModels.length > 0 && (
+                <Field label="Model / Strategy">
+                  <select style={selectStyle} value={editForm.model || ""} onChange={e => setEditForm({ ...editForm, model: e.target.value })}>
+                    <option value="">— Select model —</option>
+                    {tradeModels.map(name => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Taken?">
                 <select style={selectStyle} value={editForm.taken} onChange={(e) => setEditForm({ ...editForm, taken: e.target.value })}>
                   <option value="">Select...</option>
@@ -4112,6 +4133,411 @@ export function AccountsView({ supabase, user, privacyMode }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// MODELS VIEW — Per-strategy performance breakdown
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function ModelsView({ supabase, user, trades, privacyMode }) {
+  const [models, setModels] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [showModal, setShowModal] = React.useState(false);
+  const [editingModel, setEditingModel] = React.useState(null);
+  const [formName, setFormName] = React.useState("");
+  const [formDesc, setFormDesc] = React.useState("");
+  const [formPhotoUrl, setFormPhotoUrl] = React.useState(null);
+  const [formPhotoFile, setFormPhotoFile] = React.useState(null);
+  const [formPhotoPreview, setFormPhotoPreview] = React.useState(null);
+  const [formRules, setFormRules] = React.useState([]);
+  const [newRuleLabel, setNewRuleLabel] = React.useState("");
+  const [newRuleSub, setNewRuleSub] = React.useState("");
+  const [confirmDelete, setConfirmDelete] = React.useState(null);
+  const [selectedModelId, setSelectedModelId] = React.useState(null);
+  const photoInputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!user) return;
+    supabase.from("checklist_items").select("items").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => {
+        setModels(data?.items?.models ?? []);
+        setLoading(false);
+      });
+  }, [user]);
+
+  const persistModels = async (updated) => {
+    await supabase.from("checklist_items").upsert(
+      { user_id: user.id, items: { v: 2, models: updated }, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+    setModels(updated);
+  };
+
+  const openCreate = () => {
+    setEditingModel(null);
+    setFormName(""); setFormDesc(""); setFormPhotoUrl(null);
+    setFormPhotoFile(null); setFormPhotoPreview(null); setFormRules([]);
+    setNewRuleLabel(""); setNewRuleSub("");
+    setShowModal(true);
+  };
+
+  const openEdit = (m) => {
+    setEditingModel(m);
+    setFormName(m.name); setFormDesc(m.description || "");
+    setFormPhotoUrl(m.photo_url || null); setFormPhotoFile(null);
+    setFormPhotoPreview(m.photo_url || null);
+    setFormRules(m.items || []);
+    setNewRuleLabel(""); setNewRuleSub("");
+    setShowModal(true);
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFormPhotoFile(file);
+    setFormPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleAddRule = () => {
+    if (!newRuleLabel.trim() || formRules.length >= 20) return;
+    setFormRules(r => [...r, { label: newRuleLabel.trim(), sub: newRuleSub.trim() }]);
+    setNewRuleLabel(""); setNewRuleSub("");
+  };
+
+  const handleSave = async () => {
+    if (!formName.trim()) return;
+    setSaving(true);
+    const modelId = editingModel?.id ?? ("m_" + Math.random().toString(36).slice(2, 8));
+    let photoUrl = formPhotoUrl;
+    if (formPhotoFile) {
+      const ext = formPhotoFile.name.split(".").pop();
+      const path = `${user.id}/models/${modelId}.${ext}`;
+      await supabase.storage.from("avatars").upload(path, formPhotoFile, { upsert: true });
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      photoUrl = publicUrl + "?t=" + Date.now();
+    }
+    const updated = editingModel
+      ? models.map(m => m.id === editingModel.id
+          ? { ...m, name: formName.trim(), description: formDesc, photo_url: photoUrl, items: formRules }
+          : m)
+      : [...models, { id: modelId, name: formName.trim(), description: formDesc, photo_url: photoUrl, items: formRules }];
+    await persistModels(updated);
+    setSaving(false);
+    setShowModal(false);
+  };
+
+  const handleDelete = async (id) => {
+    await persistModels(models.filter(m => m.id !== id));
+    setConfirmDelete(null);
+  };
+
+  const modelStats = React.useMemo(() => {
+    const stats = {};
+    models.forEach(m => {
+      const mt = trades.filter(t => t.model === m.name);
+      const taken = mt.filter(t => t.taken !== "Missed");
+      const wins = taken.filter(t => parseFloat(t.profit) > 0);
+      const losses = taken.filter(t => parseFloat(t.profit) < 0);
+      const pnl = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+      const avgWin = wins.length ? wins.reduce((s, t) => s + parseFloat(t.profit), 0) / wins.length : 0;
+      const avgLoss = losses.length ? losses.reduce((s, t) => s + parseFloat(t.profit), 0) / losses.length : 0;
+      const assets = {};
+      taken.forEach(t => { assets[t.asset] = (assets[t.asset] || 0) + (parseFloat(t.profit) || 0); });
+      const bestAsset = Object.entries(assets).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+      const winRate = taken.length ? Math.round(wins.length / taken.length * 100) : null;
+      stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, avgWin, avgLoss, bestAsset };
+    });
+    return stats;
+  }, [models, trades]);
+
+  const wrColor = (wr) => {
+    if (wr === null) return "var(--text-tertiary)";
+    if (wr >= 70) return "var(--accent)";
+    if (wr >= 55) return "var(--green)";
+    if (wr >= 40) return "var(--gold)";
+    return "var(--red)";
+  };
+
+  const btnBase = { fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s" };
+
+  const PhotoCircle = ({ url, size = 56 }) => (
+    <div style={{ width: size, height: size, borderRadius: "50%", flexShrink: 0, overflow: "hidden", background: "var(--bg-tertiary)", border: "1.5px solid var(--border-primary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {url
+        ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : <svg width={size * 0.45} height={size * 0.45} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)" }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      }
+    </div>
+  );
+
+  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "var(--text-tertiary)" }}>Loading models…</div>;
+
+  const modalJsx = showModal && (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+      style={{ position: "fixed", inset: 0, background: "var(--modal-overlay)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+    >
+      <div style={{ width: "100%", maxWidth: 640, maxHeight: "90vh", overflowY: "auto", borderRadius: 14, background: "var(--bg-secondary)", border: "1px solid var(--border-primary)", backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)", boxShadow: "0 24px 60px rgba(0,0,0,0.4)", padding: "32px 36px 28px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{editingModel ? "Edit Model" : "New Model"}</div>
+          <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "var(--text-tertiary)", lineHeight: 1, padding: 4 }}>✕</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+          <div onClick={() => photoInputRef.current?.click()} style={{ width: 80, height: 80, borderRadius: "50%", overflow: "hidden", background: "var(--bg-tertiary)", border: "2px dashed var(--border-primary)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+            {formPhotoPreview
+              ? <img src={formPhotoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)" }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            }
+          </div>
+          <button onClick={() => photoInputRef.current?.click()} style={{ marginTop: 8, background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--accent)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 600 }}>
+            {formPhotoPreview ? "Change Photo" : "Upload Photo"}
+          </button>
+          <input ref={photoInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Model Name *</label>
+          <input autoFocus value={formName} onChange={e => setFormName(e.target.value)} placeholder="e.g. ICT Fractal, Breakout, SMC" maxLength={40} style={{ width: "100%", boxSizing: "border-box", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 600, padding: "10px 12px", borderRadius: 6, border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none" }} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Description</label>
+          <textarea value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="What is this model? When do you use it?" rows={3} style={{ width: "100%", boxSizing: "border-box", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, padding: "10px 12px", borderRadius: 6, border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none", resize: "vertical" }} />
+        </div>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Rules / Checklist Items</label>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{formRules.length}/20</span>
+          </div>
+          {formRules.length > 0 && (
+            <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              {formRules.map((r, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 12px", borderRadius: 6, background: "var(--bg-primary)", border: "1px solid var(--border-primary)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{r.label}</div>
+                    {r.sub && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{r.sub}</div>}
+                  </div>
+                  <button onClick={() => setFormRules(rules => rules.filter((_, j) => j !== i))} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-tertiary)", padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {formRules.length < 20 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <input value={newRuleLabel} onChange={e => setNewRuleLabel(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddRule(); } }} placeholder="Rule label" style={{ flex: "1 1 140px", minWidth: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, padding: "8px 10px", borderRadius: 5, border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none" }} />
+              <input value={newRuleSub} onChange={e => setNewRuleSub(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddRule(); } }} placeholder="Details (optional)" style={{ flex: "2 1 180px", minWidth: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, padding: "8px 10px", borderRadius: 5, border: "1px solid var(--border-primary)", background: "var(--bg-tertiary)", color: "var(--text-primary)", outline: "none" }} />
+              <button onClick={handleAddRule} disabled={!newRuleLabel.trim()} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "8px 14px", borderRadius: 5, border: "1px solid rgba(34,211,238,0.25)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", letterSpacing: "0.04em", opacity: newRuleLabel.trim() ? 1 : 0.4 }}>+ Add</button>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, borderTop: "1px solid var(--border-primary)", paddingTop: 20, marginTop: 4 }}>
+          <button onClick={() => setShowModal(false)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, padding: "7px 18px", borderRadius: 6, border: "1px solid var(--border-primary)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer", letterSpacing: "0.04em" }}>Cancel</button>
+          <button onClick={handleSave} disabled={!formName.trim() || saving} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600, padding: "7px 20px", borderRadius: 6, border: "1px solid rgba(34,211,238,0.25)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", letterSpacing: "0.04em", opacity: (!formName.trim() || saving) ? 0.5 : 1 }}>
+            {saving ? "Saving…" : "Save Model"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Detail view (replaces grid in-place, no overlay) ──────────────────────
+  if (selectedModelId) {
+    const dm = models.find(m => m.id === selectedModelId);
+    if (!dm) { setSelectedModelId(null); return null; }
+    const s = modelStats[dm.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, avgWin: 0, avgLoss: 0, bestAsset: "—" };
+    const wr = s.winRate;
+    const wrc = wrColor(wr);
+    return (
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 40px", animation: "fadeSlideIn 0.2s ease" }}>
+        {/* Back */}
+        <button
+          onClick={() => setSelectedModelId(null)}
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", marginBottom: 24, padding: 0, letterSpacing: "0.04em" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Back to Models
+        </button>
+
+        {/* Hero */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 20, marginBottom: 28 }}>
+          <PhotoCircle url={dm.photo_url} size={72} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <h1 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>{dm.name}</h1>
+              <button onClick={() => openEdit(dm)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "4px 12px", borderRadius: 4, border: "1px solid rgba(34,211,238,0.25)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", letterSpacing: "0.04em" }}>Edit</button>
+            </div>
+            {dm.description && <p style={{ margin: "8px 0 0", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>{dm.description}</p>}
+            <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>{(dm.items?.length ?? 0)} rule{(dm.items?.length ?? 0) !== 1 ? "s" : ""} · {s.count} trade{s.count !== 1 ? "s" : ""}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+          {/* Stats */}
+          <TCard style={{ padding: "20px 22px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Performance</div>
+            {s.count === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No trades tagged to this model yet.</div>
+            ) : (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                  <div style={{ textAlign: "center", minWidth: 56 }}>
+                    <div style={{ fontSize: 26, fontWeight: 800, color: wrc, lineHeight: 1 }}>{wr !== null ? `${wr}%` : "—"}</div>
+                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>Win Rate</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ height: 6, borderRadius: 3, background: "var(--bg-tertiary)", overflow: "hidden" }}>
+                      {wr !== null && <div style={{ height: "100%", width: `${wr}%`, background: wrc, borderRadius: 3 }} />}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 11, color: "var(--text-tertiary)" }}>
+                      <span>{s.wins}W / {s.losses}L</span>
+                      <span style={{ color: s.pnl >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`}</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  {[
+                    { label: "Avg Win", value: s.avgWin > 0 ? (privacyMode ? "••••" : `+$${s.avgWin.toFixed(0)}`) : "—", color: "var(--green)" },
+                    { label: "Avg Loss", value: s.avgLoss < 0 ? (privacyMode ? "••••" : `-$${Math.abs(s.avgLoss).toFixed(0)}`) : "—", color: "var(--red)" },
+                    { label: "Best Asset", value: s.bestAsset, color: "var(--text-primary)" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
+                      <div style={{ fontSize: 9, color: "var(--text-tertiary)", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </TCard>
+
+          {/* Rules */}
+          <TCard style={{ padding: "20px 22px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Rules / Checklist ({dm.items?.length ?? 0})</div>
+            {(!dm.items || dm.items.length === 0) ? (
+              <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No rules yet — edit this model to add rules.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {dm.items.map((rule, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: i < dm.items.length - 1 ? "1px solid var(--border-primary)" : "none" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid var(--border-primary)", background: "var(--bg-tertiary)", flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{rule.label}</div>
+                      {rule.sub && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{rule.sub}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TCard>
+        </div>
+
+        {modalJsx}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 40px" }}>
+      <PageBanner label="MODELS" title="Your Strategies" subtitle="Build and track your trading models." />
+
+      {/* Section header row — matches Accounts page pattern */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Your Models</div>
+        <button
+          onClick={openCreate}
+          style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", letterSpacing: "0.05em" }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Model
+        </button>
+      </div>
+
+      {models.length === 0 ? (
+        <TCard style={{ textAlign: "center", padding: "56px 24px" }}>
+          <div style={{ marginBottom: 16, opacity: 0.25 }}>
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)" }}><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>No models yet</div>
+          <div style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 28, maxWidth: 320, margin: "0 auto 28px" }}>Define your trading strategies, add rules, and track performance per model.</div>
+          <button onClick={openCreate} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 6, padding: "7px 16px", cursor: "pointer", letterSpacing: "0.05em" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create Your First Model
+          </button>
+        </TCard>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 16 }}>
+          {models.map(m => {
+            const s = modelStats[m.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, avgWin: 0, avgLoss: 0, bestAsset: "—" };
+            const wr = s.winRate;
+            const wrc = wrColor(wr);
+            return (
+              <TCard key={m.id} style={{ padding: "20px 22px", cursor: "pointer" }} onClick={() => setSelectedModelId(m.id)}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 12 }}>
+                  <PhotoCircle url={m.photo_url} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => openEdit(m)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 4, border: "1px solid rgba(34,211,238,0.25)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", letterSpacing: "0.04em" }}>Edit</button>
+                        {confirmDelete === m.id
+                          ? <button onClick={() => handleDelete(m.id)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 4, border: "1px solid var(--red)", background: "rgba(251,113,133,0.12)", color: "var(--red)", cursor: "pointer" }}>Confirm</button>
+                          : <button onClick={() => setConfirmDelete(m.id)} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 4, border: "1px solid var(--border-primary)", background: "transparent", color: "var(--text-tertiary)", cursor: "pointer" }}>✕</button>
+                        }
+                      </div>
+                    </div>
+                    {m.description && (
+                      <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{m.description}</div>
+                    )}
+                    <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 5, fontWeight: 600 }}>
+                      {(m.items?.length ?? 0)} rule{(m.items?.length ?? 0) !== 1 ? "s" : ""} · {s.count} trade{s.count !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div style={{ borderTop: "1px solid var(--border-primary)", paddingTop: 12 }}>
+                  {s.count === 0 ? (
+                    <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontStyle: "italic" }}>No tagged trades yet — select this model when logging trades.</div>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 10 }}>
+                        <div style={{ textAlign: "center", minWidth: 48 }}>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: wrc, lineHeight: 1 }}>{wr !== null ? `${wr}%` : "—"}</div>
+                          <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 2 }}>Win Rate</div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ height: 5, borderRadius: 3, background: "var(--bg-tertiary)", overflow: "hidden" }}>
+                            {wr !== null && <div style={{ height: "100%", width: `${wr}%`, background: wrc, borderRadius: 3 }} />}
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "var(--text-tertiary)" }}>
+                            <span>{s.wins}W / {s.losses}L</span>
+                            <span style={{ color: s.pnl >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                        {[
+                          { label: "Avg Win", value: s.avgWin > 0 ? (privacyMode ? "••••" : `+$${s.avgWin.toFixed(0)}`) : "—", color: "var(--green)" },
+                          { label: "Avg Loss", value: s.avgLoss < 0 ? (privacyMode ? "••••" : `-$${Math.abs(s.avgLoss).toFixed(0)}`) : "—", color: "var(--red)" },
+                          { label: "Best Asset", value: s.bestAsset, color: "var(--text-primary)" },
+                        ].map(({ label, value, color }) => (
+                          <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 5, padding: "7px 8px", textAlign: "center" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color }}>{value}</div>
+                            <div style={{ fontSize: 9, color: "var(--text-tertiary)", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </TCard>
+            );
+          })}
+        </div>
+      )}
+
+      {modalJsx}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD VIEW — Home page with live stats, mood, drawdown, export
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -4128,7 +4554,7 @@ function ProgressBar({ pct, color, height = 8 }) {
 }
 
 
-export function DashboardView({ supabase, user, trades, tradesLoading, displayName, privacyMode, onNavigate }) {
+export function DashboardView({ supabase, user, trades, tradesLoading, displayName, privacyMode, onNavigate, justCompletedOnboarding = false }) {
   const [accounts, setAccounts] = useState([]);
 
   useEffect(() => {
@@ -4227,7 +4653,7 @@ export function DashboardView({ supabase, user, trades, tradesLoading, displayNa
       {/* Welcome */}
       <div style={{ textAlign: "left", marginBottom: 20, padding: "8px 0" }}>
         <h1 className="welcome-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 32, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em", margin: 0 }}>
-          Welcome Back, {displayName || "Trader"}
+          {justCompletedOnboarding ? `Welcome, ${displayName || "Trader"}!` : `Welcome Back, ${displayName || "Trader"}`}
         </h1>
       </div>
 

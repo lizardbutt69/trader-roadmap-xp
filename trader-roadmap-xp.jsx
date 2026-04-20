@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
-import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast, useAchievement, computeBadges, buildDayMap } from "./src/trading.jsx";
+import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, ModelsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast, useAchievement, computeBadges, buildDayMap } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
 
@@ -89,9 +89,9 @@ const LEVELS = [
     achievements: [
       { id: "a1", name: "Model Defined", desc: "Document your trading model and rules in writing", xp: 50, type: "process" },
       { id: "a2", name: "10-Day Journal Streak", desc: "Journal every session for 10 consecutive days", xp: 75, type: "process" },
-      { id: "a3", name: "Session Discipline", desc: "Trade NY session only for 2 full weeks", xp: 100, type: "discipline" },
+      { id: "a3", name: "Session Discipline", desc: "Trade your defined session window only for 2 full weeks", xp: 100, type: "discipline" },
       { id: "a4", name: "Pre-Trade Process", desc: "Complete pre-trade checklist on 20 consecutive trades", xp: 100, type: "process" },
-      { id: "a5", name: "A+ Criteria Locked", desc: "Define and commit your A+ trade criteria to paper", xp: 50, type: "process" },
+      { id: "a5", name: "Setup Criteria Defined", desc: "Document your high-quality setup criteria and rules in writing", xp: 50, type: "process" },
     ],
   },
   {
@@ -108,8 +108,8 @@ const LEVELS = [
     description: "Prove the edge under evaluation pressure. Get funded and receive your first payout.",
     achievements: [
       { id: "b1", name: "Evaluation Passed", desc: "Pass your first prop firm evaluation", xp: 150, type: "milestone" },
-      { id: "b2", name: "A+ Only Week", desc: "Take only A+ setups for a full trading week", xp: 100, type: "discipline" },
-      { id: "b3", name: "2-Trade Discipline", desc: "Respect 2-trade daily max for 10 consecutive sessions", xp: 100, type: "discipline" },
+      { id: "b2", name: "Quality Setups Only", desc: "Take only high-quality setups for a full trading week", xp: 100, type: "discipline" },
+      { id: "b3", name: "Trade Limit Discipline", desc: "Respect your daily trade limit for 10 consecutive sessions", xp: 100, type: "discipline" },
       { id: "b4", name: "First Payout", desc: "Receive your first funded account payout", xp: 200, type: "payout", amount: "1st Payout" },
       { id: "b5", name: "No Revenge Trading", desc: "Walk away after a loss — 10 times without revenge trading", xp: 100, type: "discipline" },
       { id: "b6", name: "Execution Trust", desc: "Hold to take-profit without moving stop — 5 times", xp: 125, type: "discipline" },
@@ -501,50 +501,312 @@ function AchievementRow({ ach, completed, proof, onToggle, delay = 0 }) {
   );
 }
 
-// ─── JOURNAL + CHECKLIST COMBINED ────────────────────────────────────────────
+// ─── ONBOARDING WIZARD ───────────────────────────────────────────────────────
 
-function JournalWithChecklist({ supabase, user, loadTrades, privacyMode, prefs }) {
-  const [checklistOpen, setChecklistOpen] = useState(() => {
-    const stored = sessionStorage.getItem("checklistOpen");
-    return stored === null ? true : stored === "true";
-  });
-  const toggleChecklist = (val) => {
-    setChecklistOpen(val);
-    sessionStorage.setItem("checklistOpen", val);
+function OnboardingModal({
+  user, supabase, dark, setViewAndPersist, setUserPrefs, setProfile,
+  onboardStep, setOnboardStep,
+  obName, setObName, obExpLevel, setObExpLevel, obSession, setObSession,
+  obStyle, setObStyle, obFirm, setObFirm, obAccountType, setObAccountType,
+  obAccountSize, setObAccountSize, obDefaultRisk, setObDefaultRisk,
+  obSaving, setObSaving, onJustCompleted,
+}) {
+  const EXP_OPTIONS = [
+    { key: "under_1yr", label: "Under 1 Year" },
+    { key: "1_3yrs", label: "1–3 Years" },
+    { key: "3plus_yrs", label: "3+ Years" },
+    { key: "professional", label: "Professional" },
+  ];
+  const STYLE_OPTIONS = [
+    { key: "day_trader", label: "Day Trader" },
+    { key: "swing_trader", label: "Swing Trader" },
+    { key: "scalper", label: "Scalper" },
+    { key: "options_trader", label: "Options" },
+  ];
+  const SESSION_OPTIONS = [
+    { key: "ny", label: "NY Session" },
+    { key: "london", label: "London" },
+    { key: "asian", label: "Asian" },
+    { key: "all", label: "All Sessions" },
+  ];
+  const ACCOUNT_TYPE_OPTIONS = [
+    { key: "eval", label: "Evaluation" },
+    { key: "funded", label: "Funded" },
+    { key: "personal", label: "Personal" },
+  ];
+
+  const ff = "'Plus Jakarta Sans', sans-serif";
+  const inputStyle = {
+    width: "100%", fontFamily: ff, fontSize: 14, padding: "11px 14px",
+    borderRadius: 6, border: "1px solid var(--border-primary)",
+    background: "var(--bg-input, var(--bg-tertiary))", color: "var(--text-primary)",
+    outline: "none", boxSizing: "border-box",
   };
+  const pillStyle = (active) => ({
+    fontFamily: ff, fontSize: 12, fontWeight: 600, padding: "7px 14px",
+    borderRadius: 20, cursor: "pointer",
+    background: active ? "var(--accent-dim)" : "var(--bg-tertiary)",
+    border: active ? "1px solid rgba(34,211,238,0.4)" : "1px solid var(--border-primary)",
+    color: active ? "var(--accent)" : "var(--text-secondary)",
+    transition: "all 0.15s ease",
+  });
+  const labelStyle = {
+    fontFamily: ff, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
+    textTransform: "uppercase", color: "var(--text-tertiary)", display: "block", marginBottom: 8,
+  };
+  const btnPrimary = {
+    width: "100%", fontFamily: ff, fontSize: 14, fontWeight: 700,
+    padding: "13px 0", borderRadius: 8, cursor: "pointer", border: "none",
+    background: "var(--accent)", color: "#000", letterSpacing: "0.04em",
+  };
+  const btnOutline = { ...btnPrimary, background: "transparent", border: "1px solid var(--accent)", color: "var(--accent)" };
+  const btnTertiary = { ...btnPrimary, background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-secondary)" };
+  const backBtn = {
+    fontFamily: ff, fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)",
+    background: "none", border: "none", cursor: "pointer", padding: 0,
+    display: "flex", alignItems: "center", gap: 6, marginBottom: 20,
+  };
+  const skipLink = {
+    fontFamily: ff, fontSize: 12, color: "var(--text-tertiary)",
+    background: "none", border: "none", cursor: "pointer",
+    textDecoration: "underline", padding: "0 4px",
+  };
+
+  const handleCompleteOnboarding = async () => {
+    if (obSaving) return;
+    setObSaving(true);
+
+    if (obName.trim()) {
+      await supabase.from("profiles").upsert({ id: user.id, display_name: obName.trim(), updated_at: new Date().toISOString() });
+    }
+    const prefUpdates = {};
+    if (obExpLevel) prefUpdates.experience_level = obExpLevel;
+    if (obSession) prefUpdates.primary_session = obSession;
+    if (obStyle) prefUpdates.trading_style = obStyle;
+    if (obDefaultRisk) prefUpdates.default_risk = parseFloat(obDefaultRisk);
+    if (Object.keys(prefUpdates).length) {
+      await supabase.from("user_preferences").upsert({ user_id: user.id, ...prefUpdates, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    }
+    if (obFirm.trim()) {
+      await supabase.from("accounts").insert({
+        user_id: user.id, firm: obFirm.trim(), account_name: obFirm.trim(),
+        account_type: obAccountType || "eval",
+        account_size: obAccountSize ? parseFloat(obAccountSize) : null,
+        status: "active",
+      });
+    }
+    const { data: updatedPrefs } = await supabase.from("user_preferences")
+      .upsert({ user_id: user.id, onboarding_complete: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+      .select().single();
+
+    setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: true }));
+    if (obName.trim()) setProfile(p => ({ ...p, display_name: obName.trim() }));
+    onJustCompleted();
+    setObSaving(false);
+  };
+
+  const handleSkip = () => { setOnboardStep(4); handleCompleteOnboarding(); };
+
+  const cardStyle = {
+    maxWidth: 500, width: "100%", position: "relative",
+    background: dark ? "linear-gradient(145deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)" : "#ffffff",
+    backdropFilter: dark ? "blur(24px)" : "none", WebkitBackdropFilter: dark ? "blur(24px)" : "none",
+    borderRadius: 14, border: "1px solid var(--border-primary)",
+    boxShadow: "0 16px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
+    padding: "36px 36px 32px", fontFamily: ff,
+  };
+
+  // ── SVG icon helpers ──
+  const IconUser = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>;
+  const IconClock = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>;
+  const IconBuilding = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="9" width="18" height="13" rx="1"/><path d="M8 22V9"/><path d="M16 22V9"/><path d="M3 9l9-6 9 6"/></svg>;
+  const IconChevronLeft = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>;
+  const IconChart = () => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+
+  const WELCOME_ITEMS = [
+    { Icon: IconUser, text: "Your trader profile — name, experience & style" },
+    { Icon: IconClock, text: "Your primary trading session" },
+    { Icon: IconBuilding, text: "Your first trading account & risk settings" },
+  ];
+
   return (
-    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
-      <PageBanner
-        label="TRADE JOURNAL"
-        title="Track every session, grow every week."
-        subtitle="Log your trades, review your equity curve, and hold yourself accountable to the process."
-      />
-      {/* Collapsible Checklist */}
-      <div style={{ marginBottom: 20 }}>
-        <button
-          onClick={() => toggleChecklist(!checklistOpen)}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            width: "100%", padding: "12px 18px", marginBottom: checklistOpen ? 12 : 0,
-            background: "var(--bg-secondary)", border: "1px solid var(--border-primary)",
-            borderRadius: checklistOpen ? "8px 8px 0 0" : 8,
-            cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 11, fontWeight: 700, color: "var(--accent)",
-            textTransform: "uppercase", letterSpacing: "0.12em",
-            backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)",
-          }}
-        >
-          <span>☑ A+ Checklist</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)", transition: "transform 0.2s", transform: checklistOpen ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        {checklistOpen && (
-          <div style={{ border: "1px solid var(--border-primary)", borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" }}>
-            <ChecklistView supabase={supabase} user={user} embedded />
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "var(--modal-overlay)",
+        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24, animation: "fadeSlideIn 0.25s ease",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleSkip(); }}
+    >
+      <div style={cardStyle}>
+
+        {/* ── Step 1: Welcome ── */}
+        {onboardStep === 1 && (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,0.2)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+              <IconChart />
+            </div>
+            <div style={{ fontFamily: ff, fontSize: 24, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.02em", marginBottom: 8 }}>
+              Welcome to TradeSharp
+            </div>
+            <div style={{ fontFamily: ff, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: 28 }}>
+              Your professional trading journal and growth system. Let's get your workspace set up in under a minute.
+            </div>
+            <div style={{ textAlign: "left", marginBottom: 28 }}>
+              {WELCOME_ITEMS.map(({ Icon, text }) => (
+                <div key={text} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--border-primary)" }}>
+                  <span style={{ color: "var(--accent)", flexShrink: 0 }}><Icon /></span>
+                  <span style={{ fontFamily: ff, fontSize: 13, color: "var(--text-secondary)" }}>{text}</span>
+                </div>
+              ))}
+            </div>
+            <button style={btnPrimary} onClick={() => setOnboardStep(2)}>Get Started</button>
+            <div style={{ marginTop: 14 }}>
+              <button style={skipLink} onClick={handleSkip}>Skip setup</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2: Who You Are ── */}
+        {onboardStep === 2 && (
+          <div>
+            <button style={backBtn} onClick={() => setOnboardStep(1)}>
+              <IconChevronLeft /> Back
+            </button>
+            <ProgressDots step={1} />
+            <div style={{ fontFamily: ff, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>Who are you as a trader?</div>
+            <div style={{ fontFamily: ff, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 22 }}>This shapes how your stats and roadmap are framed.</div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Your Name</label>
+              <input autoFocus style={inputStyle} value={obName} onChange={e => setObName(e.target.value)} placeholder="What should we call you?" maxLength={50} />
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Experience Level</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {EXP_OPTIONS.map(o => (
+                  <button key={o.key} type="button" style={pillStyle(obExpLevel === o.key)} onClick={() => setObExpLevel(v => v === o.key ? "" : o.key)}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={labelStyle}>Trading Style</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {STYLE_OPTIONS.map(o => (
+                  <button key={o.key} type="button" style={pillStyle(obStyle === o.key)} onClick={() => setObStyle(v => v === o.key ? "" : o.key)}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>Primary Session</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {SESSION_OPTIONS.map(o => (
+                  <button key={o.key} type="button" style={pillStyle(obSession === o.key)} onClick={() => setObSession(v => v === o.key ? "" : o.key)}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button style={skipLink} onClick={handleSkip}>Skip all</button>
+              <button style={{ ...btnPrimary, flex: 1 }} onClick={() => setOnboardStep(3)}>Next</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Your Setup ── */}
+        {onboardStep === 3 && (
+          <div>
+            <button style={backBtn} onClick={() => setOnboardStep(2)}>
+              <IconChevronLeft /> Back
+            </button>
+            <ProgressDots step={2} />
+            <div style={{ fontFamily: ff, fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>Set up your trading account</div>
+            <div style={{ fontFamily: ff, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 22 }}>Your account and risk settings power the journal and dashboard stats.</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={labelStyle}>Firm / Account Name</label>
+                <input autoFocus style={inputStyle} value={obFirm} onChange={e => setObFirm(e.target.value)} placeholder="e.g. FTMO, Apex, My Personal" maxLength={60} />
+              </div>
+              <div>
+                <label style={labelStyle}>Account Size <span style={{ color: "var(--text-tertiary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 10 }}>optional</span></label>
+                <input style={inputStyle} type="number" value={obAccountSize} onChange={e => setObAccountSize(e.target.value)} placeholder="e.g. 100000" min="0" />
+              </div>
+              <div>
+                <label style={labelStyle}>Default Risk / Trade <span style={{ color: "var(--text-tertiary)", fontWeight: 400, textTransform: "none", letterSpacing: 0, fontSize: 10 }}>optional</span></label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", fontSize: 14, pointerEvents: "none" }}>$</span>
+                  <input style={{ ...inputStyle, paddingLeft: 24 }} type="number" value={obDefaultRisk} onChange={e => setObDefaultRisk(e.target.value)} placeholder="500" min="0" />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>Account Type</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {ACCOUNT_TYPE_OPTIONS.map(o => (
+                  <button key={o.key} type="button" style={{ ...pillStyle(obAccountType === o.key), flex: 1 }} onClick={() => setObAccountType(o.key)}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button style={skipLink} onClick={handleSkip}>Skip all</button>
+              <button
+                style={{ ...btnPrimary, flex: 1, opacity: obSaving ? 0.6 : 1, cursor: obSaving ? "not-allowed" : "pointer" }}
+                disabled={obSaving}
+                onClick={() => { setOnboardStep(4); handleCompleteOnboarding(); }}
+              >
+                Finish
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 4: Done ── */}
+        {onboardStep === 4 && (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(52,211,153,0.15)", border: "1px solid rgba(52,211,153,0.3)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div style={{ fontFamily: ff, fontSize: 22, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
+              {obName.trim() ? `You're ready, ${obName.trim().split(" ")[0]}.` : "You're all set!"}
+            </div>
+            <div style={{ fontFamily: ff, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: obSaving ? 8 : 0 }}>
+              Your workspace is configured. Start journaling, explore the roadmap, or head to your dashboard.
+            </div>
+            {obSaving && (
+              <div style={{ fontFamily: ff, fontSize: 11, color: "var(--text-tertiary)", marginBottom: 4 }}>Saving your settings…</div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
+              <button style={btnPrimary} onClick={() => setViewAndPersist("journal")}>Start Trading</button>
+              <button style={btnOutline} onClick={() => setViewAndPersist("roadmap")}>Explore Roadmap</button>
+              <button style={btnTertiary} onClick={() => setViewAndPersist("map")}>Go to Dashboard</button>
+            </div>
           </div>
         )}
       </div>
-      {/* Journal */}
-      <JournalView supabase={supabase} user={user} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} />
+    </div>
+  );
+}
+
+function ProgressDots({ step }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+      {[1, 2].map(s => (
+        <div key={s} style={{
+          width: s === step ? 20 : 8, height: 6, borderRadius: 3,
+          background: s === step ? "var(--accent)" : "var(--border-primary)",
+          transition: "all 0.2s ease",
+        }} />
+      ))}
+      <span style={{ marginLeft: 6, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        {step} / 2
+      </span>
     </div>
   );
 }
@@ -929,10 +1191,20 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
       <div style={sectionCard}>
         <div style={sectionTitle}>Account</div>
         <div style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:"var(--text-secondary)",marginBottom:16 }}>Signed in as <strong style={{ color:"var(--text-primary)" }}>{user?.email}</strong></div>
-        <button
-          onClick={handleSignOut}
-          style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"9px 20px",borderRadius:6,cursor:"pointer",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"var(--red)" }}
-        >Sign Out</button>
+        <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+          <button
+            onClick={handleSignOut}
+            style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",padding:"9px 20px",borderRadius:6,cursor:"pointer",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"var(--red)" }}
+          >Sign Out</button>
+          <button
+            onClick={async () => {
+              await supabase.from("user_preferences").upsert({ user_id: user.id, onboarding_complete: false, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+              setUserPrefs(p => ({ ...(p ?? {}), onboarding_complete: false }));
+              addToast("Onboarding reset — reload to see the wizard", "info");
+            }}
+            style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,fontWeight:600,letterSpacing:"0.06em",padding:"9px 16px",borderRadius:6,cursor:"pointer",background:"transparent",border:"1px solid var(--border-primary)",color:"var(--text-tertiary)" }}
+          >Reset Onboarding</button>
+        </div>
       </div>
     </div>
   );
@@ -1042,6 +1314,21 @@ export default function TraderRoadmapXP() {
     try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch {}
   }, [dark]);
 
+  // Onboarding state — declared early to avoid TDZ in useEffects below
+  const [userPrefs, setUserPrefs] = useState(null);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [justCompletedOnboarding, setJustCompletedOnboarding] = useState(false);
+  const [onboardStep, setOnboardStep] = useState(1);
+  const [obName, setObName] = useState("");
+  const [obExpLevel, setObExpLevel] = useState("");
+  const [obSession, setObSession] = useState("");
+  const [obStyle, setObStyle] = useState("");
+  const [obFirm, setObFirm] = useState("");
+  const [obAccountType, setObAccountType] = useState("eval");
+  const [obAccountSize, setObAccountSize] = useState("");
+  const [obDefaultRisk, setObDefaultRisk] = useState("");
+  const [obSaving, setObSaving] = useState(false);
+
   // completed is a Map: quest_id -> { note, link, completedAt }
   const [completed, setCompleted] = useState(new Map());
   const [selectedLevel, setSelectedLevel] = useState(null);
@@ -1072,10 +1359,13 @@ export default function TraderRoadmapXP() {
     try { localStorage.setItem("sessionNotes", JSON.stringify({ date: todayKey, text })); } catch {}
   };
 
+  const showOnboarding = prefsLoaded && !userPrefs?.onboarding_complete;
+
   // Escape key — close whichever modal is open (priority order)
   useEffect(() => {
     const handler = (e) => {
       if (e.key !== "Escape") return;
+      if (showOnboarding) { setOnboardStep(4); return; }
       if (showProfileEditor) { setShowProfileEditor(false); return; }
       if (confirm) { setConfirm(null); return; }
       if (viewingProof) { setViewingProof(null); return; }
@@ -1085,7 +1375,7 @@ export default function TraderRoadmapXP() {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [showProfileEditor, confirm, viewingProof, showTilt, showFocus, showSessionNotes]);
+  }, [showOnboarding, showProfileEditor, confirm, viewingProof, showTilt, showFocus, showSessionNotes]);
 
 
   const [editName, setEditName] = useState("");
@@ -1095,7 +1385,6 @@ export default function TraderRoadmapXP() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const avatarInputRef = useRef(null);
-  const [userPrefs, setUserPrefs] = useState(null);
 
   // Trading app state
   const [trades, setTrades] = useState([]);
@@ -1160,6 +1449,7 @@ export default function TraderRoadmapXP() {
     if (!user) return;
     const { data } = await supabase.from("user_preferences").select("*").eq("user_id", user.id).maybeSingle();
     if (data) setUserPrefs(data);
+    setPrefsLoaded(true);
   }, [user]);
 
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
@@ -1223,6 +1513,9 @@ export default function TraderRoadmapXP() {
     await supabase.auth.signOut();
     setCompleted(new Map());
     setProfile({ display_name: "", avatar_url: "" });
+    setUserPrefs(null);
+    setPrefsLoaded(false);
+    setOnboardStep(1);
   };
 
   const saveProfile = async () => {
@@ -1502,6 +1795,26 @@ export default function TraderRoadmapXP() {
       }}
     >
       <style>{globalStyles}</style>
+
+      {/* ── Onboarding Wizard ── */}
+      {showOnboarding && (
+        <OnboardingModal
+          user={user} supabase={supabase} dark={dark}
+          setViewAndPersist={setViewAndPersist}
+          setUserPrefs={setUserPrefs} setProfile={setProfile}
+          onboardStep={onboardStep} setOnboardStep={setOnboardStep}
+          obName={obName} setObName={setObName}
+          obExpLevel={obExpLevel} setObExpLevel={setObExpLevel}
+          obSession={obSession} setObSession={setObSession}
+          obStyle={obStyle} setObStyle={setObStyle}
+          obFirm={obFirm} setObFirm={setObFirm}
+          obAccountType={obAccountType} setObAccountType={setObAccountType}
+          obAccountSize={obAccountSize} setObAccountSize={setObAccountSize}
+          obDefaultRisk={obDefaultRisk} setObDefaultRisk={setObDefaultRisk}
+          obSaving={obSaving} setObSaving={setObSaving}
+          onJustCompleted={() => setJustCompletedOnboarding(true)}
+        />
+      )}
 
       {/* ── Proof Submission Modal ── */}
       {confirm && (() => {
@@ -2026,6 +2339,7 @@ export default function TraderRoadmapXP() {
               { key: "notebook", label: "Notebook", reset: false },
               { key: "watchlist", label: "Watchlist", reset: false },
               { key: "accounts", label: "Accounts", reset: false },
+              { key: "models", label: "Models", reset: false },
               { key: "stats", label: "Stats", reset: false },
               { key: "charts", label: "Trade Replay", reset: false },
               { key: "education", label: "Education", reset: false },
@@ -2039,6 +2353,7 @@ export default function TraderRoadmapXP() {
                 notebook: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
                 watchlist: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>,
                 accounts: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+                models: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
                 stats: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
                 charts: <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>,
                 education: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
@@ -2296,6 +2611,7 @@ export default function TraderRoadmapXP() {
                   { key: "notebook", label: "Notebook" },
                   { key: "watchlist", label: "Watchlist" },
                   { key: "accounts", label: "Accounts" },
+                  { key: "models", label: "Models" },
                   { key: "stats", label: "Stats" },
                   { key: "charts", label: "Trade Replay" },
                   { key: "education", label: "Education" },
@@ -2446,7 +2762,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "stats" ? "Stats" : view === "charts" ? "Charts" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "models" ? "Models" : view === "stats" ? "Stats" : view === "charts" ? "Charts" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2513,7 +2829,7 @@ export default function TraderRoadmapXP() {
 
         {/* HOME — default view */}
         {view === "map" && (
-          <DashboardView supabase={supabase} user={user} trades={trades} tradesLoading={tradesLoading} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
+          <DashboardView supabase={supabase} user={user} trades={trades} tradesLoading={tradesLoading} displayName={displayName} privacyMode={privacyMode} onNavigate={setViewAndPersist} justCompletedOnboarding={justCompletedOnboarding} />
         )}
 
         {/* ROADMAP VIEW */}
@@ -2525,9 +2841,9 @@ export default function TraderRoadmapXP() {
           />
         )}
 
-        {/* JOURNAL VIEW (with collapsible checklist) */}
+        {/* JOURNAL VIEW */}
         {view === "journal" && (
-          <JournalWithChecklist supabase={supabase} user={user} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} />
+          <JournalView supabase={supabase} user={user} loadTrades={loadTrades} privacyMode={privacyMode} prefs={prefs} />
         )}
 
         {/* STATS VIEW — Trade performance data */}
@@ -2543,6 +2859,11 @@ export default function TraderRoadmapXP() {
         {/* ACCOUNTS VIEW */}
         {view === "accounts" && (
           <AccountsView supabase={supabase} user={user} privacyMode={privacyMode} />
+        )}
+
+        {/* MODELS VIEW */}
+        {view === "models" && (
+          <ModelsView supabase={supabase} user={user} trades={trades} privacyMode={privacyMode} onNavigate={setViewAndPersist} />
         )}
 
         {/* NOTEBOOK VIEW */}

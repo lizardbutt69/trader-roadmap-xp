@@ -239,3 +239,5 @@ create policy "Users manage own preferences"
   on user_preferences for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+alter table trades add column if not exists model text;
