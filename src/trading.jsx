@@ -2160,10 +2160,14 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
   const [expandedId, setExpandedId] = useState(null);
   const [rowEdits, setRowEdits] = useState({});
   const [modalAccounts, setModalAccounts] = useState([]);
+  const [modalModels, setModalModels] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setModalAccounts(data); });
+    supabase.from("checklist_items").select("items").eq("user_id", user.id).single().then(({ data }) => {
+      if (data?.items?.models) setModalModels(data.items.models);
+    });
   }, [user]);
 
   const allMonths = [...new Set(trades.filter(t => t.dt).map(t => t.dt.slice(0, 7)))].sort().reverse();
@@ -2204,6 +2208,14 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       tags: t.tags || [],
       account_id_personal: t.account_id_personal || "",
       account_id_funded: t.account_id_funded || "",
+      model: t.model || "",
+      risk: t.risk != null ? String(t.risk) : "",
+      entry_price: t.entry_price != null ? String(t.entry_price) : "",
+      exit_price: t.exit_price != null ? String(t.exit_price) : "",
+      stop_loss: t.stop_loss != null ? String(t.stop_loss) : "",
+      take_profit: t.take_profit != null ? String(t.take_profit) : "",
+      timeframe: t.timeframe || "",
+      dt: t.dt ? t.dt.slice(0, 16) : "",
     }}));
   };
 
@@ -2217,6 +2229,14 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       profit_funded: edits.profit_funded !== "" ? parseFloat(edits.profit_funded) : null,
       account_id_personal: edits.account_id_personal || null,
       account_id_funded: edits.account_id_funded || null,
+      model: edits.model || null,
+      risk: edits.risk !== "" && edits.risk != null ? parseFloat(edits.risk) : null,
+      entry_price: edits.entry_price !== "" && edits.entry_price != null ? parseFloat(edits.entry_price) : null,
+      exit_price: edits.exit_price !== "" && edits.exit_price != null ? parseFloat(edits.exit_price) : null,
+      stop_loss: edits.stop_loss !== "" && edits.stop_loss != null ? parseFloat(edits.stop_loss) : null,
+      take_profit: edits.take_profit !== "" && edits.take_profit != null ? parseFloat(edits.take_profit) : null,
+      timeframe: edits.timeframe || null,
+      dt: edits.dt || null,
     }).eq("id", id);
     const affectedPersonal = new Set([prevTrade?.account_id_personal, edits.account_id_personal].filter(Boolean));
     for (const aid of affectedPersonal) await recalcAccountPnl(supabase, aid, "profit");
@@ -2437,12 +2457,23 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                             <div style={{ padding: "20px 24px", borderTop: "2px solid var(--accent)", borderBottom: "1px solid var(--border-primary)" }}>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
                                 <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Date &amp; Time</div>
+                                  <input type="datetime-local" value={ed.dt || ""} onChange={e => setField(t.id, "dt", e.target.value)} style={inpStyle} />
+                                </div>
+                                <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Asset</div>
                                   <input type="text" value={ed.asset || ""} onChange={e => setField(t.id, "asset", e.target.value.toUpperCase())} style={inpStyle} placeholder="Symbol" maxLength={30} />
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Direction</div>
                                   {sel("direction", ["Long", "Short"])}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Model</div>
+                                  <select value={ed.model || ""} onChange={e => setField(t.id, "model", e.target.value)} style={inpStyle}>
+                                    <option value="">None</option>
+                                    {modalModels.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                                  </select>
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>A+ Trade?</div>
@@ -2455,6 +2486,38 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Bias</div>
                                   {sel("bias", ["Bullish", "Bearish", "Neutral"])}
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Timeframe</div>
+                                  <select value={ed.timeframe || ""} onChange={e => setField(t.id, "timeframe", e.target.value)} style={inpStyle}>
+                                    <option value="">Auto-detect</option>
+                                    <option value="1m">1m</option>
+                                    <option value="5m">5m</option>
+                                    <option value="15m">15m</option>
+                                    <option value="1H">1H</option>
+                                    <option value="4H">4H</option>
+                                    <option value="1D">1D</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Risk ($)</div>
+                                  <input type="number" value={ed.risk || ""} onChange={e => setField(t.id, "risk", e.target.value)} style={inpStyle} placeholder="e.g. 500" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Entry Price</div>
+                                  <input type="number" step="0.01" value={ed.entry_price || ""} onChange={e => setField(t.id, "entry_price", e.target.value)} style={inpStyle} placeholder="e.g. 18450.25" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Exit Price</div>
+                                  <input type="number" step="0.01" value={ed.exit_price || ""} onChange={e => setField(t.id, "exit_price", e.target.value)} style={inpStyle} placeholder="e.g. 18510.50" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Stop Loss</div>
+                                  <input type="number" step="0.01" value={ed.stop_loss || ""} onChange={e => setField(t.id, "stop_loss", e.target.value)} style={inpStyle} placeholder="e.g. 18400.00" />
+                                </div>
+                                <div>
+                                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Take Profit</div>
+                                  <input type="number" step="0.01" value={ed.take_profit || ""} onChange={e => setField(t.id, "take_profit", e.target.value)} style={inpStyle} placeholder="e.g. 18550.00" />
                                 </div>
                                 <div>
                                   <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Personal P&L</div>
@@ -2573,10 +2636,14 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   const [showReview, setShowReview] = useState(false);
   const [compactTable, setCompactTable] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [tradeModels, setTradeModels] = useState([]);
 
   useEffect(() => {
     if (!user) return;
     supabase.from("accounts").select("id,firm,account_name,account_type,status").eq("user_id", user.id).order("created_at", { ascending: false }).then(({ data }) => { if (data) setAccounts(data); });
+    supabase.from("checklist_items").select("items").eq("user_id", user.id).single().then(({ data }) => {
+      if (data?.items?.models) setTradeModels(data.items.models.map(m => m.name));
+    });
   }, [user]);
 
   const chartRef = useRef(null);
@@ -3014,7 +3081,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
             <button
               onClick={() => {
                 const csvCell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-                const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Tags", "Chart URL", "After Chart URL"];
+                const headers = ["Date", "Asset", "Direction", "A+", "Taken", "Bias", "Model", "Timeframe", "Risk", "Entry Price", "Exit Price", "Stop Loss", "Take Profit", "Personal P&L", "Funded P&L", "Notes", "After Thoughts", "Tags", "Chart URL", "After Chart URL"];
                 const rows = monthTrades.map((t) => [
                   csvCell(t.dt ? new Date(t.dt).toLocaleString() : ""),
                   csvCell(t.asset),
@@ -3022,6 +3089,13 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                   csvCell(t.aplus),
                   csvCell(t.taken),
                   csvCell(t.bias),
+                  csvCell(t.model),
+                  csvCell(t.timeframe),
+                  t.risk != null ? t.risk : "",
+                  t.entry_price != null ? t.entry_price : "",
+                  t.exit_price != null ? t.exit_price : "",
+                  t.stop_loss != null ? t.stop_loss : "",
+                  t.take_profit != null ? t.take_profit : "",
                   t.profit != null ? t.profit : "",
                   t.profit_funded != null ? t.profit_funded : "",
                   csvCell(t.notes),
