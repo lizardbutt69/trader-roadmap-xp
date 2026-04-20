@@ -2332,19 +2332,34 @@ export default function TraderRoadmapXP() {
 
           {/* Nav Items */}
           <div style={{ padding: "16px 12px", flex: 1 }}>
-            {[
-              { key: "map", label: "Dashboard", reset: false },
-              { key: "roadmap", label: "Roadmap", reset: true },
-              { key: "journal", label: "Journal", reset: false },
-              { key: "notebook", label: "Notebook", reset: false },
-              { key: "watchlist", label: "Watchlist", reset: false },
-              { key: "accounts", label: "Accounts", reset: false },
-              { key: "models", label: "Models", reset: false },
-              { key: "stats", label: "Stats", reset: false },
-              { key: "charts", label: "Trade Replay", reset: false },
-              { key: "education", label: "Education", reset: false },
-              { key: "edge-chat", label: "Edge AI", reset: false },
-            ].map((tab) => {
+            {(() => {
+              const SECTION_COLORS = { Trade: "var(--accent)", Track: "var(--green)", Grow: "var(--gold)", AI: "var(--purple)" };
+              return [
+              { section: null, items: [{ key: "map", label: "Dashboard", reset: false }] },
+              { section: "Trade", items: [
+                { key: "journal", label: "Journal", reset: false },
+                { key: "notebook", label: "Notebook", reset: false },
+                { key: "models", label: "Models", reset: false },
+                { key: "charts", label: "Trade Replay (Beta)", reset: false },
+              ]},
+              { section: "Track", items: [
+                { key: "stats", label: "Stats", reset: false },
+                { key: "accounts", label: "Accounts", reset: false },
+              ]},
+              { section: "Grow", items: [
+                { key: "roadmap", label: "Roadmap", reset: true },
+                { key: "education", label: "Education", reset: false },
+                { key: "watchlist", label: "Watchlist", reset: false },
+              ]},
+              { section: "AI", items: [
+                { key: "edge-chat", label: "Edge AI", reset: false },
+              ]},
+              ].map(({ section, items }) => (
+              <div key={section ?? "__home"}>
+                {section && (
+                  <div style={{ fontSize: 10, fontWeight: 700, color: SECTION_COLORS[section] ?? "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", padding: "14px 12px 4px", userSelect: "none", opacity: 0.8 }}>{section}</div>
+                )}
+                {items.map((tab) => {
               const isActive = view === tab.key;
               const NAV_ICONS = {
                 map: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>,
@@ -2387,7 +2402,10 @@ export default function TraderRoadmapXP() {
                   {tab.label}
                 </button>
               );
-            })}
+                })}
+              </div>
+            ));
+            })()}
           </div>
 
           {/* Session Notes trigger */}
@@ -2613,7 +2631,7 @@ export default function TraderRoadmapXP() {
                   { key: "accounts", label: "Accounts" },
                   { key: "models", label: "Models" },
                   { key: "stats", label: "Stats" },
-                  { key: "charts", label: "Trade Replay" },
+                  { key: "charts", label: "Trade Replay (Beta)" },
                   { key: "education", label: "Education" },
                   { key: "edge-chat", label: "Edge AI" },
                 ].map((tab) => {
@@ -2762,7 +2780,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "models" ? "Models" : view === "stats" ? "Stats" : view === "charts" ? "Charts" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "models" ? "Models" : view === "stats" ? "Stats" : view === "charts" ? "Trade Replay" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>

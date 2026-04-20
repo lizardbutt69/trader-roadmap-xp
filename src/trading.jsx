@@ -1512,7 +1512,12 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   };
 
   return (
-    <div>
+    <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
+      <PageBanner
+        label="TRADE JOURNAL"
+        title="Track every session, grow every week."
+        subtitle="Log your trades, review your equity curve, and hold yourself accountable to the process."
+      />
       {/* Log Trade Form */}
       <TCard style={{ padding: 28 }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 20, textTransform: "uppercase", letterSpacing: "0.08em" }}>
