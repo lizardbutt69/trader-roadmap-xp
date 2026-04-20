@@ -1,11 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
 
-const ALLOWED_ORIGINS = [
-  "https://trader-roadmap-xp.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:5174",
-  "http://localhost:3000",
-];
+const ALLOWED_ORIGINS = process.env.NODE_ENV === 'production' 
+  ? ["https://trader-roadmap-xp.vercel.app"]
+  : ["https://trader-roadmap-xp.vercel.app", "http://localhost:5173", "http://localhost:5174", "http://localhost:3000"];
+
+// Rate limiting
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 10;
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.start > RATE_LIMIT_WINDOW) {
+    rateLimitMap.set(ip, { start: now, count: 1 });
+    return false;
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return true;
+  return false;
+}
 
 export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -22,7 +36,13 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // Get user's Anthropic key from their Supabase profile
+  // Rate limiting
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || "unknown";
+  if (isRateLimited(ip)) {
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
+  }
+
+  // Use server-side API key (from environment variable) - more secure than storing user keys in database
   let anthropicKey = FALLBACK_ANTHROPIC_KEY;
   const authHeader = req.headers.authorization;
 

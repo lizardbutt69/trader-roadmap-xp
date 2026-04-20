@@ -354,11 +354,9 @@ function safeUrl(url) {
   return null;
 }
 
-// Assets are free-text — any symbol is valid
 const VALID_DIRECTIONS = new Set(["Long", "Short", ""]);
-// A+ options are configured per-user — no static validation set needed
-// Taken options are loaded dynamically from the user's accounts table
-const VALID_BIAS = new Set(["Bullish", "Bearish", ""]);
+const VALID_APLUS = new Set(["Yes", "No", "Yes to No", "Yes But Execution Sucked", ""]);
+const VALID_BIAS = new Set(["Bullish", "Bearish", "Neutral", ""]);
 const MAX_TEXT_LENGTH = 5000;
 
 

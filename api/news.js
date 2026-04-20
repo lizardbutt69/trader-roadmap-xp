@@ -1,8 +1,6 @@
-const ALLOWED_ORIGINS = [
-  "https://trader-roadmap-xp.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
+const ALLOWED_ORIGINS = process.env.NODE_ENV === "production"
+  ? ["https://trader-roadmap-xp.vercel.app"]
+  : ["https://trader-roadmap-xp.vercel.app", "http://localhost:5173", "http://localhost:3000"];
 
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
 if (!FINNHUB_KEY) console.error("[news] FINNHUB_API_KEY env var not set");
@@ -27,6 +25,6 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
     return res.status(200).json(data);
   } catch (e) {
-    return res.status(500).json({ error: e.message, stack: e.stack });
+    return res.status(500).json({ error: "Failed to fetch news" });
   }
 }

@@ -1,8 +1,6 @@
-const ALLOWED_ORIGINS = [
-  "https://trader-roadmap-xp.vercel.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-];
+const ALLOWED_ORIGINS = process.env.NODE_ENV === "production"
+  ? ["https://trader-roadmap-xp.vercel.app"]
+  : ["https://trader-roadmap-xp.vercel.app", "http://localhost:5173", "http://localhost:3000"];
 
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
