@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { getFeaturedBlogPosts } from "../data/blogPosts.js";
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,8 @@ const STAGES = [
   { id: 4, name: "Scaling", subtitle: "Personal Capital Online", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, color: "#9b7de8", xp: "2,275 XP" },
   { id: 5, name: "Independent", subtitle: "Full-Time Trader", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, color: "#e8748a", xp: "3,575 XP" },
 ];
+
+const FEATURED_BLOG_POSTS = getFeaturedBlogPosts(2);
 
 // ─── EQUITY CURVE ─────────────────────────────────────────────────────────────
 
@@ -406,6 +409,9 @@ export default function LandingPage() {
         .ts-stages { flex-direction: row; }
         .ts-score-section { padding: 80px 48px; }
         .ts-score-inner { flex-direction: row; gap: 64px; }
+        .ts-blog-section { padding: 80px 48px; }
+        .ts-blog-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
+        .ts-blog-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .ts-cta-section { padding: 80px 48px; }
         .ts-footer { flex-direction: row; gap: 0; }
 
@@ -425,6 +431,9 @@ export default function LandingPage() {
           .ts-stages > div { padding: 0 !important; }
           .ts-score-section { padding: 60px 24px !important; }
           .ts-score-inner { flex-direction: column !important; gap: 36px !important; align-items: flex-start !important; }
+          .ts-blog-section { padding: 60px 24px !important; }
+          .ts-blog-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
+          .ts-blog-cards { grid-template-columns: 1fr !important; }
           .ts-spider-wrap { width: 100% !important; max-width: 300px !important; }
           .ts-cta-section { padding: 60px 24px !important; }
           .ts-footer { flex-direction: column !important; gap: 12px !important; text-align: center !important; padding: 24px !important; }
@@ -477,16 +486,26 @@ export default function LandingPage() {
 
         {/* Nav links */}
         <div className="ts-nav-links" style={{ alignItems: "center", gap: 32 }}>
-          {["Features", "The Path", "Score"].map((link) => (
-            <a key={link} href={`#${link.toLowerCase().replace(" ", "-")}`} style={{
+          {[
+            { label: "Features", href: "#features" },
+            { label: "The Path", href: "#the-path" },
+            { label: "Score", href: "#score" },
+          ].map((link) => (
+            <a key={link.label} href={link.href} style={{
               fontSize: 15, fontWeight: 500, color: "#a0a3b5",
               textDecoration: "none", letterSpacing: "0.01em",
               transition: "color 0.2s",
             }}
               onMouseEnter={e => e.target.style.color = "#eaebf0"}
               onMouseLeave={e => e.target.style.color = "#a0a3b5"}
-            >{link}</a>
+            >{link.label}</a>
           ))}
+          <Link to="/blog" style={{
+            fontSize: 15, fontWeight: 600, color: "#22d3ee",
+            textDecoration: "none", letterSpacing: "0.01em",
+          }}>
+            Blog
+          </Link>
         </div>
 
         {/* CTAs */}
@@ -836,6 +855,120 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── BLOG PREVIEW ── */}
+      <section className="ts-blog-section" style={{ position: "relative", zIndex: 1 }}>
+        <div className="ts-blog-grid" style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 24, alignItems: "stretch" }}>
+          <FadeInSection style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02))",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 18,
+            padding: "28px 28px 30px",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute", inset: "auto auto -60px -60px",
+              width: 240, height: 240, borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)",
+              filter: "blur(18px)", pointerEvents: "none",
+            }} />
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "5px 14px", borderRadius: 999,
+              background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)",
+              marginBottom: 18,
+              position: "relative",
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22d3ee", boxShadow: "0 0 12px rgba(34,211,238,0.7)" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3ee", letterSpacing: "0.08em", textTransform: "uppercase" }}>TradeSharp Field Notes</span>
+            </div>
+            <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", margin: "0 0 14px", position: "relative" }}>
+              A blog built around sharper execution, cleaner review, and fewer self-inflicted mistakes.
+            </h2>
+            <p style={{ fontSize: 15.5, color: "#a0a3b5", lineHeight: 1.75, margin: "0 0 26px", maxWidth: 560, position: "relative" }}>
+              Not market noise. Not generic motivation. Just practical writing for traders who want better routines, tighter journaling, and more honest feedback loops.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28, position: "relative" }}>
+              {["Pre-market routines", "Journaling systems", "Trading psychology"].map((topic) => (
+                <span key={topic} style={{
+                  padding: "7px 11px", borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.03)",
+                  color: "#94a3b8", fontSize: 12.5, fontWeight: 600,
+                }}>
+                  {topic}
+                </span>
+              ))}
+            </div>
+            <Link to="/blog" style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              padding: "13px 18px", borderRadius: 10,
+              background: "linear-gradient(135deg, #111827, #0f172a)",
+              border: "1px solid rgba(34,211,238,0.2)",
+              color: "#eaebf0", fontSize: 14, fontWeight: 700,
+              textDecoration: "none", position: "relative",
+              boxShadow: "0 12px 34px rgba(0,0,0,0.22)",
+            }}>
+              Read the Blog
+              <span style={{ color: "#22d3ee" }}>→</span>
+            </Link>
+          </FadeInSection>
+
+          <div className="ts-blog-cards" style={{ display: "grid", gap: 16 }}>
+            {FEATURED_BLOG_POSTS.map((post, index) => (
+              <FadeInSection key={post.slug} delay={index * 0.08} style={{ height: "100%", display: "flex" }}>
+                <Link to={`/blog/${post.slug}`} style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  textDecoration: "none",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 18,
+                  padding: "22px 22px 20px",
+                  minHeight: 250,
+                  boxShadow: "0 18px 36px rgba(0,0,0,0.18)",
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "6px 10px", borderRadius: 999,
+                      background: "rgba(255,255,255,0.03)", border: `1px solid ${post.accent}33`,
+                      color: post.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                    }}>
+                      {post.category}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>{formatBlogDate(post.publishedAt)}</span>
+                  </div>
+
+                  <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.08, letterSpacing: "-0.03em", color: "#f8fafc", marginBottom: 12 }}>
+                    {post.title}
+                  </div>
+                  <div style={{ fontSize: 14.5, color: "#94a3b8", lineHeight: 1.7, marginBottom: 18 }}>
+                    {post.description}
+                  </div>
+
+                  <div style={{
+                    marginTop: "auto",
+                    padding: "14px 15px",
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,0.12)",
+                    background: "rgba(2,8,23,0.55)",
+                  }}>
+                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 6 }}>
+                      Core Idea
+                    </div>
+                    <div style={{ fontSize: 14.5, color: "#e2e8f0", lineHeight: 1.6 }}>
+                      {post.heroStat}
+                    </div>
+                  </div>
+                </Link>
+              </FadeInSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA ── */}
       <FadeInSection>
         <section className="ts-cta-section" style={{
@@ -897,6 +1030,10 @@ export default function LandingPage() {
           © {new Date().getFullYear()} TradeSharp. Sharpen your edge. Track your path.
         </p>
         <div style={{ display: "flex", gap: 24 }}>
+          <Link to="/blog" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
+            onMouseEnter={e => e.target.style.color = "#22d3ee"}
+            onMouseLeave={e => e.target.style.color = "#6b6e84"}
+          >Blog</Link>
           <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
             onMouseEnter={e => e.target.style.color = "#22d3ee"}
             onMouseLeave={e => e.target.style.color = "#6b6e84"}
@@ -980,4 +1117,11 @@ function hexToRgb(hex) {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
+}
+
+function formatBlogDate(value) {
+  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 }

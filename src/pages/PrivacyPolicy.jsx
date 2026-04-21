@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import SEOHead from '../components/SEOHead.jsx'
 
 export default function PrivacyPolicy() {
   return (
@@ -9,6 +10,7 @@ export default function PrivacyPolicy() {
       color: '#eaebf0',
       fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif",
     }}>
+      <SEOHead title="Privacy Policy" description="TradeSharp privacy policy." noIndex={true} />
       {/* Header */}
       <header style={{
         borderBottom: '1px solid rgba(255,255,255,0.06)',

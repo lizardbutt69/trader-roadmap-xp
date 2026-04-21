@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase.js";
+import SEOHead from "../components/SEOHead.jsx";
 
 function TradeSharpLogo({ size = 40 }) {
   return (
@@ -109,6 +110,8 @@ export default function AuthPage() {
   });
 
   return (
+    <>
+    <SEOHead title="Sign In" description="Sign in to TradeSharp to access your trading journal, performance tracker, and quest roadmap." noIndex={true} />
     <div style={{
       minHeight: "100vh",
       background: "#0b0d13",
@@ -502,5 +505,6 @@ export default function AuthPage() {
         Sharpen your edge. Track your path.
       </p>
     </div>
+    </>
   );
 }

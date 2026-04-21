@@ -114,12 +114,12 @@ function AchievementAlertCard({ alert, onDismiss }) {
         width: 340,
         position: "relative",
         overflow: "hidden",
-        background: `linear-gradient(135deg, ${color}1a 0%, rgba(11,13,19,0.96) 55%)`,
+        background: `linear-gradient(135deg, ${color}18 0%, var(--bg-secondary) 55%)`,
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderRadius: 14,
-        border: `1px solid ${color}30`,
-        boxShadow: `0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)`,
+        border: `1px solid ${color}40`,
+        boxShadow: `0 4px 24px rgba(0,0,0,0.18), 0 0 0 1px var(--border-primary)`,
         padding: 16,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
       }}
@@ -165,7 +165,7 @@ function AchievementAlertCard({ alert, onDismiss }) {
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.15 }}
-            style={{ fontSize: 14, fontWeight: 700, color: "#f1f5f9", marginBottom: 2 }}
+            style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}
           >
             {name}
           </motion.div>
@@ -173,7 +173,7 @@ function AchievementAlertCard({ alert, onDismiss }) {
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.22 }}
-            style={{ fontSize: 12, color: "rgba(255,255,255,0.45)" }}
+            style={{ fontSize: 12, color: "var(--text-secondary)" }}
           >
             {desc}
           </motion.div>
@@ -182,7 +182,7 @@ function AchievementAlertCard({ alert, onDismiss }) {
         {/* Close */}
         <button
           onClick={onDismiss}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.25)", padding: 4, display: "flex", flexShrink: 0 }}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: 4, display: "flex", flexShrink: 0 }}
         >
           <XIcon size={14} />
         </button>
@@ -205,7 +205,7 @@ function AchievementAlertCard({ alert, onDismiss }) {
       </motion.div>
 
       {/* Timer bar */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.06)" }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "var(--border-primary)" }}>
         <div style={{ height: "100%", background: color, animation: "achieveBar 5s linear forwards" }} />
       </div>
     </motion.div>
@@ -447,11 +447,12 @@ export function computeBadges(trades, dayMap) {
   ];
 }
 
-function validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter }) {
+function validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions }) {
   if (!formDt || !formAsset) return "Please fill in Date & Time and Asset at minimum.";
   if (formAsset && formAsset.length > 30) return "Asset symbol too long.";
   if (formDirection && !VALID_DIRECTIONS.has(formDirection)) return "Invalid direction.";
-  if (formAplus && !VALID_APLUS.has(formAplus)) return "Invalid A+ value.";
+  const validAplus = aplusOptions ? new Set([...aplusOptions, ""]) : VALID_APLUS;
+  if (formAplus && !validAplus.has(formAplus)) return "Invalid A+ value.";
   // taken is validated against user's dynamic accounts list — no static check needed
   if (formBias && !VALID_BIAS.has(formBias)) return "Invalid bias value.";
   if (formProfit && isNaN(parseFloat(formProfit))) return "Personal P&L must be a number.";
@@ -1471,7 +1472,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   }, [user, todayStr]);
 
   const logTrade = async () => {
-    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: prefs?.aplus_options });
     if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     const tradeData = {
@@ -1552,20 +1553,9 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
           <Field label="Taken?">
             <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
               <option value="">Select...</option>
+              <option value="Yes">Yes</option>
+              <option value="No">No</option>
               <option value="Missed">Missed</option>
-              {accounts.filter(a => a.status !== "inactive").length > 0
-                ? accounts.filter(a => a.status !== "inactive").map(a => (
-                    <option key={a.id} value={a.account_name}>
-                      {a.account_name}{a.account_type ? ` (${a.account_type})` : ""}
-                    </option>
-                  ))
-                : <>
-                    <option>Personal</option>
-                    <option>Live Funded</option>
-                    <option>Evaluation</option>
-                    <option>Paper</option>
-                  </>
-              }
             </select>
           </Field>
           <Field label="My Bias For the Day">
@@ -1694,7 +1684,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   }, [user]);
 
   const logTrade = async () => {
-    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter });
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: prefs?.aplus_options });
     if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     setSaving(true);
@@ -1793,20 +1783,9 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
             <Field label="Taken?">
               <select style={selectStyle} value={formTaken} onChange={(e) => setFormTaken(e.target.value)}>
                 <option value="">Select...</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
                 <option value="Missed">Missed</option>
-                {accounts.filter(a => a.status !== "inactive").length > 0
-                  ? accounts.filter(a => a.status !== "inactive").map(a => (
-                      <option key={a.id} value={a.account_name}>
-                        {a.account_name}{a.account_type ? ` (${a.account_type})` : ""}
-                      </option>
-                    ))
-                  : <>
-                      <option>Personal</option>
-                      <option>Live Funded</option>
-                      <option>Evaluation</option>
-                      <option>Paper</option>
-                    </>
-                }
               </select>
             </Field>
             <Field label="My Bias">
@@ -2328,7 +2307,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
                 <tr>
-                  {["Date", "Asset", "Dir", "A+ Setup", "Taken", "Personal P&L", "Funded P&L", "Chart", "After", "Notes", "After Thoughts", ""].map(h => (
+                  {["Date", "Asset", "Dir", "A+ Setup", "Model", "Taken", "Personal P&L", "Funded P&L", "Chart", "After", "Notes", "After Thoughts", ""].map(h => (
                     <th key={h} style={{
                       padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700,
                       color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
@@ -2383,8 +2362,9 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                             style={{
                               fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
                               padding: "5px 10px", borderRadius: 4, cursor: "pointer", outline: "none",
-                              border: `1px solid ${aplusColor(t.aplus)}40`,
-                              background: `${aplusColor(t.aplus)}10`,
+                              border: "1px solid var(--border-primary)",
+                              borderLeft: `3px solid ${aplusColor(t.aplus)}`,
+                              background: "var(--bg-input)",
                               color: aplusColor(t.aplus),
                               transition: "all 0.15s", maxWidth: 190,
                             }}
@@ -2395,6 +2375,37 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                           {status === "saving" && <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>saving...</span>}
                           {status === "saved" && <span style={{ fontSize: 12, color: "var(--green)" }}>✓</span>}
                         </div>
+                      </td>
+
+                      {/* Inline Model dropdown */}
+                      <td style={{ padding: "10px 16px", minWidth: 150 }}>
+                        {modalModels.length > 0 ? (
+                          <select
+                            value={t.model || ""}
+                            onChange={async e => {
+                              const val = e.target.value;
+                              setRowSaving(s => ({ ...s, [`model_${t.id}`]: "saving" }));
+                              await supabase.from("trades").update({ model: val || null }).eq("id", t.id);
+                              await loadTrades();
+                              setRowSaving(s => ({ ...s, [`model_${t.id}`]: "saved" }));
+                              setTimeout(() => setRowSaving(s => { const n = { ...s }; delete n[`model_${t.id}`]; return n; }), 1500);
+                            }}
+                            style={{
+                              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 600,
+                              padding: "5px 10px", borderRadius: 4, cursor: "pointer", outline: "none",
+                              border: "1px solid var(--border-primary)", background: "var(--bg-input)",
+                              color: t.model ? "var(--text-primary)" : "var(--text-tertiary)",
+                              transition: "all 0.15s", maxWidth: 180, width: "100%",
+                            }}
+                          >
+                            <option value="">None</option>
+                            {modalModels.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>{t.model || "—"}</span>
+                        )}
+                        {rowSaving[`model_${t.id}`] === "saving" && <span style={{ fontSize: 10, color: "var(--text-tertiary)", display: "block", marginTop: 2 }}>saving...</span>}
+                        {rowSaving[`model_${t.id}`] === "saved" && <span style={{ fontSize: 12, color: "var(--green)", display: "block", marginTop: 2 }}>✓</span>}
                       </td>
 
                       <td style={{ padding: "12px 16px" }}>
@@ -2451,7 +2462,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                     {/* Expanded edit row */}
                     {isExpanded && (
                         <tr>
-                          <td colSpan={12} style={{ padding: "0 0 2px 0", background: "var(--bg-tertiary)" }}>
+                          <td colSpan={13} style={{ padding: "0 0 2px 0", background: "var(--bg-tertiary)" }}>
                             <div style={{ padding: "20px 24px", borderTop: "2px solid var(--accent)", borderBottom: "1px solid var(--border-primary)" }}>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
                                 <div>
@@ -4229,6 +4240,7 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
   const [newRuleSub, setNewRuleSub] = React.useState("");
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [selectedModelId, setSelectedModelId] = React.useState(null);
+  const [checkedRules, setCheckedRules] = React.useState([]);
   const photoInputRef = React.useRef(null);
 
   React.useEffect(() => {
@@ -4239,6 +4251,12 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
         setLoading(false);
       });
   }, [user]);
+
+  React.useEffect(() => {
+    if (!selectedModelId) return;
+    const dm = models.find(m => m.id === selectedModelId);
+    setCheckedRules(new Array(dm?.items?.length ?? 0).fill(false));
+  }, [selectedModelId, models]);
 
   const persistModels = async (updated) => {
     await supabase.from("checklist_items").upsert(
@@ -4320,7 +4338,14 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
       taken.forEach(t => { assets[t.asset] = (assets[t.asset] || 0) + (parseFloat(t.profit) || 0); });
       const bestAsset = Object.entries(assets).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
       const winRate = taken.length ? Math.round(wins.length / taken.length * 100) : null;
-      stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, avgWin, avgLoss, bestAsset };
+      const grossProfit = wins.reduce((s, t) => s + parseFloat(t.profit), 0);
+      const grossLoss = Math.abs(losses.reduce((s, t) => s + parseFloat(t.profit), 0));
+      const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : null;
+      const wlRatio = avgWin > 0 && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
+      const aplusTaken = taken.filter(t => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked");
+      const aplusRate = taken.length ? Math.round(aplusTaken.length / taken.length * 100) : null;
+      const pnlFunded = taken.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+      stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, pnlFunded, avgWin, avgLoss, profitFactor, wlRatio, aplusRate, bestAsset };
     });
     return stats;
   }, [models, trades]);
@@ -4416,11 +4441,26 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
   if (selectedModelId) {
     const dm = models.find(m => m.id === selectedModelId);
     if (!dm) { setSelectedModelId(null); return null; }
-    const s = modelStats[dm.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, avgWin: 0, avgLoss: 0, bestAsset: "—" };
+    const s = modelStats[dm.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, pnlFunded: 0, avgWin: 0, avgLoss: 0, profitFactor: null, wlRatio: null, aplusRate: null, bestAsset: "—" };
     const wr = s.winRate;
     const wrc = wrColor(wr);
+    const pfColor = s.profitFactor === null ? "var(--text-tertiary)" : s.profitFactor >= 2 ? "var(--accent)" : s.profitFactor >= 1.5 ? "var(--green)" : s.profitFactor >= 1 ? "var(--gold)" : "var(--red)";
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 40px", animation: "fadeSlideIn 0.2s ease" }}>
+        <style>{`
+          .model-stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+          .model-sub-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+          .model-rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+          @media (max-width: 600px) {
+            .model-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .model-sub-stat-grid { grid-template-columns: 1fr !important; }
+            .model-rules-grid { grid-template-columns: 1fr !important; }
+          }
+          @media (min-width: 601px) and (max-width: 800px) {
+            .model-stat-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          }
+        `}</style>
+
         {/* Back */}
         <button
           onClick={() => setSelectedModelId(null)}
@@ -4443,65 +4483,90 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-          {/* Stats */}
-          <TCard style={{ padding: "20px 22px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Performance</div>
-            {s.count === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No trades tagged to this model yet.</div>
-            ) : (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                  <div style={{ textAlign: "center", minWidth: 56 }}>
-                    <div style={{ fontSize: 26, fontWeight: 800, color: wrc, lineHeight: 1 }}>{wr !== null ? `${wr}%` : "—"}</div>
-                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>Win Rate</div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ height: 6, borderRadius: 3, background: "var(--bg-tertiary)", overflow: "hidden" }}>
-                      {wr !== null && <div style={{ height: "100%", width: `${wr}%`, background: wrc, borderRadius: 3 }} />}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 11, color: "var(--text-tertiary)" }}>
-                      <span>{s.wins}W / {s.losses}L</span>
-                      <span style={{ color: s.pnl >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`}</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  {[
-                    { label: "Avg Win", value: s.avgWin > 0 ? (privacyMode ? "••••" : `+$${s.avgWin.toFixed(0)}`) : "—", color: "var(--green)" },
-                    { label: "Avg Loss", value: s.avgLoss < 0 ? (privacyMode ? "••••" : `-$${Math.abs(s.avgLoss).toFixed(0)}`) : "—", color: "var(--red)" },
-                    { label: "Best Asset", value: s.bestAsset, color: "var(--text-primary)" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 6, padding: "8px 10px", textAlign: "center" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color }}>{value}</div>
-                      <div style={{ fontSize: 9, color: "var(--text-tertiary)", marginTop: 2, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </TCard>
-
-          {/* Rules */}
-          <TCard style={{ padding: "20px 22px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Rules / Checklist ({dm.items?.length ?? 0})</div>
-            {(!dm.items || dm.items.length === 0) ? (
-              <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No rules yet — edit this model to add rules.</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {dm.items.map((rule, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: i < dm.items.length - 1 ? "1px solid var(--border-primary)" : "none" }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 4, border: "1.5px solid var(--border-primary)", background: "var(--bg-tertiary)", flexShrink: 0, marginTop: 2 }} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{rule.label}</div>
-                      {rule.sub && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{rule.sub}</div>}
-                    </div>
+        {/* Stats — full width */}
+        <TCard style={{ padding: "22px 24px", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Performance</div>
+          {s.count === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No trades tagged to this model yet.</div>
+          ) : (
+            <>
+              {/* Top stat row — 5 cards */}
+              <div className="model-stat-grid" style={{ marginBottom: 16 }}>
+                {[
+                  { label: "Win Rate", value: wr !== null ? `${wr}%` : "—", color: wrc },
+                  { label: "Trades", value: s.count, color: "var(--text-primary)" },
+                  { label: "Total P&L", value: privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`, color: s.pnl >= 0 ? "var(--green)" : "var(--red)" },
+                  { label: "Profit Factor", value: s.profitFactor !== null ? s.profitFactor.toFixed(2) : "—", color: pfColor },
+                  { label: "A+ Rate", value: s.aplusRate !== null ? `${s.aplusRate}%` : "—", color: "var(--accent)" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 8, padding: "14px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1, marginBottom: 5 }}>{value}</div>
+                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
                   </div>
                 ))}
               </div>
-            )}
-          </TCard>
-        </div>
+
+              {/* Win rate bar */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ height: 7, borderRadius: 4, background: "var(--bg-tertiary)", overflow: "hidden", marginBottom: 6 }}>
+                  {wr !== null && <div style={{ height: "100%", width: `${wr}%`, background: wrc, borderRadius: 4, transition: "width 0.4s ease" }} />}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-tertiary)" }}>
+                  <span>{s.wins}W / {s.losses}L</span>
+                  <span style={{ color: s.pnl >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`}</span>
+                </div>
+              </div>
+
+              {/* Sub stat row — 3 cards */}
+              <div className="model-sub-stat-grid">
+                {[
+                  { label: "Avg Win", value: s.avgWin > 0 ? (privacyMode ? "••••" : `+$${s.avgWin.toFixed(0)}`) : "—", color: "var(--green)" },
+                  { label: "Avg Loss", value: s.avgLoss < 0 ? (privacyMode ? "••••" : `-$${Math.abs(s.avgLoss).toFixed(0)}`) : "—", color: "var(--red)" },
+                  { label: "W:L Ratio", value: s.wlRatio !== null ? `${s.wlRatio.toFixed(1)}x` : "—", color: "#f59e0b" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </TCard>
+
+        {/* Rules — full width */}
+        <TCard style={{ padding: "22px 24px", marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Rules / Checklist ({dm.items?.length ?? 0})</div>
+          </div>
+          {(!dm.items || dm.items.length === 0) ? (
+            <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>No rules yet — edit this model to add rules.</div>
+          ) : (
+            <div className="model-rules-grid">
+              {dm.items.map((rule, i) => (
+                <div
+                  key={i}
+                  onClick={() => setCheckedRules(prev => { const n = [...prev]; n[i] = !n[i]; return n; })}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 8px", borderBottom: "1px solid var(--border-primary)", cursor: "pointer", userSelect: "none" }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 2,
+                    border: `1.5px solid ${checkedRules[i] ? "var(--green)" : "var(--border-primary)"}`,
+                    background: checkedRules[i] ? "var(--green)" : "var(--bg-tertiary)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 11, color: "var(--bg-primary)", fontWeight: 700, transition: "all 0.15s",
+                  }}>
+                    {checkedRules[i] && "✓"}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: checkedRules[i] ? "var(--text-tertiary)" : "var(--text-primary)", textDecoration: checkedRules[i] ? "line-through" : "none", transition: "all 0.15s" }}>{rule.label}</div>
+                    {rule.sub && <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{rule.sub}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TCard>
 
         {modalJsx}
       </div>
