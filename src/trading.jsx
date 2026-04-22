@@ -679,7 +679,7 @@ function calcTradeSharpScore(trades) {
   return { pillars, composite, totalTrades: valid.length, execQualityPct, execSuckedCount, yesToNoCount, aplusCount };
 }
 
-const AI_COACH_TONE = `You are a direct, data-driven, slightly confrontational trading coach. You do not flatter, hype, or soften mistakes. Your job is to expose execution errors, behavioral leaks, and weak patterns as clearly as possible so the trader improves. Be specific, evidence-based, and practical. If the trader is doing something well, acknowledge it briefly and precisely, then move back to what matters.`;
+const AI_COACH_TONE = `You are a direct, analytical trading coach. Your job is to identify execution mistakes, behavioral leaks, and weak patterns with clarity and precision. Be honest, firm, and evidence-based, but never insulting, theatrical, or aggressive. Do not use foul language. Do not flatter. Keep praise brief and specific when it is earned. Focus on what the data shows, what is hurting performance, and what needs to improve next.`;
 
 function buildAISplitSection(trades) {
   const taken = trades.filter((t) => t.taken && t.taken !== "Missed");
@@ -3730,7 +3730,7 @@ ANALYSIS INSTRUCTIONS:
 8. Flaws & Weaknesses — Be direct. Expose rule violations, execution failures, and psychological leaks. If the trader is repeating mistakes, say it plainly.
 9. Language & Mindset Analysis — Read the notes closely. If the trader sounds vague, defensive, impulsive, or excuse-making, call it out.
 10. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
-11. Final Word — One blunt sentence on what is really holding this trader back right now.
+11. Final Word — One clear sentence on what is most limiting this trader's performance right now.
 
 Be direct, specific, and reference actual trades and their notes. Keep it under 800 words.`;
 
@@ -6182,7 +6182,7 @@ ${notebookText || "(No entries for this period)"}
 TRADE DATA: ${periodTrades.length} logged | ${taken} taken | ${wins} wins | Net P&L: $${pnl.toFixed(2)}
 ${tradeLines || "(No trades logged for this period)"}
 
-Write a focused coaching summary (300–500 words). Be blunt, data-driven, and practical. Do not soften repeated mistakes.
+Write a focused coaching summary (300–500 words). Be firm, data-driven, and practical. Do not soften repeated mistakes, but stay professional and measured.
 
 1. Gameplan vs Reality — did they trade their plan? Use the trade log as evidence.
 2. Self-awareness — are their EOD reflections honest and specific, or vague and defensive?
@@ -7606,7 +7606,7 @@ Provide:
 8. Flaws & Weaknesses — direct, expose patterns and execution mistakes
 9. Language Analysis — what the notes reveal about mindset
 10. Key Focus — 2-3 actionable improvements for next ${p === "week" ? "week" : "month"}
-11. Final Word — one blunt sentence on where this trader is underperforming
+11. Final Word — one clear sentence on where this trader is underperforming most
 
 Under 700 words. Be specific and reference actual trades.`;
     try { setSummaryOutput(await callAI(prompt)); } catch (e) { setSummaryOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setSummaryLoading(false); }
@@ -7649,7 +7649,7 @@ Generate a concise pre-session brief with exactly 3 sections:
 2. MENTAL REMINDER — One mental cue based on behavioral patterns in the notes (personal and direct).
 3. TODAY'S FOCUS — Given their plan and recent form, the single most important thing to execute well today.
 
-Each point: 1-2 sentences max. Direct and sharp. No fluff.`;
+Each point: 1-2 sentences max. Direct, clear, and practical. No fluff.`;
     try { setBriefOutput(await callAI(prompt, 600)); } catch (e) { setBriefOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setBriefLoading(false); }
   };
 
@@ -8063,7 +8063,7 @@ TODAY'S PLAN: ${todayPlan}
 LATEST JOURNAL ENTRY:
 ${notebookSection}
 
-COACHING STYLE: Be direct, data-driven, slightly confrontational, and specific. Use the numbers above. Prioritize execution mistakes, repeat leaks, and underperformance over encouragement. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
+COACHING STYLE: Be direct, analytical, firm, and specific. Use the numbers above. Prioritize execution mistakes, repeat leaks, and what needs to improve next over encouragement. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
     } catch {
       setSystemCtx(`${AI_COACH_TONE} Be direct, specific, and practical.`);
     } finally {
