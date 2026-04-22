@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HelmetProvider } from 'react-helmet-async'
 import LandingPage from './pages/LandingPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import TraderRoadmapXP from '../trader-roadmap-xp.jsx'
@@ -8,6 +9,9 @@ import PrivacyPolicy from './pages/PrivacyPolicy.jsx'
 import TermsAndConditions from './pages/TermsAndConditions.jsx'
 import { ToastProvider, AchievementAlertProvider } from './trading.jsx'
 import { supabase } from './supabase.js'
+
+const BlogPage = React.lazy(() => import('./pages/BlogPage.jsx'))
+const BlogPostPage = React.lazy(() => import('./pages/BlogPostPage.jsx'))
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -76,23 +80,36 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+const BlogSpinner = (
+  <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0b0d13' }}>
+    <div style={{ width: 32, height: 32, border: '3px solid rgba(34,211,238,0.2)', borderTopColor: '#22d3ee', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </div>
+)
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <ToastProvider>
-          <AchievementAlertProvider>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<AuthPage />} />
-            <Route path="/app" element={<ProtectedRoute><TraderRoadmapXP /></ProtectedRoute>} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsAndConditions />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </AchievementAlertProvider>
-        </ToastProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
+    <HelmetProvider>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <ToastProvider>
+            <AchievementAlertProvider>
+              <React.Suspense fallback={BlogSpinner}>
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<AuthPage />} />
+                  <Route path="/app" element={<ProtectedRoute><TraderRoadmapXP /></ProtectedRoute>} />
+                  <Route path="/blog" element={<BlogPage />} />
+                  <Route path="/blog/:slug" element={<BlogPostPage />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsAndConditions />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </React.Suspense>
+            </AchievementAlertProvider>
+          </ToastProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </HelmetProvider>
   </React.StrictMode>,
 )

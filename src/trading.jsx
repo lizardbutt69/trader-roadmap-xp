@@ -274,6 +274,15 @@ const TRADE_TAGS = [
   { label: "SMTFILL", color: "#c084fc" },
 ];
 
+const TRADE_VIOLATIONS = [
+  { value: "early_entry",      label: "EARLY ENTRY",      color: "#f59e0b" },
+  { value: "moved_stop",       label: "MOVED STOP",       color: "#ef4444" },
+  { value: "outside_session",  label: "OUTSIDE SESSION",  color: "#a78bfa" },
+  { value: "overtrade",        label: "OVERTRADE",        color: "#22d3ee" },
+  { value: "revenge_trade",    label: "REVENGE TRADE",    color: "#fb7185" },
+  { value: "no_confirmation",  label: "NO CONFIRMATION",  color: "#34d399" },
+];
+
 const TagPicker = ({ selected, onChange, tags = TRADE_TAGS }) => (
   <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
     {tags.map(({ label, color }) => {
@@ -315,6 +324,54 @@ const TradeTagChips = ({ tags, allTags = TRADE_TAGS }) => {
             background: `${color}18`,
             color,
           }}>#{label}</span>
+        );
+      })}
+    </div>
+  );
+};
+
+const ViolationPicker = ({ selected = [], onChange }) => (
+  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
+    {TRADE_VIOLATIONS.map(({ value, label, color }) => {
+      const active = selected.includes(value);
+      return (
+        <button
+          key={value}
+          type="button"
+          onClick={() => onChange(active ? selected.filter(v => v !== value) : [...selected, value])}
+          style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 10, fontWeight: 700,
+            padding: "3px 9px", borderRadius: 4,
+            cursor: "pointer", letterSpacing: "0.07em",
+            border: `1px solid ${active ? color : "var(--border-primary)"}`,
+            background: active ? `${color}22` : "transparent",
+            color: active ? color : "var(--text-tertiary)",
+            transition: "all 0.15s",
+          }}
+        >⚠ {label}</button>
+      );
+    })}
+  </div>
+);
+
+const ViolationChips = ({ violations }) => {
+  if (!violations || violations.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+      {violations.map(value => {
+        const def = TRADE_VIOLATIONS.find(v => v.value === value);
+        const color = def ? def.color : "#ef4444";
+        const label = def ? def.label : value;
+        return (
+          <span key={value} style={{
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
+            padding: "2px 7px", borderRadius: 3,
+            border: `1px solid ${color}`,
+            background: `${color}18`,
+            color,
+          }}>⚠ {label}</span>
         );
       })}
     </div>
@@ -620,6 +677,93 @@ function calcTradeSharpScore(trades) {
   const composite = Math.round(pillars.reduce((s, p) => s + p.score * weights[p.key], 0) / totalWeight);
 
   return { pillars, composite, totalTrades: valid.length, execQualityPct, execSuckedCount, yesToNoCount, aplusCount };
+}
+
+const AI_COACH_TONE = `You are a direct, data-driven, slightly confrontational trading coach. You do not flatter, hype, or soften mistakes. Your job is to expose execution errors, behavioral leaks, and weak patterns as clearly as possible so the trader improves. Be specific, evidence-based, and practical. If the trader is doing something well, acknowledge it briefly and precisely, then move back to what matters.`;
+
+function buildAISplitSection(trades) {
+  const taken = trades.filter((t) => t.taken && t.taken !== "Missed");
+  const personalTrades = taken.filter((t) => t.profit != null && t.profit !== "" && !isNaN(parseFloat(t.profit)));
+  const fundedTrades = taken.filter((t) => t.profit_funded != null && t.profit_funded !== "" && !isNaN(parseFloat(t.profit_funded)));
+  const personalPnl = personalTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const fundedPnl = fundedTrades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+  const personalWins = personalTrades.filter((t) => parseFloat(t.profit) > 0).length;
+  const fundedWins = fundedTrades.filter((t) => parseFloat(t.profit_funded) > 0).length;
+  return [
+    `PERSONAL ACCOUNT: ${personalTrades.length} trades with P&L entered | ${personalWins} wins | Net P&L: $${personalPnl.toFixed(2)}`,
+    `FUNDED ACCOUNT: ${fundedTrades.length} trades with P&L entered | ${fundedWins} wins | Net P&L: $${fundedPnl.toFixed(2)}`,
+  ].join("\n");
+}
+
+function buildAITagBreakdown(trades) {
+  const tagMap = {};
+  trades.forEach((t) => {
+    if (!t.tags?.length) return;
+    t.tags.forEach((tag) => {
+      if (!tagMap[tag]) tagMap[tag] = { trades: 0, wins: 0, losses: 0, pnl: 0, funded: 0 };
+      tagMap[tag].trades++;
+      const pv = parseFloat(t.profit);
+      const pfv = parseFloat(t.profit_funded);
+      if (!isNaN(pv) && pv > 0) tagMap[tag].wins++;
+      if (!isNaN(pv) && pv < 0) tagMap[tag].losses++;
+      if (!isNaN(pv)) tagMap[tag].pnl += pv;
+      if (!isNaN(pfv)) tagMap[tag].funded += pfv;
+    });
+  });
+  return Object.keys(tagMap).length > 0
+    ? "SETUP TAGS BREAKDOWN:\n" + Object.entries(tagMap)
+      .sort((a, b) => b[1].trades - a[1].trades)
+      .map(([tag, s]) => `  #${tag}: ${s.trades} trades, ${s.wins}W/${s.losses}L, Personal P&L: $${s.pnl.toFixed(0)}, Funded P&L: $${s.funded.toFixed(0)}`)
+      .join("\n")
+    : "SETUP TAGS: No tags logged yet.";
+}
+
+function buildAIModelBreakdown(trades) {
+  const modelMap = {};
+  trades.forEach((t) => {
+    if (!t.model) return;
+    if (!modelMap[t.model]) modelMap[t.model] = { trades: 0, wins: 0, losses: 0, pnl: 0, funded: 0, aplus: 0 };
+    modelMap[t.model].trades++;
+    const pv = parseFloat(t.profit);
+    const pfv = parseFloat(t.profit_funded);
+    if (!isNaN(pv) && pv > 0) modelMap[t.model].wins++;
+    if (!isNaN(pv) && pv < 0) modelMap[t.model].losses++;
+    if (!isNaN(pv)) modelMap[t.model].pnl += pv;
+    if (!isNaN(pfv)) modelMap[t.model].funded += pfv;
+    if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") modelMap[t.model].aplus++;
+  });
+  return Object.keys(modelMap).length > 0
+    ? "MODEL BREAKDOWN:\n" + Object.entries(modelMap)
+      .sort((a, b) => b[1].trades - a[1].trades)
+      .map(([model, s]) => `  ${model}: ${s.trades} trades, ${s.wins}W/${s.losses}L, A+ setups: ${s.aplus}, Personal P&L: $${s.pnl.toFixed(0)}, Funded P&L: $${s.funded.toFixed(0)}`)
+      .join("\n")
+    : "MODELS: No model labels logged yet.";
+}
+
+function buildAIViolationBreakdown(trades) {
+  const taken = trades.filter((t) => t.taken && t.taken !== "Missed");
+  const violationTrades = taken.filter((t) => t.violations?.length);
+  const cleanTrades = taken.filter((t) => !t.violations?.length);
+  const vMap = {};
+  violationTrades.forEach((t) => t.violations.forEach((v) => { vMap[v] = (vMap[v] || 0) + 1; }));
+  const cleanPnl = cleanTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  const violatingPnl = violationTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+  return violationTrades.length > 0
+    ? `RULE VIOLATIONS (${violationTrades.length} of ${taken.length} taken trades had violations):
+  Clean trades Personal P&L: $${cleanPnl.toFixed(0)}
+  Violating trades Personal P&L: $${violatingPnl.toFixed(0)}
+` + Object.entries(vMap).sort((a, b) => b[1] - a[1]).map(([v, c]) => `  ${v}: ${c}×`).join("\n")
+    : `RULE VIOLATIONS: Zero violations logged across ${taken.length} taken trades. Either the trader was clean or they are not tracking violations yet.`;
+}
+
+function buildAIScoreSection(trades) {
+  const tsResult = calcTradeSharpScore(trades);
+  return tsResult
+    ? `TRADESHARP SCORE: ${tsResult.composite}/100 (${tsResult.composite >= 80 ? "ELITE" : tsResult.composite >= 60 ? "SOLID" : tsResult.composite >= 40 ? "DEVELOPING" : "NEEDS WORK"})
+PILLAR BREAKDOWN:
+${tsResult.pillars.map((pl) => `  ${pl.label}: ${pl.display} (score: ${Math.round(pl.score)}/100)`).join("\n")}
+EXECUTION QUALITY: ${tsResult.execQualityPct != null ? tsResult.execQualityPct.toFixed(0) + "% of A+ setups executed cleanly" : "N/A"}`
+    : "TRADESHARP SCORE: Insufficient data for this period.";
 }
 
 function TradeSharpScore({ trades, month }) {
@@ -1428,6 +1572,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   const [formAfterThoughts, setFormAfterThoughts] = useState("");
   const [formModel, setFormModel] = useState("");
   const [formTags, setFormTags] = useState([]);
+  const [formViolations, setFormViolations] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
   const [formEntryPrice, setFormEntryPrice] = useState("");
@@ -1491,6 +1636,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
       ...(formModel ? { model: formModel } : {}),
       ...(formProfitFunded ? { profit_funded: parseFloat(formProfitFunded) } : {}),
       ...(formTags.length > 0 ? { tags: formTags } : {}),
+      ...(formViolations.length > 0 ? { violations: formViolations } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
       risk: formRisk !== "" ? parseFloat(formRisk) : null,
@@ -1505,7 +1651,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
     await recalcAccountPnl(supabase, formAccountPersonal, "profit");
     setFormAsset(""); setFormDirection(""); setFormAplus("");
     setFormTaken(""); setFormProfit(""); setFormProfitFunded(""); setFormRisk(prefs?.default_risk ? String(prefs.default_risk) : ""); setFormChart("");
-    setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormModel(""); setFormTags([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
+    setFormAfter(""); setFormNotes(""); setFormAfterThoughts(""); setFormModel(""); setFormTags([]); setFormViolations([]); setFormAccountPersonal(""); setFormAccountFunded(""); setFormDt(nowLocal());
     setFormEntryPrice(""); setFormExitPrice(""); setFormStopLoss(""); setFormTakeProfit(""); setFormTimeframe("");
     loadTrades();
   };
@@ -1603,6 +1749,10 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
             <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
             <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
           </Field>
+          <Field label="Rule Violations" full>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
+            <ViolationPicker selected={formViolations} onChange={setFormViolations} />
+          </Field>
         </div>
         {/* Replay Data collapsible */}
         <div style={{ marginBottom: 16 }}>
@@ -1660,6 +1810,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const [formRisk, setFormRisk] = useState(prefs?.default_risk ? String(prefs.default_risk) : "");
   const [formModel, setFormModel] = useState("");
   const [formTags, setFormTags] = useState([]);
+  const [formViolations, setFormViolations] = useState([]);
   const [formAccountPersonal, setFormAccountPersonal] = useState("");
   const [formAccountFunded, setFormAccountFunded] = useState("");
   const [formEntryPrice, setFormEntryPrice] = useState("");
@@ -1701,6 +1852,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
       ...(formModel ? { model: formModel } : {}),
       ...(formProfitFunded ? { profit_funded: parseFloat(formProfitFunded) } : {}),
       ...(formTags.length > 0 ? { tags: formTags } : {}),
+      ...(formViolations.length > 0 ? { violations: formViolations } : {}),
       ...(formAccountPersonal ? { account_id_personal: formAccountPersonal } : {}),
       ...(formAccountFunded ? { account_id_funded: formAccountFunded } : {}),
       risk: formRisk !== "" ? parseFloat(formRisk) : null,
@@ -1832,6 +1984,10 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
             <Field label="After Trade Thoughts" full>
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="What did I learn? What would I do differently?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
               <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
+            </Field>
+            <Field label="Rule Violations" full>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
+              <ViolationPicker selected={formViolations} onChange={setFormViolations} />
             </Field>
           </div>
           {/* Replay Data collapsible */}
@@ -2133,6 +2289,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const [filterMonth, setFilterMonth] = useState(currentMonth);
   const [filterTag, setFilterTag] = useState("all");
+  const [filterViolation, setFilterViolation] = useState("all");
   const [rowSaving, setRowSaving] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [rowEdits, setRowEdits] = useState({});
@@ -2157,10 +2314,15 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
 
   const filtered = trades.filter(t => {
     if (!t.dt || t.dt.slice(0, 7) !== filterMonth) return false;
-    if (filterTag === "aplus") return t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
-    if (filterTag === "nonaplus") return t.aplus === "No" || t.aplus === "Yes to No";
-    if (filterTag === "exec") return t.aplus === "Yes But Execution Sucked";
-    if (filterTag === "corrected") return t.aplus === "Yes to No";
+    if (filterTag === "aplus") { if (!(t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked")) return false; }
+    else if (filterTag === "nonaplus") { if (!(t.aplus === "No" || t.aplus === "Yes to No")) return false; }
+    else if (filterTag === "exec") { if (t.aplus !== "Yes But Execution Sucked") return false; }
+    else if (filterTag === "corrected") { if (t.aplus !== "Yes to No") return false; }
+    if (filterViolation !== "all") {
+      if (filterViolation === "any") { if (!t.violations || t.violations.length === 0) return false; }
+      else if (filterViolation === "clean") { if (t.violations && t.violations.length > 0) return false; }
+      else { if (!t.violations || !t.violations.includes(filterViolation)) return false; }
+    }
     return true;
   }).sort((a, b) => new Date(b.dt) - new Date(a.dt));
 
@@ -2183,6 +2345,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
       chart: t.chart || "", after_chart: t.after_chart || "",
       notes: t.notes || "", after_thoughts: t.after_thoughts || "",
       tags: t.tags || [],
+      violations: t.violations || [],
       account_id_personal: t.account_id_personal || "",
       account_id_funded: t.account_id_funded || "",
       model: t.model || "",
@@ -2289,12 +2452,28 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
         </div>
 
         {/* Filter tags */}
-        <div style={{ display: "flex", gap: 6, padding: "14px 24px", borderBottom: "1px solid var(--border-primary)", flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, padding: "14px 24px", borderBottom: "1px solid var(--border-primary)", flexShrink: 0, flexWrap: "wrap", alignItems: "center" }}>
           {tagBtn("all", "All")}
           {tagBtn("aplus", "A+ Setups")}
           {tagBtn("nonaplus", "Non A+")}
           {tagBtn("exec", "Execution Issues")}
           {tagBtn("corrected", "Yes → No")}
+          <div style={{ width: 1, height: 20, background: "var(--border-primary)", margin: "0 4px" }} />
+          {[
+            { key: "all", label: "Any" },
+            { key: "any", label: "⚠ Has Violations" },
+            { key: "clean", label: "✓ Clean" },
+            ...TRADE_VIOLATIONS.map(v => ({ key: v.value, label: `⚠ ${v.label}` })),
+          ].map(({ key, label }) => (
+            <button key={key} onClick={() => setFilterViolation(key)} style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
+              padding: "6px 14px", borderRadius: 4, cursor: "pointer", letterSpacing: "0.05em",
+              textTransform: "uppercase", transition: "all 0.15s",
+              border: filterViolation === key ? "1px solid #ef4444" : "1px solid var(--border-primary)",
+              background: filterViolation === key ? "rgba(239,68,68,0.1)" : "var(--bg-tertiary)",
+              color: filterViolation === key ? "#ef4444" : "var(--text-secondary)",
+            }}>{label}</button>
+          ))}
         </div>
 
         {/* Table */}
@@ -2307,7 +2486,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13 }}>
               <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
                 <tr>
-                  {["Date", "Asset", "Dir", "A+ Setup", "Model", "Taken", "Personal P&L", "Funded P&L", "Chart", "After", "Notes", "After Thoughts", ""].map(h => (
+                  {["Date", "Asset", "Dir", "A+ Setup", "Model", "Taken", "Personal P&L", "Funded P&L", "Chart", "After", "Notes", "After Thoughts", "Violations", ""].map(h => (
                     <th key={h} style={{
                       padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 700,
                       color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em",
@@ -2447,6 +2626,10 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                         {t.after_thoughts || "—"}
                         <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
+                      <td style={{ padding: "12px 16px", minWidth: 160 }}>
+                        <ViolationChips violations={t.violations} />
+                        {(!t.violations || t.violations.length === 0) && <span style={{ color: "var(--green)", fontSize: 11, fontWeight: 700 }}>✓ Clean</span>}
+                      </td>
                       <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                         <button onClick={() => openExpand(t)} style={{
                           fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
@@ -2462,7 +2645,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                     {/* Expanded edit row */}
                     {isExpanded && (
                         <tr>
-                          <td colSpan={13} style={{ padding: "0 0 2px 0", background: "var(--bg-tertiary)" }}>
+                          <td colSpan={14} style={{ padding: "0 0 2px 0", background: "var(--bg-tertiary)" }}>
                             <div style={{ padding: "20px 24px", borderTop: "2px solid var(--accent)", borderBottom: "1px solid var(--border-primary)" }}>
                               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 14 }}>
                                 <div>
@@ -2558,6 +2741,10 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                               <div style={{ marginBottom: 14 }}>
                                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Tags</div>
                                 <TagPicker selected={ed.tags || []} onChange={val => setField(t.id, "tags", val)} tags={prefs?.tags} />
+                              </div>
+                              <div style={{ marginBottom: 14 }}>
+                                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Rule Violations</div>
+                                <ViolationPicker selected={ed.violations || []} onChange={val => setField(t.id, "violations", val)} />
                               </div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                                 <div>
@@ -2917,7 +3104,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
       {/* Equity Curve */}
       <TCard style={{ padding: 28, marginBottom: 24, overflow: "hidden" }}>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 20 }}>
           EQUITY CURVE
         </div>
         <canvas ref={chartRef} height={120} style={{ width: "100%", borderRadius: 8 }} />
@@ -2927,7 +3114,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       <TCard style={{ marginBottom: 24, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>P&L CALENDAR</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>P&L CALENDAR</div>
             <div style={{ display: "flex", gap: 4 }}>
               {[["personal", "Personal"], ["funded", "Funded"], ["both", "Both"]].map(([mode, label]) => (
                 <button
@@ -3049,11 +3236,68 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
         </TCard>
       )}
 
+      {/* Violation Stats */}
+      {(() => {
+        const monthStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}`;
+        const mTrades = trades.filter(t => t.dt && t.dt.slice(0, 7) === monthStr && t.taken !== "Missed");
+        if (mTrades.length === 0) return null;
+        const violatingTrades = mTrades.filter(t => t.violations && t.violations.length > 0);
+        const cleanTrades = mTrades.filter(t => !t.violations || t.violations.length === 0);
+        const violationRate = Math.round(violatingTrades.length / mTrades.length * 100);
+        const violatingPnl = violatingTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+        const cleanPnl = cleanTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+        const vCounts = {};
+        mTrades.forEach(t => (t.violations || []).forEach(v => { vCounts[v] = (vCounts[v] || 0) + 1; }));
+        const topViolation = Object.entries(vCounts).sort((a, b) => b[1] - a[1])[0];
+        // Clean streak: consecutive taken trades from most recent with no violations
+        const sorted = [...mTrades].sort((a, b) => new Date(b.dt) - new Date(a.dt));
+        let cleanStreak = 0;
+        for (const t of sorted) { if (!t.violations || t.violations.length === 0) cleanStreak++; else break; }
+        return (
+          <TCard style={{ padding: "22px 24px", marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>Discipline — Rule Violations</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: violatingTrades.length > 0 ? 16 : 0 }}>
+              {[
+                { label: "Violation Rate", value: `${violationRate}%`, color: violationRate === 0 ? "var(--green)" : violationRate < 30 ? "var(--gold)" : "var(--red)" },
+                { label: "Clean Trades", value: `${cleanTrades.length}/${mTrades.length}`, color: "var(--green)" },
+                { label: "Clean Streak", value: `${cleanStreak}`, color: cleanStreak >= 5 ? "var(--accent)" : cleanStreak >= 3 ? "var(--green)" : "var(--text-secondary)" },
+                { label: "Clean P&L", value: privacyMode ? "••••" : `${cleanPnl >= 0 ? "+" : ""}$${cleanPnl.toFixed(0)}`, color: cleanPnl >= 0 ? "var(--green)" : "var(--red)" },
+                { label: "Violating P&L", value: violatingTrades.length > 0 ? (privacyMode ? "••••" : `${violatingPnl >= 0 ? "+" : ""}$${violatingPnl.toFixed(0)}`) : "—", color: violatingPnl >= 0 ? "var(--text-secondary)" : "var(--red)" },
+                { label: "Top Violation", value: topViolation ? TRADE_VIOLATIONS.find(v => v.value === topViolation[0])?.label ?? topViolation[0] : "None", color: topViolation ? "#ef4444" : "var(--green)" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 8, padding: "12px 14px", textAlign: "center" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, color, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+                  <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            {violatingTrades.length > 0 && Object.keys(vCounts).length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Breakdown</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {Object.entries(vCounts).sort((a, b) => b[1] - a[1]).map(([v, count]) => {
+                    const def = TRADE_VIOLATIONS.find(d => d.value === v);
+                    const color = def?.color ?? "#ef4444";
+                    const label = def?.label ?? v;
+                    return (
+                      <div key={v} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 6, border: `1px solid ${color}`, background: `${color}12` }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color }}>{label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color, background: `${color}22`, borderRadius: 4, padding: "1px 6px" }}>{count}×</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </TCard>
+        );
+      })()}
+
       {/* Trade History Table */}
       <TCard style={{ overflow: "hidden", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 24px", borderBottom: "1px solid var(--border-primary)", flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 14, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>TRADE HISTORY</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>TRADE HISTORY</div>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", opacity: 0.6 }}>{new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -3412,39 +3656,21 @@ function AISummarySection({ trades, supabase }) {
       if (t.aplus === "No") nonAplus++;
     });
 
-    // TradeSharp Score for the period
-    const tsResult = calcTradeSharpScore(periodTrades);
-    const tsSection = tsResult
-      ? `TRADESHARP SCORE: ${tsResult.composite}/100 (${tsResult.composite >= 80 ? "ELITE" : tsResult.composite >= 60 ? "SOLID" : tsResult.composite >= 40 ? "DEVELOPING" : "NEEDS WORK"})
-PILLAR BREAKDOWN:
-${tsResult.pillars.map((pl) => `  ${pl.label}: ${pl.display} (score: ${Math.round(pl.score)}/100)`).join("\n")}
-EXECUTION QUALITY: ${tsResult.execQualityPct != null ? tsResult.execQualityPct.toFixed(0) + "% of A+ setups executed cleanly" : "N/A"}`
-      : "TRADESHARP SCORE: Insufficient data for this period";
-
-    // Tag-based win/loss breakdown
-    const tagMap = {};
-    periodTrades.forEach((t) => {
-      if (t.tags && t.tags.length > 0) {
-        t.tags.forEach((tag) => {
-          if (!tagMap[tag]) tagMap[tag] = { trades: 0, wins: 0, losses: 0, pnl: 0 };
-          tagMap[tag].trades++;
-          const pv = parseFloat(t.profit);
-          if (!isNaN(pv) && pv > 0) tagMap[tag].wins++;
-          if (!isNaN(pv) && pv < 0) tagMap[tag].losses++;
-          if (!isNaN(pv)) tagMap[tag].pnl += pv;
-        });
-      }
-    });
-    const tagSection = Object.keys(tagMap).length > 0
-      ? "SETUP TAGS BREAKDOWN (from tagged trades):\n" + Object.entries(tagMap).map(([tag, s]) => `  #${tag}: ${s.trades} trades, ${s.wins}W/${s.losses}L${s.pnl !== 0 ? `, P&L: $${s.pnl.toFixed(0)}` : ""}`).join("\n")
-      : "SETUP TAGS: No tags logged yet — trader has not labeled setups with tags";
+    const tsSection = buildAIScoreSection(periodTrades);
+    const tagSection = buildAITagBreakdown(periodTrades);
+    const modelSection = buildAIModelBreakdown(periodTrades);
+    const splitSection = buildAISplitSection(periodTrades);
 
     const tradesSummary = periodTrades.map((t) => {
       const tags = t.tags && t.tags.length > 0 ? t.tags.map((tag) => `#${tag}`).join(" ") : "none";
-      return `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"}, Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"}, Tags: ${tags}, Notes: ${t.notes || "none"}, After Trade Thoughts: ${t.after_thoughts || "none"}`;
+      const viols = t.violations && t.violations.length > 0 ? t.violations.join(", ") : "none";
+      return `Date: ${t.dt}, Asset: ${t.asset}, Direction: ${t.direction}, A+: ${t.aplus}, Taken: ${t.taken}, Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"}, Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"}, Tags: ${tags}, Violations: ${viols}, Notes: ${t.notes || "none"}, After Trade Thoughts: ${t.after_thoughts || "none"}`;
     }).join("\n");
+    const violationSection = buildAIViolationBreakdown(periodTrades);
 
-    const prompt = `You are a direct but fair trading coach analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model. You're honest and straightforward — you don't sugarcoat, but you're not harsh either. Think tough older brother energy. You point out weaknesses clearly because you want this trader to improve, and you genuinely acknowledge strengths when earned.
+    const prompt = `${AI_COACH_TONE}
+
+You are analyzing the performance of a funded futures trader who uses an ICT-inspired fractal model.
 
 TRADING MODEL & RULES:
 - Trades NQ, ES, GC, SI (index futures primarily)
@@ -3480,9 +3706,15 @@ NET PERSONAL P&L: $${totalPnl.toFixed(2)} (trades with P&L entered)
 NET FUNDED P&L: $${totalFundedPnl.toFixed(2)} (funded account trades with P&L entered)
 WIN RATE: ${taken ? Math.round((wins / taken) * 100) : 0}%
 
+${splitSection}
+
 ${tsSection}
 
 ${tagSection}
+
+${modelSection}
+
+${violationSection}
 
 INDIVIDUAL TRADES:
 ${tradesSummary}
@@ -3490,12 +3722,15 @@ ${tradesSummary}
 ANALYSIS INSTRUCTIONS:
 1. Performance Overview — Cover both Personal and Funded P&L separately where data exists. Win rate, key numbers. Judge wins against the $500 risk / $1,000 target framework. Call out breakeven trades disguised as wins.
 2. TradeSharp Score Analysis — Reference the composite score and call out which specific pillars are dragging the score down. If Consistency is weak, say so. If A+ Discipline is high but Win Rate is low, call out the execution gap. Use the pillar scores to be precise.
-3. Setup Tag Analysis — Use the Tags field on each trade as the primary setup identifier. Break down win rate and P&L per tag (e.g. "#2STG: 3W/1L = 75%"). Identify which tagged setups are profitable vs which are bleeding. If trades have no tags, call that out — the trader should be labeling every setup.
-4. Strengths — What this trader is genuinely doing well. Be specific, reference actual trades.
-5. Flaws & Weaknesses — Be direct. Call out rule violations, patterns, psychological leaks. If they're trading non-A+ setups, say so. If they're revenge trading, say so. Don't soften it. If "Yes But Execution Sucked" trades appear, dig into the execution failures — are they sizing wrong, exiting early, moving stops? If "Yes to No" trades appear, flag whether this is a recurring impulsive entry pattern.
-6. Language & Mindset Analysis — Read how the trader describes their trades in the notes. Are they making excuses? Being vague? Blaming the market? Showing accountability? Call out specific language patterns that reveal psychological issues.
-7. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
-8. Final Word — One honest sentence about where this trader is mentally.
+3. Personal vs Funded Analysis — Compare personal and funded performance separately where data exists. If one environment is cleaner or more profitable, say so directly.
+4. Setup Tag Analysis — Use the Tags field on each trade as the primary setup identifier. Identify which tagged setups are profitable vs weak.
+5. Model Breakdown — Use the MODEL BREAKDOWN section. Identify which models are actually working and which ones are wasting trades.
+6. Rule Violation Analysis — Reference the RULE VIOLATIONS section. If violations exist, call out exactly which ones repeated, how much they cost, and whether the trader shows self-awareness about them in the notes. If zero violations are logged, either acknowledge clean trading or state that the trader needs to track violations properly.
+7. Strengths — What this trader is genuinely doing well. Keep praise brief and specific.
+8. Flaws & Weaknesses — Be direct. Expose rule violations, execution failures, and psychological leaks. If the trader is repeating mistakes, say it plainly.
+9. Language & Mindset Analysis — Read the notes closely. If the trader sounds vague, defensive, impulsive, or excuse-making, call it out.
+10. Key Focus — 2-3 specific, actionable improvements for next ${p === "week" ? "week" : "month"}.
+11. Final Word — One blunt sentence on what is really holding this trader back right now.
 
 Be direct, specific, and reference actual trades and their notes. Keep it under 800 words.`;
 
@@ -3504,7 +3739,7 @@ Be direct, specific, and reference actual trades and their notes. Keep it under 
       const res = await fetch("/api/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
       });
       if (!res.ok) throw new Error(`AI service error: ${res.status}`);
       const data = await res.json();
@@ -5928,7 +6163,9 @@ export function NotebookView({ supabase, user, trades }) {
     const execSucked = periodTrades.filter(t => t.aplus === "Yes But Execution Sucked").length;
     const yesToNo = periodTrades.filter(t => t.aplus === "Yes to No").length;
 
-    const prompt = `You are an experienced trading mentor reviewing a futures trader's journal for ${label}. They trade an ICT-inspired fractal model across multiple instruments — NQ, ES, YM, GC, SI, Oil, and correlated pairs — primarily in the NY session, max 2 trades/day. The model applies to any instrument where the setup is valid; asset selection is not a concern.
+    const prompt = `${AI_COACH_TONE}
+
+You are reviewing a futures trader's journal for ${label}. They trade an ICT-inspired fractal model across multiple instruments — NQ, ES, YM, GC, SI, Oil, and correlated pairs — primarily in the NY session, max 2 trades/day. The model applies to any instrument where the setup is valid; asset selection is not a concern.
 
 A+ LABEL DEFINITIONS (read these carefully before commenting on trade quality):
 - "Yes" = A+ setup, executed cleanly
@@ -5945,7 +6182,7 @@ ${notebookText || "(No entries for this period)"}
 TRADE DATA: ${periodTrades.length} logged | ${taken} taken | ${wins} wins | Net P&L: $${pnl.toFixed(2)}
 ${tradeLines || "(No trades logged for this period)"}
 
-Write a focused coaching summary (300–500 words). Tone: mentor who has seen it all — direct and honest, will call things out plainly, but never dismissive. You can be blunt, just not cruel. Think less drill sergeant, more seasoned pro who genuinely wants to see this trader level up.
+Write a focused coaching summary (300–500 words). Be blunt, data-driven, and practical. Do not soften repeated mistakes.
 
 1. Gameplan vs Reality — did they trade their plan? Use the trade log as evidence.
 2. Self-awareness — are their EOD reflections honest and specific, or vague and defensive?
@@ -5961,7 +6198,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
       const res = await fetch("/api/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(session ? { "Authorization": `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1200, messages: [{ role: "user", content: prompt }] }),
       });
       if (!res.ok) throw new Error(`AI service error: ${res.status}`);
       const data = await res.json();
@@ -7237,7 +7474,7 @@ export function AIHubView({ supabase, user, trades }) {
       res = await fetch("/api/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
       });
     } catch {
       throw new Error("Could not reach the AI service. Make sure you're on the deployed app, not localhost.");
@@ -7273,7 +7510,9 @@ export function AIHubView({ supabase, user, trades }) {
       const tags = t.tags?.length ? t.tags.join(", ") : "none";
       return `${t.dt?.split("T")[0]} | ${t.asset || "?"} ${t.direction || ""} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Tags: ${tags} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
     }).join("\n");
-    const prompt = `You are analyzing a funded futures trader's complete trade history for ${monthOptions.find(m => m.value === analyzerMonth)?.label}.
+    const prompt = `${AI_COACH_TONE}
+
+You are analyzing a funded futures trader's complete trade history for ${monthOptions.find(m => m.value === analyzerMonth)?.label}.
 
 TRADING CONTEXT:
 - ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
@@ -7326,25 +7565,48 @@ Be specific and data-driven. Cite exact trade dates, notes, and patterns. Under 
     const nonAplus = taken.filter((t) => t.aplus === "No").length;
     const tradeLines = periodTrades.map((t) => {
       const tags = t.tags?.length ? t.tags.join(", ") : "none";
-      return `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Tags: ${tags} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
+      const violations = t.violations?.length ? t.violations.join(", ") : "none";
+      return `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | Model: ${t.model || "none"} | A+: ${t.aplus} | Taken: ${t.taken} | Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"} | Tags: ${tags} | Violations: ${violations} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
     }).join("\n");
-    const prompt = `You are a direct but fair trading coach. ICT-inspired fractal model, NQ/ES, NY session only, max 2 trades/day. Tough older brother energy — honest, no sugarcoating.
+    const tsSection = buildAIScoreSection(periodTrades);
+    const splitSection = buildAISplitSection(periodTrades);
+    const tagSection = buildAITagBreakdown(periodTrades);
+    const modelSection = buildAIModelBreakdown(periodTrades);
+    const violationSection = buildAIViolationBreakdown(periodTrades);
+    const prompt = `${AI_COACH_TONE}
+
+ICT-inspired fractal model, NQ/ES, NY session only, max 2 trades/day.
 
 PERIOD: ${label}
 TRADES TAKEN: ${taken.length} (Wins: ${wins}, Losses: ${taken.length - wins})
 A+ TAKEN: ${aplusTaken} | Exec Sucked: ${execSucked} | Yes to No: ${yesToNo} | Non-A+: ${nonAplus}
 NET P&L: $${pnl.toFixed(0)} | WIN RATE: ${taken.length ? Math.round((wins/taken.length)*100) : 0}%
 
+${splitSection}
+
+${tsSection}
+
+${tagSection}
+
+${modelSection}
+
+${violationSection}
+
 TRADE LOG:
 ${tradeLines}
 
 Provide:
 1. Performance Overview — key numbers, quality of wins vs losses
-2. Strengths — specific, reference actual trades
-3. Flaws & Weaknesses — direct, call out patterns and rule violations
-4. Language Analysis — what the notes reveal about mindset
-5. Key Focus — 2-3 actionable improvements for next ${p === "week" ? "week" : "month"}
-6. Final Word — one honest sentence on where this trader is mentally
+2. Personal vs Funded Analysis — compare both environments directly if both exist
+3. TradeSharp Score Analysis — identify the weakest pillars and why they matter
+4. Tag Breakdown — which setups are actually making money and which are not
+5. Model Breakdown — which models deserve more size and which should be questioned
+6. Rule Violation Analysis — which violations repeat and what they are costing
+7. Strengths — specific, reference actual trades
+8. Flaws & Weaknesses — direct, expose patterns and execution mistakes
+9. Language Analysis — what the notes reveal about mindset
+10. Key Focus — 2-3 actionable improvements for next ${p === "week" ? "week" : "month"}
+11. Final Word — one blunt sentence on where this trader is underperforming
 
 Under 700 words. Be specific and reference actual trades.`;
     try { setSummaryOutput(await callAI(prompt)); } catch (e) { setSummaryOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setSummaryLoading(false); }
@@ -7373,7 +7635,9 @@ Under 700 words. Be specific and reference actual trades.`;
     const planSection = todayPlan
       ? `TODAY'S PLAN: Bias: ${todayPlan.bias || "none"}, Key levels: ${todayPlan.key_levels || "none"}, Session plan: ${todayPlan.session_plan || "none"}, Notes: ${todayPlan.notes || "none"}`
       : "TODAY'S PLAN: No pre-trade plan filed for today.";
-    const prompt = `You are a sharp trading coach giving a futures trader their pre-session brief before the NY open.
+    const prompt = `${AI_COACH_TONE}
+
+You are giving a futures trader their pre-session brief before the NY open.
 
 LAST 5 SESSIONS:
 ${sessionSummaries}
@@ -7412,7 +7676,9 @@ Each point: 1-2 sentences max. Direct and sharp. No fluff.`;
     const execSucked = taken.filter((t) => t.aplus === "Yes But Execution Sucked").length;
     const yesToNo = taken.filter((t) => t.aplus === "Yes to No").length;
     const tradeLines = dayTrades.map((t) => `${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Notes: ${t.notes || "none"}`).join("\n");
-    const prompt = `You are an experienced trading mentor reviewing a futures trader's journal for ${notebookDate}. ICT-inspired model, NQ/ES, NY session only, max 2 trades/day.
+    const prompt = `${AI_COACH_TONE}
+
+You are reviewing a futures trader's journal for ${notebookDate}. ICT-inspired model, NQ/ES, NY session only, max 2 trades/day.
 
 JOURNAL ENTRY:
 RECAP: ${entry.recap || "(blank)"}
@@ -7427,7 +7693,7 @@ Write a focused coaching response (200-350 words):
 3. Inner dialogue — quote their exact words. What do the word choices reveal?
 4. 2 specific, actionable focuses for their next session.
 
-Direct, honest, constructive. Quote their own words back to them.`;
+Be direct, evidence-based, and constructive. Quote their own words back to them.`;
     try { setNotebookOutput(await callAI(prompt, 800)); } catch (e) { setNotebookOutput(e.message || "Failed. Check your API key in Profile settings."); } finally { setNotebookLoading(false); }
   };
 
@@ -7694,11 +7960,49 @@ export function EdgeChatView({ supabase, user, trades }) {
           const note = ts.find((t) => t.notes)?.notes?.slice(0, 60) || "";
           return `  ${date} | ${ts.length} trade${ts.length !== 1 ? "s" : ""} | ${w}W/${l}L | $${pnl.toFixed(0)}${note ? ` | "${note}"` : ""}`;
         });
-      const tagCounts = {};
-      taken.slice(0, 30).forEach((t) => {
-        (t.tags || []).forEach((tag) => { tagCounts[tag] = (tagCounts[tag] || 0) + 1; });
+      const allTimePersonal = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+      const allTimeFunded = taken.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+      const monthPersonal = monthTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+      const monthFunded = monthTrades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+      const weekPersonal = weekTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
+      const weekFunded = weekTrades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+      const scoreAllTime = buildAIScoreSection(taken);
+      const scoreMonth = buildAIScoreSection(monthTrades);
+      const tagPerfMap = {};
+      taken.forEach((t) => {
+        (t.tags || []).forEach((tag) => {
+          if (!tagPerfMap[tag]) tagPerfMap[tag] = { trades: 0, wins: 0, pnl: 0 };
+          tagPerfMap[tag].trades++;
+          const p = profit(t);
+          if (p > 0) tagPerfMap[tag].wins++;
+          tagPerfMap[tag].pnl += p;
+        });
       });
-      const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag]) => tag).join(", ") || "None logged";
+      const topTags = Object.entries(tagPerfMap)
+        .sort((a, b) => b[1].trades - a[1].trades)
+        .slice(0, 5)
+        .map(([tag, s]) => `${tag}: ${s.trades} trades, ${s.wins} wins, $${s.pnl.toFixed(0)}`)
+        .join(" | ") || "None logged";
+      const modelPerfMap = {};
+      taken.forEach((t) => {
+        if (!t.model) return;
+        if (!modelPerfMap[t.model]) modelPerfMap[t.model] = { trades: 0, wins: 0, pnl: 0 };
+        modelPerfMap[t.model].trades++;
+        const p = profit(t);
+        if (p > 0) modelPerfMap[t.model].wins++;
+        modelPerfMap[t.model].pnl += p;
+      });
+      const topModels = Object.entries(modelPerfMap)
+        .sort((a, b) => b[1].trades - a[1].trades)
+        .slice(0, 5)
+        .map(([model, s]) => `${model}: ${s.trades} trades, ${s.wins} wins, $${s.pnl.toFixed(0)}`)
+        .join(" | ") || "No model labels logged";
+      const violationMap = {};
+      taken.forEach((t) => (t.violations || []).forEach((v) => { violationMap[v] = (violationMap[v] || 0) + 1; }));
+      const monthViolationMap = {};
+      monthTrades.forEach((t) => (t.violations || []).forEach((v) => { monthViolationMap[v] = (monthViolationMap[v] || 0) + 1; }));
+      const topViolations = Object.entries(violationMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, c]) => `${v}: ${c}x`).join(" | ") || "No violations logged";
+      const monthViolations = Object.entries(monthViolationMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([v, c]) => `${v}: ${c}x`).join(" | ") || "No violations logged this month";
       let todayPlan = "No pre-trade plan filed for today.";
       try {
         const { data: plan } = await supabase.from("trade_plans").select("bias, key_levels, session_plan, notes").eq("user_id", user.id).eq("plan_date", todayStr).single();
@@ -7717,7 +8021,9 @@ export function EdgeChatView({ supabase, user, trades }) {
           notebookSection = `${e.entry_date}${tradesSummary}\n  RECAP: ${e.recap || "(blank)"}\n  EOD REFLECTION: ${e.eod_reflection || "(blank)"}`;
         }
       } catch {}
-      setSystemCtx(`You are Edge, an elite trading coach inside TradeSharp. You work exclusively with this trader and know their full performance history.
+      setSystemCtx(`${AI_COACH_TONE}
+
+You are Edge, an elite trading coach inside TradeSharp. You work exclusively with this trader and know their full performance history.
 
 TRADER PROFILE:
 - Strategy: ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
@@ -7729,20 +8035,37 @@ TRADER PROFILE:
 
 PERFORMANCE SNAPSHOT (as of ${todayStr}):
 ALL-TIME: ${taken.length} trades taken | ${winRateAll}% win rate | Net P&L: $${netAll.toFixed(0)}
+ALL-TIME SPLIT: Personal $${allTimePersonal.toFixed(0)} | Funded $${allTimeFunded.toFixed(0)}
 THIS MONTH (${monthKey}): ${monthTrades.length} taken | ${monthWins}W/${monthLosses}L | $${monthPnl.toFixed(0)} | A+ rate: ${monthARate}%
+THIS MONTH SPLIT: Personal $${monthPersonal.toFixed(0)} | Funded $${monthFunded.toFixed(0)}
 THIS WEEK: ${weekTrades.length} taken | ${weekWins}W/${weekLosses}L | $${weekPnl.toFixed(0)}
+THIS WEEK SPLIT: Personal $${weekPersonal.toFixed(0)} | Funded $${weekFunded.toFixed(0)}
 LAST 5 SESSIONS:
 ${last5.length ? last5.join("\n") : "  No recent sessions found."}
-TOP TAGS (last 30 trades): ${topTags}
+ALL-TIME TRADESHARP SCORE:
+${scoreAllTime}
+
+THIS MONTH TRADESHARP SCORE:
+${scoreMonth}
+
+RECURRING TAG PERFORMANCE:
+${topTags}
+
+RECURRING MODEL PERFORMANCE:
+${topModels}
+
+RULE VIOLATIONS:
+ALL-TIME: ${topViolations}
+THIS MONTH: ${monthViolations}
 
 TODAY'S PLAN: ${todayPlan}
 
 LATEST JOURNAL ENTRY:
 ${notebookSection}
 
-COACHING STYLE: Be direct, specific, and honest — like a tough but fair older brother. No fluff. Reference actual numbers from the data above. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
+COACHING STYLE: Be direct, data-driven, slightly confrontational, and specific. Use the numbers above. Prioritize execution mistakes, repeat leaks, and underperformance over encouragement. Keep responses under 500 words unless a full breakdown is explicitly requested. Use headers and bullets for structured analysis.`);
     } catch {
-      setSystemCtx("You are Edge, an AI trading coach inside TradeSharp. Be direct, specific, and helpful.");
+      setSystemCtx(`${AI_COACH_TONE} Be direct, specific, and practical.`);
     } finally {
       setCtxLoading(false);
     }
@@ -7761,13 +8084,12 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
     const res = await fetch("/api/ai-summary", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}) },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, system: systemCtx, messages: apiMessages }),
+      body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 2000, system: systemCtx, messages: apiMessages }),
     });
-    if (!res.ok) throw new Error(`AI service error: ${res.status}`);
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error("Unexpected response from AI service."); }
-    if (data.error) throw new Error(data.error);
+    if (!res.ok || data.error) throw new Error(data.error || `AI service error: ${res.status}`);
     return data.content?.map((c) => c.text || "").join("") || "No response received.";
   };
 
@@ -8034,4 +8356,3 @@ COACHING STYLE: Be direct, specific, and honest — like a tough but fair older 
     </div>
   );
 }
-

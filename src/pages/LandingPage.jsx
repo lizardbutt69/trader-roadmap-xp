@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { getFeaturedBlogPosts } from "../data/blogPosts.js";
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 
@@ -75,8 +74,6 @@ const STAGES = [
   { id: 5, name: "Independent", subtitle: "Full-Time Trader", icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, color: "#e8748a", xp: "3,575 XP" },
 ];
 
-const FEATURED_BLOG_POSTS = getFeaturedBlogPosts(2);
-
 // ─── EQUITY CURVE ─────────────────────────────────────────────────────────────
 
 function EquityCurve() {
@@ -109,12 +106,12 @@ function EquityCurve() {
 
 function MockDashboard() {
   const checkItems = [
-    { label: "CIC — SMT/PSP Confirmed", done: true },
-    { label: "Key Level / Liquidity", done: true },
-    { label: "Timeframe Alignment", done: true },
-    { label: "CISD Confirmed", done: true },
-    { label: "TTFM — Fractal Model", done: false },
-    { label: "Session / Time of Day", done: false },
+    { label: "Trend or Bias Is Clear", done: true },
+    { label: "Price At Key Level", done: true },
+    { label: "Entry Trigger Confirmed", done: true },
+    { label: "Risk / Reward Meets Plan", done: true },
+    { label: "Stop Loss Defined", done: false },
+    { label: "Session Conditions Favor Trade", done: false },
   ];
 
   return (
@@ -197,7 +194,7 @@ function MockDashboard() {
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#eaebf0" }}>The Grinder</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#eaebf0" }}>Evaluation</div>
               <div style={{ fontSize: 9.5, color: "#6b6e84", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}>Stage 2 · Evaluation Phase</div>
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -409,9 +406,6 @@ export default function LandingPage() {
         .ts-stages { flex-direction: row; }
         .ts-score-section { padding: 80px 48px; }
         .ts-score-inner { flex-direction: row; gap: 64px; }
-        .ts-blog-section { padding: 80px 48px; }
-        .ts-blog-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); }
-        .ts-blog-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .ts-cta-section { padding: 80px 48px; }
         .ts-footer { flex-direction: row; gap: 0; }
 
@@ -431,9 +425,6 @@ export default function LandingPage() {
           .ts-stages > div { padding: 0 !important; }
           .ts-score-section { padding: 60px 24px !important; }
           .ts-score-inner { flex-direction: column !important; gap: 36px !important; align-items: flex-start !important; }
-          .ts-blog-section { padding: 60px 24px !important; }
-          .ts-blog-grid { grid-template-columns: 1fr !important; gap: 28px !important; }
-          .ts-blog-cards { grid-template-columns: 1fr !important; }
           .ts-spider-wrap { width: 100% !important; max-width: 300px !important; }
           .ts-cta-section { padding: 60px 24px !important; }
           .ts-footer { flex-direction: column !important; gap: 12px !important; text-align: center !important; padding: 24px !important; }
@@ -479,7 +470,7 @@ export default function LandingPage() {
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <TradeSharpLogo size={34} />
-          <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "#eaebf0" }}>
+          <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>
             Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
           </span>
         </div>
@@ -500,12 +491,6 @@ export default function LandingPage() {
               onMouseLeave={e => e.target.style.color = "#a0a3b5"}
             >{link.label}</a>
           ))}
-          <Link to="/blog" style={{
-            fontSize: 15, fontWeight: 600, color: "#22d3ee",
-            textDecoration: "none", letterSpacing: "0.01em",
-          }}>
-            Blog
-          </Link>
         </div>
 
         {/* CTAs */}
@@ -563,11 +548,11 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                fontSize: 44, fontWeight: 800, lineHeight: 1.1,
+                fontSize: 44, fontWeight: 600, lineHeight: 1.1,
                 letterSpacing: "-0.03em", margin: "0 0 16px",
               }}
             >
-              Trade Like a Professional<br />
+              Trade Like a Professional.<br />
               <span style={{
                 background: "linear-gradient(90deg, #22d3ee, #818cf8)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
@@ -670,12 +655,12 @@ export default function LandingPage() {
           ].map((s, i) => (
             <div key={i} style={{ textAlign: "center" }}>
               <div style={{
-                fontSize: 42, fontWeight: 800, letterSpacing: "-0.04em",
+                fontSize: 42, fontWeight: 600, letterSpacing: "-0.04em",
                 background: "linear-gradient(135deg, #eaebf0, #a0a3b5)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
                 lineHeight: 1,
               }}>{s.value}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#eaebf0", marginTop: 6 }}>{s.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#eaebf0", marginTop: 6 }}>{s.label}</div>
               <div style={{ fontSize: 11.5, color: "#6b6e84", marginTop: 3 }}>{s.sub}</div>
             </div>
           ))}
@@ -693,7 +678,7 @@ export default function LandingPage() {
           }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3ee", letterSpacing: "0.08em", textTransform: "uppercase" }}>Features</span>
           </div>
-          <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 14px" }}>
+          <h2 style={{ fontSize: 38, fontWeight: 600, letterSpacing: "-0.03em", margin: "0 0 14px" }}>
             Every tool a serious trader needs
           </h2>
           <p style={{ fontSize: 16, color: "#a0a3b5", maxWidth: 520, margin: "0 auto" }}>
@@ -735,7 +720,7 @@ export default function LandingPage() {
                   background: `${f.accent}15`, border: `1px solid ${f.accent}25`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>{f.icon}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#eaebf0", marginBottom: 8 }}>{f.title}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#eaebf0", marginBottom: 8 }}>{f.title}</div>
                 <div style={{ fontSize: 13.5, color: "#6b6e84", lineHeight: 1.6, flex: 1 }}>{f.desc}</div>
               </div>
             </FadeInSection>
@@ -754,7 +739,7 @@ export default function LandingPage() {
           }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", letterSpacing: "0.08em", textTransform: "uppercase" }}>The Path</span>
           </div>
-          <h2 style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 14px" }}>
+          <h2 style={{ fontSize: 38, fontWeight: 600, letterSpacing: "-0.03em", margin: "0 0 14px" }}>
             Five stages. One destination.
           </h2>
           <p style={{ fontSize: 16, color: "#a0a3b5", maxWidth: 480, margin: "0 auto" }}>
@@ -794,7 +779,7 @@ export default function LandingPage() {
                   textTransform: "uppercase",
                 }}>Stage {stage.id}</div>
 
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#eaebf0", marginBottom: 4 }}>{stage.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#eaebf0", marginBottom: 4 }}>{stage.name}</div>
                 <div style={{ fontSize: 11.5, color: "#6b6e84", marginBottom: 6 }}>{stage.subtitle}</div>
                 <div style={{ fontSize: 11, color: "#a78bfa", fontWeight: 600 }}>{stage.xp}</div>
               </div>
@@ -815,7 +800,7 @@ export default function LandingPage() {
             }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#fbbf24", letterSpacing: "0.08em", textTransform: "uppercase" }}>TradeSharp Score</span>
             </div>
-            <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.03em", margin: "0 0 16px" }}>
+            <h2 style={{ fontSize: 36, fontWeight: 600, letterSpacing: "-0.03em", margin: "0 0 16px" }}>
               Know exactly where you stand. Every month.
             </h2>
             <p style={{ fontSize: 16, color: "#a0a3b5", lineHeight: 1.65, marginBottom: 28 }}>
@@ -833,7 +818,7 @@ export default function LandingPage() {
                     width: 10, height: 10, borderRadius: "50%",
                     background: tier.color, boxShadow: `0 0 8px ${tier.color}60`,
                   }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: tier.color, width: 90 }}>{tier.label}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: tier.color, width: 90 }}>{tier.label}</span>
                   <span style={{ fontSize: 13, color: "#6b6e84" }}>Score {tier.range}</span>
                 </div>
               ))}
@@ -855,120 +840,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── BLOG PREVIEW ── */}
-      <section className="ts-blog-section" style={{ position: "relative", zIndex: 1 }}>
-        <div className="ts-blog-grid" style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 24, alignItems: "stretch" }}>
-          <FadeInSection style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.02))",
-            border: "1px solid rgba(255,255,255,0.07)",
-            borderRadius: 18,
-            padding: "28px 28px 30px",
-            position: "relative",
-            overflow: "hidden",
-          }}>
-            <div style={{
-              position: "absolute", inset: "auto auto -60px -60px",
-              width: 240, height: 240, borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(34,211,238,0.15) 0%, transparent 70%)",
-              filter: "blur(18px)", pointerEvents: "none",
-            }} />
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "5px 14px", borderRadius: 999,
-              background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)",
-              marginBottom: 18,
-              position: "relative",
-            }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#22d3ee", boxShadow: "0 0 12px rgba(34,211,238,0.7)" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3ee", letterSpacing: "0.08em", textTransform: "uppercase" }}>TradeSharp Field Notes</span>
-            </div>
-            <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", margin: "0 0 14px", position: "relative" }}>
-              A blog built around sharper execution, cleaner review, and fewer self-inflicted mistakes.
-            </h2>
-            <p style={{ fontSize: 15.5, color: "#a0a3b5", lineHeight: 1.75, margin: "0 0 26px", maxWidth: 560, position: "relative" }}>
-              Not market noise. Not generic motivation. Just practical writing for traders who want better routines, tighter journaling, and more honest feedback loops.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 28, position: "relative" }}>
-              {["Pre-market routines", "Journaling systems", "Trading psychology"].map((topic) => (
-                <span key={topic} style={{
-                  padding: "7px 11px", borderRadius: 999,
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(255,255,255,0.03)",
-                  color: "#94a3b8", fontSize: 12.5, fontWeight: 600,
-                }}>
-                  {topic}
-                </span>
-              ))}
-            </div>
-            <Link to="/blog" style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "13px 18px", borderRadius: 10,
-              background: "linear-gradient(135deg, #111827, #0f172a)",
-              border: "1px solid rgba(34,211,238,0.2)",
-              color: "#eaebf0", fontSize: 14, fontWeight: 700,
-              textDecoration: "none", position: "relative",
-              boxShadow: "0 12px 34px rgba(0,0,0,0.22)",
-            }}>
-              Read the Blog
-              <span style={{ color: "#22d3ee" }}>→</span>
-            </Link>
-          </FadeInSection>
-
-          <div className="ts-blog-cards" style={{ display: "grid", gap: 16 }}>
-            {FEATURED_BLOG_POSTS.map((post, index) => (
-              <FadeInSection key={post.slug} delay={index * 0.08} style={{ height: "100%", display: "flex" }}>
-                <Link to={`/blog/${post.slug}`} style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  textDecoration: "none",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: 18,
-                  padding: "22px 22px 20px",
-                  minHeight: 250,
-                  boxShadow: "0 18px 36px rgba(0,0,0,0.18)",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 18 }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      padding: "6px 10px", borderRadius: 999,
-                      background: "rgba(255,255,255,0.03)", border: `1px solid ${post.accent}33`,
-                      color: post.accent, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
-                    }}>
-                      {post.category}
-                    </span>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>{formatBlogDate(post.publishedAt)}</span>
-                  </div>
-
-                  <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.08, letterSpacing: "-0.03em", color: "#f8fafc", marginBottom: 12 }}>
-                    {post.title}
-                  </div>
-                  <div style={{ fontSize: 14.5, color: "#94a3b8", lineHeight: 1.7, marginBottom: 18 }}>
-                    {post.description}
-                  </div>
-
-                  <div style={{
-                    marginTop: "auto",
-                    padding: "14px 15px",
-                    borderRadius: 14,
-                    border: "1px solid rgba(148,163,184,0.12)",
-                    background: "rgba(2,8,23,0.55)",
-                  }}>
-                    <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 6 }}>
-                      Core Idea
-                    </div>
-                    <div style={{ fontSize: 14.5, color: "#e2e8f0", lineHeight: 1.6 }}>
-                      {post.heroStat}
-                    </div>
-                  </div>
-                </Link>
-              </FadeInSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── CTA ── */}
       <FadeInSection>
         <section className="ts-cta-section" style={{
@@ -986,7 +857,7 @@ export default function LandingPage() {
             pointerEvents: "none",
           }} />
           <h2 style={{
-            fontSize: 44, fontWeight: 800, letterSpacing: "-0.03em",
+            fontSize: 44, fontWeight: 600, letterSpacing: "-0.03em",
             margin: "0 0 16px", position: "relative",
           }}>
             Ready to sharpen your edge?
@@ -1020,20 +891,21 @@ export default function LandingPage() {
         padding: "32px 48px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <TradeSharpLogo size={28} />
-          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", color: "#eaebf0" }}>
-            Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
-          </span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, maxWidth: 540 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <TradeSharpLogo size={28} />
+            <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>
+              Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
+            </span>
+          </div>
+          <p style={{ fontSize: 11.5, color: "#6b6e84", lineHeight: 1.65, margin: 0 }}>
+            Trading futures, currencies, and options carries a high level of risk and is not suitable for every trader. Use only funds you can afford to lose. Any testimonials, examples, or client stories shown here are for illustration only and should not be interpreted as typical outcomes or assurances of future results.
+          </p>
         </div>
         <p style={{ fontSize: 14, color: "#6b6e84", margin: 0 }}>
           © {new Date().getFullYear()} TradeSharp. Sharpen your edge. Track your path.
         </p>
         <div style={{ display: "flex", gap: 24 }}>
-          <Link to="/blog" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
-            onMouseEnter={e => e.target.style.color = "#22d3ee"}
-            onMouseLeave={e => e.target.style.color = "#6b6e84"}
-          >Blog</Link>
           <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
             onMouseEnter={e => e.target.style.color = "#22d3ee"}
             onMouseLeave={e => e.target.style.color = "#6b6e84"}
@@ -1117,11 +989,4 @@ function hexToRgb(hex) {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `${r},${g},${b}`;
-}
-
-function formatBlogDate(value) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
 }

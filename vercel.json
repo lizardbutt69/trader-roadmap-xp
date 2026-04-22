@@ -5,6 +5,10 @@
       "destination": "/api/$1"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
@@ -37,8 +41,8 @@
     }
   ],
   "functions": {
-    "api/ai-summary.js": {
-      "maxDuration": 30
-    }
+    "api/ai-summary.js": { "maxDuration": 30 },
+    "api/sitemap.js": { "maxDuration": 10 },
+    "api/og-preview.js": { "maxDuration": 10 }
   }
 }
