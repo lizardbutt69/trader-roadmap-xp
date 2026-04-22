@@ -318,10 +318,10 @@ const TradeTagChips = ({ tags, allTags = TRADE_TAGS }) => {
         return (
           <span key={label} style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
-            padding: "2px 7px", borderRadius: 3,
-            border: `1px solid ${color}`,
-            background: `${color}18`,
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.07em",
+            padding: "2px 8px", borderRadius: 4,
+            border: `1px solid ${color}40`,
+            background: `${color}12`,
             color,
           }}>#{label}</span>
         );
@@ -330,9 +330,18 @@ const TradeTagChips = ({ tags, allTags = TRADE_TAGS }) => {
   );
 };
 
-const ViolationPicker = ({ selected = [], onChange }) => (
+const buildEffectiveViolations = (prefs) => [
+  ...TRADE_VIOLATIONS,
+  ...(prefs?.violations ?? []).map(v => ({
+    value: v.label.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+    label: v.label,
+    color: v.color,
+  })),
+];
+
+const ViolationPicker = ({ selected = [], onChange, allViolations = TRADE_VIOLATIONS }) => (
   <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 8 }}>
-    {TRADE_VIOLATIONS.map(({ value, label, color }) => {
+    {allViolations.map(({ value, label, color }) => {
       const active = selected.includes(value);
       return (
         <button
@@ -355,21 +364,21 @@ const ViolationPicker = ({ selected = [], onChange }) => (
   </div>
 );
 
-const ViolationChips = ({ violations }) => {
+const ViolationChips = ({ violations, allViolations = TRADE_VIOLATIONS }) => {
   if (!violations || violations.length === 0) return null;
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
       {violations.map(value => {
-        const def = TRADE_VIOLATIONS.find(v => v.value === value);
+        const def = allViolations.find(v => v.value === value);
         const color = def ? def.color : "#ef4444";
         const label = def ? def.label : value;
         return (
           <span key={value} style={{
             fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.07em",
-            padding: "2px 7px", borderRadius: 3,
-            border: `1px solid ${color}`,
-            background: `${color}18`,
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.07em",
+            padding: "2px 8px", borderRadius: 4,
+            border: `1px solid ${color}40`,
+            background: `${color}12`,
             color,
           }}>⚠ {label}</span>
         );
@@ -412,7 +421,13 @@ function safeUrl(url) {
 }
 
 const VALID_DIRECTIONS = new Set(["Long", "Short", ""]);
-const VALID_APLUS = new Set(["Yes", "No", "Yes to No", "Yes But Execution Sucked", ""]);
+const APLUS_OPTIONS = [
+  "A+ — Followed Plan, Clean Execution",
+  "B — Good Setup, Poor Execution",
+  "C — Marginal / Forced Setup",
+  "F — No Setup / Rule Break",
+];
+const VALID_APLUS = new Set([...APLUS_OPTIONS, ""]);
 const VALID_BIAS = new Set(["Bullish", "Bearish", "Neutral", ""]);
 const MAX_TEXT_LENGTH = 5000;
 
@@ -431,7 +446,7 @@ function calcStreaks(trades) {
   let greenStreak = 0, bestGreen = 0, cur = 0;
   keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; bestGreen = Math.max(bestGreen, cur); } else cur = 0; });
   for (let i = keys.length - 1; i >= 0; i--) { if (dayMap[keys[i]].pnl > 0) greenStreak++; else break; }
-  const isAplusSetup = (t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
+  const isAplusSetup = (t) => t.aplus?.startsWith("A+") || t.aplus?.startsWith("B");
   let aplusStreak = 0, bestAplus = 0, curA = 0;
   sorted.forEach((t) => { if (isAplusSetup(t)) { curA++; bestAplus = Math.max(bestAplus, curA); } else curA = 0; });
   for (let i = sorted.length - 1; i >= 0; i--) { if (isAplusSetup(sorted[i])) aplusStreak++; else break; }
@@ -467,7 +482,7 @@ export function calcTradingXP(trades, dayMap) {
   let xp = 0;
   trades.forEach((t) => {
     xp += 10;
-    if (t.aplus === "Yes") xp += 15;
+    if (t.aplus?.startsWith("A+")) xp += 15;
     if (parseFloat(t.profit) > 0) xp += 20;
     if (t.notes && t.notes.length > 10) xp += 5;
   });
@@ -481,10 +496,10 @@ export function computeBadges(trades, dayMap) {
   let maxGreen = 0, cur = 0;
   keys.forEach((k) => { if (dayMap[k].pnl > 0) { cur++; maxGreen = Math.max(maxGreen, cur); } else cur = 0; });
   let maxAplus = 0, curA = 0;
-  sorted.forEach((t) => { if (t.aplus === "Yes") { curA++; maxAplus = Math.max(maxAplus, curA); } else curA = 0; });
+  sorted.forEach((t) => { if (t.aplus?.startsWith("A+")) { curA++; maxAplus = Math.max(maxAplus, curA); } else curA = 0; });
   let maxWin = 0, curW = 0;
   sorted.forEach((t) => { if (parseFloat(t.profit) > 0) { curW++; maxWin = Math.max(maxWin, curW); } else curW = 0; });
-  const aplusTrades = trades.filter((t) => t.aplus === "Yes").length;
+  const aplusTrades = trades.filter((t) => t.aplus?.startsWith("A+")).length;
   const now = new Date(); const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
   const weekPnl = trades.filter((t) => t.dt && new Date(t.dt) >= weekStart).reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
   const bestDay = Object.values(dayMap).reduce((b, d) => d.pnl > b ? d.pnl : b, 0);
@@ -538,7 +553,7 @@ export function buildDayMap(trades, mode = "personal") {
     m[k].pnl += getPnlForMode(t, mode);
     if (t.taken) m[k].count++;
     m[k].trades.push(t);
-    if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") m[k].aplusTrades++;
+    if (t.aplus?.startsWith("A+") || t.aplus?.startsWith("B")) m[k].aplusTrades++;
   });
   return m;
 }
@@ -640,17 +655,18 @@ function calcTradeSharpScore(trades) {
   const maxDDDollar = peak * maxDD;
   const recoveryFactor = maxDDDollar > 0 ? netProfit / maxDDDollar : netProfit > 0 ? 10 : 0;
 
-  // A+ Discipline — setup quality (Yes + Yes But Execution Sucked = setup was valid)
-  const isAplusSetup = (t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked";
+  // A+ Discipline — A+ and B = quality setups (planned entries)
+  const isAplusSetup = (t) => t.aplus?.startsWith("A+") || t.aplus?.startsWith("B");
   const aplusCount = valid.filter(isAplusSetup).length;
   const aplusPct = valid.length ? aplusCount / valid.length : 0;
 
-  // Execution quality — of A+ setups, how many had poor execution
-  const execSuckedCount = valid.filter((t) => t.aplus === "Yes But Execution Sucked").length;
-  const execQualityPct = aplusCount > 0 ? ((aplusCount - execSuckedCount) / aplusCount) * 100 : null;
+  // Execution quality — of quality setups, how many were B grade (execution flaws)
+  const execSuckedCount = valid.filter((t) => t.aplus?.startsWith("B")).length;
+  const aplusOnlyCount = valid.filter((t) => t.aplus?.startsWith("A+")).length;
+  const execQualityPct = aplusCount > 0 ? (aplusOnlyCount / aplusCount) * 100 : null;
 
-  // Post-review corrections — trades initially marked A+ but walked back
-  const yesToNoCount = valid.filter((t) => t.aplus === "Yes to No").length;
+  // C grade — marginal/forced setups
+  const yesToNoCount = valid.filter((t) => t.aplus?.startsWith("C")).length;
 
   // Score each pillar 0-100
   const score = (val, tiers) => {
@@ -730,7 +746,7 @@ function buildAIModelBreakdown(trades) {
     if (!isNaN(pv) && pv < 0) modelMap[t.model].losses++;
     if (!isNaN(pv)) modelMap[t.model].pnl += pv;
     if (!isNaN(pfv)) modelMap[t.model].funded += pfv;
-    if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") modelMap[t.model].aplus++;
+    if (t.aplus?.startsWith("A+") || t.aplus?.startsWith("B")) modelMap[t.model].aplus++;
   });
   return Object.keys(modelMap).length > 0
     ? "MODEL BREAKDOWN:\n" + Object.entries(modelMap)
@@ -952,21 +968,21 @@ function TradeSharpScore({ trades, month }) {
                 {execQualityPct.toFixed(0)}% clean
               </div>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
-                {execSuckedCount > 0 ? `${execSuckedCount} of ${aplusCount} A+ trades left money on table` : `All ${aplusCount} A+ setups executed cleanly`}
+                {execSuckedCount > 0 ? `${execSuckedCount} of ${aplusCount} quality setups had execution issues` : `All ${aplusCount} setups executed at A+ quality`}
               </div>
             </div>
           )}
           {yesToNoCount > 0 && (
             <div style={{
               flex: 1, minWidth: 180, padding: "12px 16px", borderRadius: 6,
-              background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.2)",
+              background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)",
             }}>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>REVIEW HONESTY</div>
-              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
-                {yesToNoCount} trade{yesToNoCount > 1 ? "s" : ""} corrected
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>C-GRADE SETUPS</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                {yesToNoCount} marginal{yesToNoCount > 1 ? "" : ""} setup{yesToNoCount > 1 ? "s" : ""}
               </div>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
-                Caught on review — good self-awareness
+                Forced or borderline — avoid these
               </div>
             </div>
           )}
@@ -1617,7 +1633,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   }, [user, todayStr]);
 
   const logTrade = async () => {
-    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: prefs?.aplus_options });
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: null });
     if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     const tradeData = {
@@ -1685,7 +1701,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
           <Field label="Setup Quality">
             <select style={selectStyle} value={formAplus} onChange={(e) => setFormAplus(e.target.value)}>
               <option value="">Select...</option>
-              {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
+              {(APLUS_OPTIONS).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </Field>
           {tradeModels.length > 0 && (
@@ -1751,7 +1767,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
           </Field>
           <Field label="Rule Violations" full>
             <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
-            <ViolationPicker selected={formViolations} onChange={setFormViolations} />
+            <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
           </Field>
         </div>
         {/* Replay Data collapsible */}
@@ -1835,7 +1851,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   }, [user]);
 
   const logTrade = async () => {
-    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: prefs?.aplus_options });
+    const err = validateTradeForm({ formDt, formAsset, formDirection, formAplus, formTaken, formBias, formProfit, formProfitFunded, formChart, formAfter, aplusOptions: null });
     if (err) { toast(err); return; }
     const parsedDt = new Date(formDt);
     setSaving(true);
@@ -1921,7 +1937,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
             <Field label="Setup Quality">
               <select style={selectStyle} value={formAplus} onChange={(e) => setFormAplus(e.target.value)}>
                 <option value="">Select...</option>
-                {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
+                {(APLUS_OPTIONS).map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
             {tradeModels.length > 0 && (
@@ -1987,7 +2003,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
             </Field>
             <Field label="Rule Violations" full>
               <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
-              <ViolationPicker selected={formViolations} onChange={setFormViolations} />
+              <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
             </Field>
           </div>
           {/* Replay Data collapsible */}
@@ -2273,13 +2289,11 @@ function TradeReplayModal({ trade, onClose, privacyMode, prefs }) {
 // TRADE REVIEW MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 
-const APLUS_OPTIONS = ["Yes", "No", "Yes to No", "Yes But Execution Sucked"];
-
 const aplusColor = (v) => {
-  if (v === "Yes") return "var(--green)";
-  if (v === "No") return "var(--red)";
-  if (v === "Yes to No") return "#f59e0b";
-  if (v === "Yes But Execution Sucked") return "#a78bfa";
+  if (v?.startsWith("A+")) return "var(--green)";
+  if (v?.startsWith("B"))  return "#a78bfa";
+  if (v?.startsWith("C"))  return "#f59e0b";
+  if (v?.startsWith("F"))  return "var(--red)";
   return "var(--text-tertiary)";
 };
 
@@ -2314,10 +2328,10 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
 
   const filtered = trades.filter(t => {
     if (!t.dt || t.dt.slice(0, 7) !== filterMonth) return false;
-    if (filterTag === "aplus") { if (!(t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked")) return false; }
-    else if (filterTag === "nonaplus") { if (!(t.aplus === "No" || t.aplus === "Yes to No")) return false; }
-    else if (filterTag === "exec") { if (t.aplus !== "Yes But Execution Sucked") return false; }
-    else if (filterTag === "corrected") { if (t.aplus !== "Yes to No") return false; }
+    if (filterTag === "aplus")   { if (!t.aplus?.startsWith("A+")) return false; }
+    else if (filterTag === "bgrade") { if (!t.aplus?.startsWith("B")) return false; }
+    else if (filterTag === "cgrade") { if (!t.aplus?.startsWith("C")) return false; }
+    else if (filterTag === "fgrade") { if (!t.aplus?.startsWith("F")) return false; }
     if (filterViolation !== "all") {
       if (filterViolation === "any") { if (!t.violations || t.violations.length === 0) return false; }
       else if (filterViolation === "clean") { if (t.violations && t.violations.length > 0) return false; }
@@ -2454,16 +2468,16 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
         {/* Filter tags */}
         <div style={{ display: "flex", gap: 6, padding: "14px 24px", borderBottom: "1px solid var(--border-primary)", flexShrink: 0, flexWrap: "wrap", alignItems: "center" }}>
           {tagBtn("all", "All")}
-          {tagBtn("aplus", "A+ Setups")}
-          {tagBtn("nonaplus", "Non A+")}
-          {tagBtn("exec", "Execution Issues")}
-          {tagBtn("corrected", "Yes → No")}
+          {tagBtn("aplus", "A+")}
+          {tagBtn("bgrade", "B")}
+          {tagBtn("cgrade", "C")}
+          {tagBtn("fgrade", "F")}
           <div style={{ width: 1, height: 20, background: "var(--border-primary)", margin: "0 4px" }} />
           {[
             { key: "all", label: "Any" },
             { key: "any", label: "⚠ Has Violations" },
             { key: "clean", label: "✓ Clean" },
-            ...TRADE_VIOLATIONS.map(v => ({ key: v.value, label: `⚠ ${v.label}` })),
+            ...buildEffectiveViolations(prefs).map(v => ({ key: v.value, label: `⚠ ${v.label}` })),
           ].map(({ key, label }) => (
             <button key={key} onClick={() => setFilterViolation(key)} style={{
               fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700,
@@ -2627,7 +2641,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                         <TradeTagChips tags={t.tags} allTags={prefs?.tags} />
                       </td>
                       <td style={{ padding: "12px 16px", minWidth: 160 }}>
-                        <ViolationChips violations={t.violations} />
+                        <ViolationChips violations={t.violations} allViolations={buildEffectiveViolations(prefs)} />
                         {(!t.violations || t.violations.length === 0) && <span style={{ color: "var(--green)", fontSize: 11, fontWeight: 700 }}>✓ Clean</span>}
                       </td>
                       <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
@@ -2744,7 +2758,7 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
                               </div>
                               <div style={{ marginBottom: 14 }}>
                                 <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Rule Violations</div>
-                                <ViolationPicker selected={ed.violations || []} onChange={val => setField(t.id, "violations", val)} />
+                                <ViolationPicker selected={ed.violations || []} onChange={val => setField(t.id, "violations", val)} allViolations={buildEffectiveViolations(prefs)} />
                               </div>
                               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                                 <div>
@@ -2800,10 +2814,10 @@ function TradeReviewModal({ trades, supabase, user, loadTrades, onClose, privacy
           display: "flex", gap: 20, flexShrink: 0, flexWrap: "wrap",
         }}>
           {[
-            { label: "A+ Setups", val: filtered.filter(t => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length, color: "var(--green)" },
-            { label: "Exec Issues", val: filtered.filter(t => t.aplus === "Yes But Execution Sucked").length, color: "#a78bfa" },
-            { label: "Yes → No", val: filtered.filter(t => t.aplus === "Yes to No").length, color: "#f59e0b" },
-            { label: "Non-A+", val: filtered.filter(t => t.aplus === "No").length, color: "var(--red)" },
+            { label: "A+", val: filtered.filter(t => t.aplus?.startsWith("A+")).length, color: "var(--green)" },
+            { label: "B", val: filtered.filter(t => t.aplus?.startsWith("B")).length, color: "#a78bfa" },
+            { label: "C", val: filtered.filter(t => t.aplus?.startsWith("C")).length, color: "#f59e0b" },
+            { label: "F", val: filtered.filter(t => t.aplus?.startsWith("F")).length, color: "var(--red)" },
           ].map(({ label, val, color }) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, color }}>{val}</span>
@@ -2971,7 +2985,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
   });
   const total = monthTrades.length;
   const taken = monthTrades.filter((t) => t.taken && t.taken !== "Missed").length;
-  const aplus = monthTrades.filter((t) => t.aplus === "Yes").length;
+  const missed = monthTrades.filter((t) => t.taken === "Missed").length;
+  const aplus = monthTrades.filter((t) => t.aplus?.startsWith("A+")).length;
   const wins = monthTrades.filter((t) => t.taken && t.taken !== "Missed" && getPnlForMode(t, pnlMode) > 0).length;
   const wr = taken ? Math.round((wins / taken) * 100) : 0;
   const pnl = monthTrades.reduce((s, t) => s + getPnlForMode(t, pnlMode), 0);
@@ -3055,8 +3070,8 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
 
       {/* Stats — Row 1: 5 narrow cards */}
       <div className="grid-5" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
-        <StatBox value={total} label="Logged" color="var(--text-secondary)" />
         <StatBox value={taken} label="Taken" color="var(--text-secondary)" />
+        <StatBox value={missed} label="Missed" color={missed > 0 ? "#f59e0b" : "var(--text-tertiary)"} />
         <StatBox value={aplus} label="A+ Setups" color="var(--green)" />
         <StatBox value={`${wr}%`} label="Win Rate" color={wr >= 50 ? "var(--green)" : "var(--red)"} />
         <StatBox value={privacyMode ? MASK : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(0)}`} label="Net P&L" color={pnl >= 0 ? "var(--green)" : "var(--red)"} />
@@ -3417,7 +3432,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                         {t.direction === "Long" ? <span style={{ color: "var(--accent-secondary)" }}>LONG</span> : t.direction === "Short" ? <span style={{ color: "var(--red)" }}>SHORT</span> : "—"}
                       </td>
                       <td style={cellStyle}>
-                        {t.aplus === "Yes" ? <span style={{ color: "var(--green)" }}>YES</span> : t.aplus === "No" ? <span style={{ color: "var(--red)" }}>NO</span> : "—"}
+                        {t.aplus ? <span style={{ color: aplusColor(t.aplus), fontWeight: 700 }}>{t.aplus.split(" —")[0]}</span> : "—"}
                       </td>
                       <td style={cellStyle}>
                         {t.taken === "Yes" ? <span style={{ color: "var(--green)" }}>YES</span> : t.taken === "No" ? <span style={{ color: "var(--red)" }}>NO</span> : t.taken === "Missed" ? <span style={{ color: "var(--gold)" }}>MISS</span> : <span style={{ color: "var(--text-tertiary)" }}>{t.taken || "—"}</span>}
@@ -3515,7 +3530,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
               <Field label="Setup Quality">
                 <select style={selectStyle} value={editForm.aplus} onChange={(e) => setEditForm({ ...editForm, aplus: e.target.value })}>
                   <option value="">Select...</option>
-                  {(prefs?.aplus_options ?? ["Yes","No","Yes to No","Yes But Execution Sucked"]).map(o => <option key={o} value={o}>{o}</option>)}
+                  {(APLUS_OPTIONS).map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </Field>
               {tradeModels.length > 0 && (
@@ -3638,7 +3653,7 @@ function AISummarySection({ trades, supabase }) {
     if (!periodTrades.length) { setOutput("No trades logged for this period yet."); setPeriod(label); return; }
 
     setPeriod(label); setLoading(true); setOutput("");
-    let taken = 0, wins = 0, losses = 0, aplusTaken = 0, execSucked = 0, yesToNo = 0, nonAplus = 0, missed = 0, totalPnl = 0, totalFundedPnl = 0;
+    let taken = 0, wins = 0, losses = 0, aplusTaken = 0, bGrade = 0, cGrade = 0, fGrade = 0, missed = 0, totalPnl = 0, totalFundedPnl = 0;
     periodTrades.forEach((t) => {
       const isTaken = t.taken && t.taken !== "Missed";
       const pv = parseFloat(t.profit);
@@ -3650,10 +3665,10 @@ function AISummarySection({ trades, supabase }) {
       taken++;
       if (!isNaN(pv) && pv > 0) wins++;
       if (!isNaN(pv) && pv < 0) losses++;
-      if (t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked") aplusTaken++;
-      if (t.aplus === "Yes But Execution Sucked") execSucked++;
-      if (t.aplus === "Yes to No") yesToNo++;
-      if (t.aplus === "No") nonAplus++;
+      if (t.aplus?.startsWith("A+")) aplusTaken++;
+      else if (t.aplus?.startsWith("B")) bGrade++;
+      else if (t.aplus?.startsWith("C")) cGrade++;
+      else if (t.aplus?.startsWith("F")) fGrade++;
     });
 
     const tsSection = buildAIScoreSection(periodTrades);
@@ -3691,17 +3706,14 @@ RISK CONTEXT:
 PERIOD: ${label}
 TOTAL TRADES LOGGED: ${periodTrades.length}
 TRADES TAKEN: ${taken} (Wins: ${wins}, Losses: ${losses})
-A+ SETUPS TAKEN: ${aplusTaken} (includes "Yes But Execution Sucked")
-  - "Yes But Execution Sucked": ${execSucked} — setup was valid, execution was poor (left money on table)
-  - "Yes to No": ${yesToNo} — initially marked A+, corrected on review (setup wasn't actually A+)
-NON-A+ TRADES TAKEN: ${nonAplus}
+A+ TRADES: ${aplusTaken} | B GRADE: ${bGrade} | C GRADE: ${cGrade} | F GRADE: ${fGrade}
 MISSED SETUPS: ${missed}
 
-A+ LABEL DEFINITIONS:
-- "Yes" = A+ setup, executed cleanly
-- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor
-- "Yes to No" = Trader initially thought it was A+, corrected on review — not actually valid
-- "No" = Not an A+ setup
+SETUP GRADE DEFINITIONS:
+- "A+" = followed plan exactly, clean entry and management
+- "B" = good setup, but execution had flaws (poor entry, early exit, etc.)
+- "C" = marginal or forced setup — borderline/impulsive
+- "F" = no valid setup / broke a trading rule
 NET PERSONAL P&L: $${totalPnl.toFixed(2)} (trades with P&L entered)
 NET FUNDED P&L: $${totalFundedPnl.toFixed(2)} (funded account trades with P&L entered)
 WIN RATE: ${taken ? Math.round((wins / taken) * 100) : 0}%
@@ -3806,7 +3818,7 @@ function BadgesSection({ trades, dayMap }) {
 function WeeklyChallengesSection({ trades }) {
   const now = new Date(); const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0, 0, 0, 0);
   const weekTrades = trades.filter((t) => t.dt && new Date(t.dt) >= weekStart);
-  const weekAplus = weekTrades.filter((t) => t.aplus === "Yes").length;
+  const weekAplus = weekTrades.filter((t) => t.aplus?.startsWith("A+")).length;
   const weekDayMap = {};
   weekTrades.forEach((t) => { const k = dateKey(t.dt); if (!weekDayMap[k]) weekDayMap[k] = { pnl: 0 }; weekDayMap[k].pnl += parseFloat(t.profit) || 0; });
   const greenDays = Object.values(weekDayMap).filter((d) => d.pnl > 0).length;
@@ -4577,7 +4589,7 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
       const grossLoss = Math.abs(losses.reduce((s, t) => s + parseFloat(t.profit), 0));
       const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : null;
       const wlRatio = avgWin > 0 && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
-      const aplusTaken = taken.filter(t => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked");
+      const aplusTaken = taken.filter(t => t.aplus?.startsWith("A+"));
       const aplusRate = taken.length ? Math.round(aplusTaken.length / taken.length * 100) : null;
       const pnlFunded = taken.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
       stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, pnlFunded, avgWin, avgLoss, profitFactor, wlRatio, aplusRate, bestAsset };
@@ -6160,19 +6172,21 @@ export function NotebookView({ supabase, user, trades }) {
     const taken = periodTrades.filter(t => t.taken && t.taken !== "Missed").length;
     const wins = periodTrades.filter(t => t.taken && t.taken !== "Missed" && parseFloat(t.profit) > 0).length;
     const pnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
-    const execSucked = periodTrades.filter(t => t.aplus === "Yes But Execution Sucked").length;
-    const yesToNo = periodTrades.filter(t => t.aplus === "Yes to No").length;
+    const aplusTakenPeriod = periodTrades.filter(t => t.aplus?.startsWith("A+")).length;
+    const bGradePeriod = periodTrades.filter(t => t.aplus?.startsWith("B")).length;
+    const cGradePeriod = periodTrades.filter(t => t.aplus?.startsWith("C")).length;
+    const fGradePeriod = periodTrades.filter(t => t.aplus?.startsWith("F")).length;
 
     const prompt = `${AI_COACH_TONE}
 
 You are reviewing a futures trader's journal for ${label}. They trade an ICT-inspired fractal model across multiple instruments — NQ, ES, YM, GC, SI, Oil, and correlated pairs — primarily in the NY session, max 2 trades/day. The model applies to any instrument where the setup is valid; asset selection is not a concern.
 
-A+ LABEL DEFINITIONS (read these carefully before commenting on trade quality):
-- "Yes" = A+ setup, executed cleanly
-- "Yes But Execution Sucked" = Setup was genuinely A+, but entry/management was poor — left money on table (${execSucked} this period)
-- "Yes to No" = Trader initially thought it was A+, corrected on review — setup wasn't actually valid (${yesToNo} this period)
-- "No" = Not an A+ setup
-- "Missed" = Seen but not taken
+SETUP GRADE DEFINITIONS (read these carefully before commenting on trade quality):
+- "A+" = followed plan exactly, clean entry and management (${aplusTakenPeriod} this period)
+- "B" = good setup, but execution had flaws — poor entry, early exit, etc. (${bGradePeriod} this period)
+- "C" = marginal or forced setup — borderline/impulsive (${cGradePeriod} this period)
+- "F" = no valid setup / broke a trading rule (${fGradePeriod} this period)
+- "Missed" = seen but not taken
 
 IMPORTANT: The trade data below is the ground truth. If trades are logged, they happened. Do not say the trader didn't trade if the log shows otherwise.
 
@@ -7518,7 +7532,7 @@ TRADING CONTEXT:
 - ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
 - A+ requires: CIC/SMT, key level, timeframe alignment, CISD, ICCISD, TTFM, session, R:R, stop loss
 - Standard risk: $500/trade, target: $1,000 (2R). Losses beyond -$500 = moved stop or overexposure.
-- "Yes But Execution Sucked" = valid setup, poor execution. "Yes to No" = impulsive entry, not actually valid.
+- Setup grades: A+ = clean plan execution | B = good setup, flawed execution | C = marginal/forced | F = no setup / rule break
 
 PERIOD: ${monthOptions.find(m => m.value === analyzerMonth)?.label}
 TOTAL: ${monthTrades.length} logged | ${taken.length} taken | ${wins} wins | Net P&L: $${pnl.toFixed(0)}
@@ -7559,14 +7573,14 @@ Be specific and data-driven. Cite exact trade dates, notes, and patterns. Under 
     const taken = periodTrades.filter((t) => t.taken && t.taken !== "Missed");
     const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
     const pnl = periodTrades.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
-    const aplusTaken = taken.filter((t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length;
-    const execSucked = taken.filter((t) => t.aplus === "Yes But Execution Sucked").length;
-    const yesToNo = taken.filter((t) => t.aplus === "Yes to No").length;
-    const nonAplus = taken.filter((t) => t.aplus === "No").length;
+    const aplusTakenCount = taken.filter((t) => t.aplus?.startsWith("A+")).length;
+    const bGradeCount = taken.filter((t) => t.aplus?.startsWith("B")).length;
+    const cGradeCount = taken.filter((t) => t.aplus?.startsWith("C")).length;
+    const fGradeCount = taken.filter((t) => t.aplus?.startsWith("F")).length;
     const tradeLines = periodTrades.map((t) => {
       const tags = t.tags?.length ? t.tags.join(", ") : "none";
       const violations = t.violations?.length ? t.violations.join(", ") : "none";
-      return `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | Model: ${t.model || "none"} | A+: ${t.aplus} | Taken: ${t.taken} | Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"} | Tags: ${tags} | Violations: ${violations} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
+      return `${t.dt?.split("T")[0]} | ${t.asset} ${t.direction} | Model: ${t.model || "none"} | Grade: ${t.aplus} | Taken: ${t.taken} | Personal P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Funded P&L: ${t.profit_funded != null ? "$" + t.profit_funded : "blank"} | Tags: ${tags} | Violations: ${violations} | Notes: ${t.notes || "none"} | After-thoughts: ${t.after_thoughts || "none"}`;
     }).join("\n");
     const tsSection = buildAIScoreSection(periodTrades);
     const splitSection = buildAISplitSection(periodTrades);
@@ -7577,9 +7591,11 @@ Be specific and data-driven. Cite exact trade dates, notes, and patterns. Under 
 
 ICT-inspired fractal model, NQ/ES, NY session only, max 2 trades/day.
 
+SETUP GRADE DEFINITIONS: A+ = clean plan execution | B = good setup, flawed execution | C = marginal/forced | F = no setup / rule break
+
 PERIOD: ${label}
 TRADES TAKEN: ${taken.length} (Wins: ${wins}, Losses: ${taken.length - wins})
-A+ TAKEN: ${aplusTaken} | Exec Sucked: ${execSucked} | Yes to No: ${yesToNo} | Non-A+: ${nonAplus}
+A+ TRADES: ${aplusTakenCount} | B GRADE: ${bGradeCount} | C GRADE: ${cGradeCount} | F GRADE: ${fGradeCount}
 NET P&L: $${pnl.toFixed(0)} | WIN RATE: ${taken.length ? Math.round((wins/taken.length)*100) : 0}%
 
 ${splitSection}
@@ -7626,7 +7642,7 @@ Under 700 words. Be specific and reference actual trades.`;
       const taken = dayTrades.filter((t) => t.taken && t.taken !== "Missed");
       const pnl = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
       const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
-      const aplus = taken.filter((t) => t.aplus === "Yes" || t.aplus === "Yes But Execution Sucked").length;
+      const aplus = taken.filter((t) => t.aplus?.startsWith("A+")).length;
       const notes = taken.map((t) => t.notes).filter(Boolean).join(" | ");
       return `${date}: ${taken.length} trade(s), ${wins}W/${taken.length - wins}L, P&L: $${pnl.toFixed(0)}, A+: ${aplus}/${taken.length}${notes ? `, Notes: "${notes}"` : ""}`;
     }).join("\n");
@@ -7673,9 +7689,9 @@ Each point: 1-2 sentences max. Direct, clear, and practical. No fluff.`;
     const taken = dayTrades.filter((t) => t.taken && t.taken !== "Missed");
     const pnl = taken.reduce((s, t) => s + (parseFloat(t.profit) || 0), 0);
     const wins = taken.filter((t) => parseFloat(t.profit) > 0).length;
-    const execSucked = taken.filter((t) => t.aplus === "Yes But Execution Sucked").length;
-    const yesToNo = taken.filter((t) => t.aplus === "Yes to No").length;
-    const tradeLines = dayTrades.map((t) => `${t.asset} ${t.direction} | A+: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Notes: ${t.notes || "none"}`).join("\n");
+    const bGradeDay = taken.filter((t) => t.aplus?.startsWith("B")).length;
+    const fGradeDay = taken.filter((t) => t.aplus?.startsWith("F")).length;
+    const tradeLines = dayTrades.map((t) => `${t.asset} ${t.direction} | Grade: ${t.aplus} | Taken: ${t.taken} | P&L: ${t.profit != null ? "$" + t.profit : "blank"} | Notes: ${t.notes || "none"}`).join("\n");
     const prompt = `${AI_COACH_TONE}
 
 You are reviewing a futures trader's journal for ${notebookDate}. ICT-inspired model, NQ/ES, NY session only, max 2 trades/day.
@@ -7684,7 +7700,7 @@ JOURNAL ENTRY:
 RECAP: ${entry.recap || "(blank)"}
 EOD REFLECTION: ${entry.eod_reflection || "(blank)"}
 
-TRADES: ${taken.length} taken | ${wins} wins | P&L: $${pnl.toFixed(0)} | Exec Sucked: ${execSucked} | Yes to No: ${yesToNo}
+TRADES: ${taken.length} taken | ${wins} wins | P&L: $${pnl.toFixed(0)} | B-Grade: ${bGradeDay} | F-Grade: ${fGradeDay}
 ${tradeLines || "(no trades)"}
 
 Write a focused coaching response (200-350 words):
@@ -7935,7 +7951,7 @@ export function EdgeChatView({ supabase, user, trades }) {
       const monthWins = monthTrades.filter((t) => profit(t) > 0).length;
       const monthLosses = monthTrades.filter((t) => profit(t) < 0).length;
       const monthPnl = monthTrades.reduce((s, t) => s + profit(t), 0);
-      const monthAplus = monthTrades.filter((t) => t.aplus === "Yes").length;
+      const monthAplus = monthTrades.filter((t) => t.aplus?.startsWith("A+")).length;
       const monthARate = monthTrades.length ? Math.round((monthAplus / monthTrades.length) * 100) : 0;
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
@@ -8029,8 +8045,7 @@ TRADER PROFILE:
 - Strategy: ICT-inspired fractal model (NQ/ES primary, NY session only, max 2 trades/day)
 - Standard risk: $500/trade | Target: $1,000 (2R)
 - A+ criteria requires ALL of: CIC/SMT, key level, TF alignment, CISD, ICCISD, TTFM, correct session time, min 1:2 R:R, defined stop
-- "Yes But Execution Sucked" = valid A+ setup, poor execution
-- "Yes to No" = impulsive entry, not a valid A+ setup
+- Setup grades: A+ = clean plan execution | B = good setup, flawed execution | C = marginal/forced | F = no setup / rule break
 - Losses beyond -$500 usually mean a moved stop or overexposure
 
 PERFORMANCE SNAPSHOT (as of ${todayStr}):

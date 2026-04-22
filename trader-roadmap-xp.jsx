@@ -830,8 +830,7 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
   const [primarySession, setPrimarySession] = useState(userPrefs?.primary_session || "");
   const [savingTrading, setSavingTrading] = useState(false);
 
-  // Section: Preferences — quality labels
-  const ICT_APLUS = ["Yes", "No", "Yes to No", "Yes But Execution Sucked"];
+  // Section: Preferences — tags and violations
   const ICT_TAGS = [
     { label: "GXT", color: "#22d3ee" }, { label: "TTFM", color: "#a78bfa" },
     { label: "CISD", color: "#f59e0b" }, { label: "ICCISD", color: "#fb923c" },
@@ -839,11 +838,20 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
     { label: "SMT", color: "#f472b6" }, { label: "PSP", color: "#2dd4bf" },
     { label: "SSMT", color: "#f87171" }, { label: "SMTFILL", color: "#c084fc" },
   ];
-  const [aplusOptions, setAplusOptions] = useState(userPrefs?.aplus_options ?? ICT_APLUS);
-  const [newAplus, setNewAplus] = useState("");
+  const DEFAULT_VIOLATIONS = [
+    { label: "EARLY ENTRY", color: "#f59e0b" },
+    { label: "MOVED STOP", color: "#ef4444" },
+    { label: "OUTSIDE SESSION", color: "#a78bfa" },
+    { label: "OVERTRADE", color: "#22d3ee" },
+    { label: "REVENGE TRADE", color: "#fb7185" },
+    { label: "NO CONFIRMATION", color: "#34d399" },
+  ];
   const [tags, setTags] = useState(userPrefs?.tags ?? ICT_TAGS);
   const [newTagLabel, setNewTagLabel] = useState("");
   const [newTagColor, setNewTagColor] = useState("#22d3ee");
+  const [violations, setViolations] = useState(userPrefs?.violations ?? []);
+  const [newViolationLabel, setNewViolationLabel] = useState("");
+  const [newViolationColor, setNewViolationColor] = useState("#ef4444");
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   // Section: Integrations
@@ -858,8 +866,8 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
       setTradingStyle(userPrefs.trading_style || "");
       setDefaultRisk(userPrefs.default_risk ?? "");
       setPrimarySession(userPrefs.primary_session || "");
-      setAplusOptions(userPrefs.aplus_options ?? ICT_APLUS);
       setTags(userPrefs.tags ?? ICT_TAGS);
+      setViolations(userPrefs.violations ?? []);
     }
   }, [userPrefs]);
 
@@ -903,7 +911,7 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
 
   const savePreferences = async () => {
     setSavingPrefs(true);
-    const row = { user_id: user.id, aplus_options: aplusOptions, tags, onboarding_complete: true, updated_at: new Date().toISOString() };
+    const row = { user_id: user.id, tags, violations, onboarding_complete: true, updated_at: new Date().toISOString() };
     await supabase.from("user_preferences").upsert(row, { onConflict: "user_id" });
     setUserPrefs(p => ({ ...(p ?? {}), ...row }));
     setSavingPrefs(false);
@@ -1103,27 +1111,30 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
       <div style={sectionCard}>
         <div style={sectionTitle}>Trade Journal Preferences</div>
 
-        {/* Quality Labels */}
-        <label style={label}>Setup Quality Labels</label>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginBottom: 10 }}>First item = your A+ equivalent — counts toward streaks and scoring.</div>
-        <div style={{ marginBottom: 12 }}>
-          {aplusOptions.map((opt, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--border-primary)" }}>
-              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-primary)", flex: 1 }}>{opt}</span>
-              {i === 0 && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", padding: "2px 6px", border: "1px solid rgba(34,211,238,0.3)", borderRadius: 4 }}>A+</span>}
-              <button onClick={() => setAplusOptions(a => { const n=[...a]; const t=n[i]; n.splice(i,1); if(i>0) n.splice(i-1,0,t); return n; })} disabled={i===0} style={{ background:"none",border:"none",cursor:i===0?"not-allowed":"pointer",color:"var(--text-tertiary)",fontSize:14,padding:"0 2px" }}>▲</button>
-              <button onClick={() => setAplusOptions(a => { const n=[...a]; const t=n[i]; n.splice(i,1); if(i<n.length) n.splice(i+1,0,t); return n; })} disabled={i===aplusOptions.length-1} style={{ background:"none",border:"none",cursor:i===aplusOptions.length-1?"not-allowed":"pointer",color:"var(--text-tertiary)",fontSize:14,padding:"0 2px" }}>▼</button>
-              <button onClick={() => setAplusOptions(a => a.filter((_,j)=>j!==i))} style={{ background:"none",border:"none",cursor:"pointer",color:"var(--red)",fontSize:16,padding:"0 4px" }}>×</button>
+        {/* Setup Quality — static display */}
+        <label style={label}>Setup Quality</label>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginBottom: 10 }}>Fixed grading scale — counts toward streaks, scoring, and AI analysis.</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+          {[
+            { grade: "A+", desc: "Followed Plan, Clean Execution", color: "#34d399" },
+            { grade: "B",  desc: "Good Setup, Poor Execution",     color: "#a78bfa" },
+            { grade: "C",  desc: "Marginal / Forced Setup",        color: "#f59e0b" },
+            { grade: "F",  desc: "No Setup / Rule Break",          color: "#ef4444" },
+          ].map(({ grade, desc, color }) => (
+            <div key={grade} style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "7px 14px", borderRadius: 6,
+              border: `1px solid ${color}40`,
+              background: `${color}12`,
+            }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, fontWeight: 800, color }}>{grade}</span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)" }}>{desc}</span>
             </div>
           ))}
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <input style={{ ...inputStyle, flex: 1 }} value={newAplus} onChange={e=>setNewAplus(e.target.value)} placeholder="New quality label..." maxLength={40} onKeyDown={e=>{ if(e.key==="Enter"&&newAplus.trim()){ setAplusOptions(a=>[...a,newAplus.trim()]); setNewAplus(""); }}} />
-            <button onClick={()=>{ if(newAplus.trim()){ setAplusOptions(a=>[...a,newAplus.trim()]); setNewAplus(""); }}} style={{ fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,fontWeight:700,padding:"9px 16px",borderRadius:6,cursor:"pointer",background:"var(--bg-tertiary)",border:"1px solid var(--border-primary)",color:"var(--text-primary)" }}>Add</button>
-          </div>
         </div>
 
         {/* Setup Tags */}
-        <label style={{ ...label, marginTop: 20 }}>Setup Tags</label>
+        <label style={label}>Setup Tags</label>
         <div style={{ marginBottom: 12 }}>
           {tags.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "4px 0 12px" }}>
@@ -1131,16 +1142,16 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
                 <span key={i} style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-                  padding: "5px 10px 5px 12px", borderRadius: 6,
-                  border: `1px solid ${tag.color}`,
-                  background: `${tag.color}1a`,
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "4px 10px 4px 12px", borderRadius: 5,
+                  border: `1px solid ${tag.color}40`,
+                  background: `${tag.color}12`,
                   color: tag.color,
                 }}>
                   #{tag.label}
                   <button onClick={() => setTags(t => t.filter((_, j) => j !== i))} style={{
                     background: "none", border: "none", cursor: "pointer",
-                    color: tag.color, opacity: 0.7, fontSize: 14, lineHeight: 1,
+                    color: tag.color, opacity: 0.6, fontSize: 14, lineHeight: 1,
                     padding: 0, display: "flex", alignItems: "center",
                   }}>×</button>
                 </span>
@@ -1154,7 +1165,57 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
           </div>
         </div>
 
-        <button style={saveBtn(savingPrefs)} onClick={savePreferences} disabled={savingPrefs}>{savingPrefs ? "Saving..." : "Save Preferences"}</button>
+        {/* Rule Violations */}
+        <label style={{ ...label, marginTop: 20 }}>Rule Violations</label>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginBottom: 10 }}>Tag mistakes on each trade. Defaults below are fixed — add your own custom violations.</div>
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Default</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            {DEFAULT_VIOLATIONS.map((v, i) => (
+              <span key={i} style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                padding: "4px 10px", borderRadius: 6,
+                border: `1px solid ${v.color}40`,
+                background: `${v.color}18`,
+                color: v.color,
+              }}>{v.label}</span>
+            ))}
+          </div>
+        </div>
+        {violations.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Custom</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {violations.map((v, i) => (
+                <span key={i} style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "4px 10px 4px 12px", borderRadius: 5,
+                  border: `1px solid ${v.color}40`,
+                  background: `${v.color}12`,
+                  color: v.color,
+                }}>
+                  {v.label}
+                  <button onClick={() => setViolations(vs => vs.filter((_, j) => j !== i))} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: v.color, opacity: 0.6, fontSize: 14, lineHeight: 1,
+                    padding: 0, display: "flex", alignItems: "center",
+                  }}>×</button>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input type="color" value={newViolationColor} onChange={e => setNewViolationColor(e.target.value)} style={{ width: 32, height: 32, border: "1px solid var(--border-primary)", borderRadius: 6, cursor: "pointer", background: "none", padding: 2, flexShrink: 0 }} />
+          <input style={{ ...inputStyle, flex: 1 }} value={newViolationLabel} onChange={e => setNewViolationLabel(e.target.value.toUpperCase())} placeholder="CUSTOM MISTAKE..." maxLength={30} onKeyDown={e => { if (e.key === "Enter" && newViolationLabel.trim()) { setViolations(vs => [...vs, { label: newViolationLabel.trim(), color: newViolationColor }]); setNewViolationLabel(""); } }} />
+          <button onClick={() => { if (newViolationLabel.trim()) { setViolations(vs => [...vs, { label: newViolationLabel.trim(), color: newViolationColor }]); setNewViolationLabel(""); } }} style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 12, fontWeight: 700, padding: "9px 16px", borderRadius: 6, cursor: "pointer", background: "var(--bg-tertiary)", border: "1px solid var(--border-primary)", color: "var(--text-primary)", flexShrink: 0 }}>Add</button>
+        </div>
+
+        <button style={{ ...saveBtn(savingPrefs), marginTop: 20 }} onClick={savePreferences} disabled={savingPrefs}>{savingPrefs ? "Saving..." : "Save Preferences"}</button>
       </div>
 
       {/* ── App Preferences ── */}
@@ -1455,7 +1516,6 @@ export default function TraderRoadmapXP() {
   useEffect(() => { loadPreferences(); }, [loadPreferences]);
 
   const ICT_DEFAULTS = {
-    aplus_options: ["Yes", "No", "Yes to No", "Yes But Execution Sucked"],
     tags: [
       { label: "GXT", color: "#22d3ee" }, { label: "TTFM", color: "#a78bfa" },
       { label: "CISD", color: "#f59e0b" }, { label: "ICCISD", color: "#fb923c" },
