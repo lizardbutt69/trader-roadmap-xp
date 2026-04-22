@@ -1597,6 +1597,7 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   const [formTakeProfit, setFormTakeProfit] = useState("");
   const [formTimeframe, setFormTimeframe] = useState("");
   const [showReplayFields, setShowReplayFields] = useState(false);
+  const [showReviewFields, setShowReviewFields] = useState(false);
 
   // Accounts for selectors
   const [accounts, setAccounts] = useState([]);
@@ -1685,6 +1686,11 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
           LOG A TRADE
         </div>
         <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
+          {/* ── TRADE SETUP ── */}
+          <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+            <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", whiteSpace: "nowrap" }}>Trade Setup</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border-primary)" }} />
+          </div>
           <Field label="Date & Time">
             <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
           </Field>
@@ -1727,11 +1733,11 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
               <option>Bearish</option>
             </select>
           </Field>
-          <Field label="Personal P&L ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+          <Field label="TradingView Link">
+            <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
           </Field>
-          <Field label="Funded P&L ($)">
-            <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+          <Field label="Setup Tags" full>
+            <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
           </Field>
           <Field label={<>Risk ($) <span style={{ fontWeight: 400, opacity: 0.45, textTransform: "none", letterSpacing: 0 }}>optional</span></>}>
             <input type="number" style={inputStyle} value={formRisk} onChange={(e) => setFormRisk(e.target.value)} placeholder={prefs?.default_risk ? String(prefs.default_risk) : "e.g. 500"} />
@@ -1752,27 +1758,40 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
               ))}
             </select>
           </Field>
-          <Field label="TradingView Link">
-            <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
-          </Field>
-          <Field label="After Trade Link" full>
-            <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formAfter} onChange={(e) => setFormAfter(e.target.value)} />
-          </Field>
           <Field label="Trade Notes" full>
             <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="Entry reason, observations, mistakes..." value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
           </Field>
-          <Field label="After Trade Thoughts" full>
-            <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
-            <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
-          </Field>
-          <Field label="Rule Violations" full>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
-            <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
-          </Field>
+
+          {/* ── POST-TRADE REVIEW (collapsible) ── */}
+          <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, margin: "6px 0 2px" }}>
+            <button onClick={() => setShowReviewFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showReviewFields ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="9 18 15 12 9 6"/></svg>
+              Post-Trade Review
+            </button>
+            <div style={{ flex: 1, height: 1, background: "var(--border-primary)" }} />
+          </div>
+          {showReviewFields && <>
+            <Field label="Personal P&L ($)">
+              <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+            </Field>
+            <Field label="Funded P&L ($)">
+              <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+            </Field>
+            <Field label="After Trade Link" full>
+              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formAfter} onChange={(e) => setFormAfter(e.target.value)} />
+            </Field>
+            <Field label="After Trade Thoughts" full>
+              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently? How did I feel after?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
+            </Field>
+            <Field label="Rule Violations" full>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
+              <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
+            </Field>
+          </>}
         </div>
         {/* Replay Data collapsible */}
         <div style={{ marginBottom: 16 }}>
-          <button onClick={() => setShowReplayFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <button onClick={() => setShowReplayFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showReplayFields ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="9 18 15 12 9 6"/></svg>
             Replay Data <span style={{ fontWeight: 400, opacity: 0.5 }}>(optional — fill to enable chart replay)</span>
           </button>
@@ -1835,6 +1854,7 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
   const [formTakeProfit, setFormTakeProfit] = useState("");
   const [formTimeframe, setFormTimeframe] = useState("");
   const [showReplayFields, setShowReplayFields] = useState(false);
+  const [showReviewFields, setShowReviewFields] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [tradeModels, setTradeModels] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -1921,6 +1941,11 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
         {/* Form */}
         <div style={{ padding: "20px 24px 24px" }}>
           <div className="form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            {/* ── TRADE SETUP ── */}
+            <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent)", whiteSpace: "nowrap" }}>Trade Setup</span>
+              <div style={{ flex: 1, height: 1, background: "var(--border-primary)" }} />
+            </div>
             <Field label="Date & Time">
               <input type="datetime-local" style={inputStyle} value={formDt} onChange={(e) => setFormDt(e.target.value)} />
             </Field>
@@ -1963,11 +1988,11 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
                 <option>Bearish</option>
               </select>
             </Field>
-            <Field label="Personal P&L ($)">
-              <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+            <Field label="TradingView Link">
+              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
             </Field>
-            <Field label="Funded P&L ($)">
-              <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+            <Field label="Setup Tags" full>
+              <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
             </Field>
             <Field label={<>Risk ($) <span style={{ fontWeight: 400, opacity: 0.45, textTransform: "none", letterSpacing: 0 }}>optional</span></>}>
               <input type="number" style={inputStyle} value={formRisk} onChange={(e) => setFormRisk(e.target.value)} placeholder={prefs?.default_risk ? String(prefs.default_risk) : "e.g. 500"} />
@@ -1988,23 +2013,36 @@ export function QuickLogModal({ supabase, user, onClose, prefs }) {
                 ))}
               </select>
             </Field>
-            <Field label="TradingView Link">
-              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formChart} onChange={(e) => setFormChart(e.target.value)} />
-            </Field>
-            <Field label="After Trade Link" full>
-              <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formAfter} onChange={(e) => setFormAfter(e.target.value)} />
-            </Field>
             <Field label="Trade Notes" full>
               <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="Entry reason, observations, mistakes..." value={formNotes} onChange={(e) => setFormNotes(e.target.value)} />
             </Field>
-            <Field label="After Trade Thoughts" full>
-              <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="What did I learn? What would I do differently?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
-              <TagPicker selected={formTags} onChange={setFormTags} tags={prefs?.tags} />
-            </Field>
-            <Field label="Rule Violations" full>
-              <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
-              <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
-            </Field>
+
+            {/* ── POST-TRADE REVIEW (collapsible) ── */}
+            <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, margin: "6px 0 2px" }}>
+              <button onClick={() => setShowReviewFields(v => !v)} style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showReviewFields ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}><polyline points="9 18 15 12 9 6"/></svg>
+                Post-Trade Review
+              </button>
+              <div style={{ flex: 1, height: 1, background: "var(--border-primary)" }} />
+            </div>
+            {showReviewFields && <>
+              <Field label="Personal P&L ($)">
+                <input type="number" style={inputStyle} placeholder="e.g. 500 or -200" value={formProfit} onChange={(e) => setFormProfit(e.target.value)} />
+              </Field>
+              <Field label="Funded P&L ($)">
+                <input type="number" style={inputStyle} placeholder="e.g. 800 or -300" value={formProfitFunded} onChange={(e) => setFormProfitFunded(e.target.value)} />
+              </Field>
+              <Field label="After Trade Link" full>
+                <input type="url" style={inputStyle} placeholder="https://tradingview.com/..." value={formAfter} onChange={(e) => setFormAfter(e.target.value)} />
+              </Field>
+              <Field label="After Trade Thoughts" full>
+                <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 72 }} placeholder="What did I learn? What would I do differently?" value={formAfterThoughts} onChange={(e) => setFormAfterThoughts(e.target.value)} />
+              </Field>
+              <Field label="Rule Violations" full>
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginBottom: 2 }}>Tag any rules you broke on this trade</div>
+                <ViolationPicker selected={formViolations} onChange={setFormViolations} allViolations={buildEffectiveViolations(prefs)} />
+              </Field>
+            </>}
           </div>
           {/* Replay Data collapsible */}
           <div style={{ marginBottom: 14 }}>
@@ -4589,10 +4627,14 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
       const grossLoss = Math.abs(losses.reduce((s, t) => s + parseFloat(t.profit), 0));
       const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : null;
       const wlRatio = avgWin > 0 && avgLoss < 0 ? avgWin / Math.abs(avgLoss) : null;
-      const aplusTaken = taken.filter(t => t.aplus?.startsWith("A+"));
-      const aplusRate = taken.length ? Math.round(aplusTaken.length / taken.length * 100) : null;
       const pnlFunded = taken.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
-      stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, pnlFunded, avgWin, avgLoss, profitFactor, wlRatio, aplusRate, bestAsset };
+      const grades = {
+        ap: taken.filter(t => t.aplus?.startsWith("A+")).length,
+        b: taken.filter(t => t.aplus?.startsWith("B")).length,
+        c: taken.filter(t => t.aplus?.startsWith("C")).length,
+        f: taken.filter(t => t.aplus?.startsWith("F")).length,
+      };
+      stats[m.name] = { count: taken.length, wins: wins.length, losses: losses.length, winRate, pnl, pnlFunded, avgWin, avgLoss, profitFactor, wlRatio, grades, bestAsset };
     });
     return stats;
   }, [models, trades]);
@@ -4688,14 +4730,14 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
   if (selectedModelId) {
     const dm = models.find(m => m.id === selectedModelId);
     if (!dm) { setSelectedModelId(null); return null; }
-    const s = modelStats[dm.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, pnlFunded: 0, avgWin: 0, avgLoss: 0, profitFactor: null, wlRatio: null, aplusRate: null, bestAsset: "—" };
+    const s = modelStats[dm.name] ?? { count: 0, wins: 0, losses: 0, winRate: null, pnl: 0, pnlFunded: 0, avgWin: 0, avgLoss: 0, profitFactor: null, wlRatio: null, grades: { ap: 0, b: 0, c: 0, f: 0 }, bestAsset: "—" };
     const wr = s.winRate;
     const wrc = wrColor(wr);
     const pfColor = s.profitFactor === null ? "var(--text-tertiary)" : s.profitFactor >= 2 ? "var(--accent)" : s.profitFactor >= 1.5 ? "var(--green)" : s.profitFactor >= 1 ? "var(--gold)" : "var(--red)";
     return (
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 40px", animation: "fadeSlideIn 0.2s ease" }}>
         <style>{`
-          .model-stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+          .model-stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
           .model-sub-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
           .model-rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
           @media (max-width: 600px) {
@@ -4744,7 +4786,6 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
                   { label: "Trades", value: s.count, color: "var(--text-primary)" },
                   { label: "Total P&L", value: privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`, color: s.pnl >= 0 ? "var(--green)" : "var(--red)" },
                   { label: "Profit Factor", value: s.profitFactor !== null ? s.profitFactor.toFixed(2) : "—", color: pfColor },
-                  { label: "A+ Rate", value: s.aplusRate !== null ? `${s.aplusRate}%` : "—", color: "var(--accent)" },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ background: "var(--bg-primary)", borderRadius: 8, padding: "14px 12px", textAlign: "center" }}>
                     <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1, marginBottom: 5 }}>{value}</div>
@@ -4763,6 +4804,44 @@ export function ModelsView({ supabase, user, trades, privacyMode }) {
                   <span style={{ color: s.pnl >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{privacyMode ? "••••" : `${s.pnl >= 0 ? "+" : ""}$${s.pnl.toFixed(0)}`}</span>
                 </div>
               </div>
+
+              {/* Grade Distribution */}
+              {(() => {
+                const { ap, b, c, f } = s.grades;
+                const total = ap + b + c + f;
+                const gradeList = [
+                  { label: "A+", count: ap, color: "#34d399" },
+                  { label: "B", count: b, color: "#a78bfa" },
+                  { label: "C", count: c, color: "#f59e0b" },
+                  { label: "F", count: f, color: "#ef4444" },
+                ].filter(g => g.count > 0);
+                const ungraded = s.count - total;
+                return total > 0 ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Grade Distribution</div>
+                    <div style={{ height: 7, borderRadius: 4, overflow: "hidden", display: "flex", marginBottom: 8, gap: 1 }}>
+                      {gradeList.map(g => (
+                        <div key={g.label} style={{ flex: g.count, background: g.color, transition: "flex 0.3s ease" }} />
+                      ))}
+                      {ungraded > 0 && <div style={{ flex: ungraded, background: "var(--bg-tertiary)" }} />}
+                    </div>
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                      {gradeList.map(g => (
+                        <div key={g.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: g.color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{g.label} <span style={{ color: "var(--text-tertiary)", fontWeight: 400 }}>{g.count}</span></span>
+                        </div>
+                      ))}
+                      {ungraded > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: 2, background: "var(--bg-tertiary)", flexShrink: 0 }} />
+                          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>Ungraded {ungraded}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Sub stat row — 3 cards */}
               <div className="model-sub-stat-grid">
