@@ -251,7 +251,7 @@ export default function PricingPage() {
       </div>
 
       {/* Active subscription notice */}
-      {!authLoading && !subLoading && user && isActive && (
+      {!authLoading && !subLoading && user && isPaid && (
         <div style={{
           background: "rgba(34,197,94,0.08)",
           border: "1px solid rgba(34,197,94,0.2)",
@@ -310,8 +310,10 @@ export default function PricingPage() {
           price="$15"
           priceSubtext="per month, billed monthly"
           features={[
-            "Full access to all features",
-            "AI performance coach",
+            "Full trade journal & equity curve",
+            "AI performance coach (Claude)",
+            "TradeSharp Score — 7-pillar analysis",
+            "Quest progression & XP system",
             "Cancel anytime",
           ]}
           ctaLabel="Choose Monthly"
@@ -324,9 +326,11 @@ export default function PricingPage() {
           price="$150"
           priceSubtext="per year ($12.50/mo equivalent)"
           features={[
-            "Full access to all features",
-            "AI performance coach",
+            "Everything in Monthly",
+            "Trade replay & education library",
+            "Rule violation tracking",
             "2 months free vs. monthly",
+            "Priority support",
           ]}
           ctaLabel="Choose Annual"
           badge="Save $30"
