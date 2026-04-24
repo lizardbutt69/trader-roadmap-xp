@@ -5,6 +5,7 @@ import { useSubscription } from "./src/hooks/useSubscription.js";
 import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, ModelsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast, useAchievement, computeBadges, buildDayMap } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
+import OnboardingFlow from "./src/components/OnboardingFlow.jsx";
 
 // ─── THEME ──────────────────────────────────────────────────────────────────
 
@@ -2210,21 +2211,11 @@ export default function TraderRoadmapXP() {
 
       {/* ── Onboarding Wizard ── */}
       {showOnboarding && (
-        <OnboardingModal
-          user={user} supabase={supabase} dark={dark}
+        <OnboardingFlow
+          user={user} supabase={supabase}
           setViewAndPersist={setViewAndPersist}
           setUserPrefs={setUserPrefs} setProfile={setProfile}
-          onboardStep={onboardStep} setOnboardStep={setOnboardStep}
-          obName={obName} setObName={setObName}
-          obExpLevel={obExpLevel} setObExpLevel={setObExpLevel}
-          obSession={obSession} setObSession={setObSession}
-          obStyle={obStyle} setObStyle={setObStyle}
-          obFirm={obFirm} setObFirm={setObFirm}
-          obAccountType={obAccountType} setObAccountType={setObAccountType}
-          obAccountSize={obAccountSize} setObAccountSize={setObAccountSize}
-          obDefaultRisk={obDefaultRisk} setObDefaultRisk={setObDefaultRisk}
-          obSaving={obSaving} setObSaving={setObSaving}
-          onJustCompleted={() => setJustCompletedOnboarding(true)}
+          onComplete={() => setJustCompletedOnboarding(true)}
         />
       )}
 
