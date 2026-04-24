@@ -2131,17 +2131,11 @@ export default function TraderRoadmapXP() {
   // ── TRADESHARP LOGO (SVG) ───
   const TradeSharpLogo = ({ size = 64 }) => (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Outer hexagon */}
       <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke="#22d3ee" strokeWidth="1.5" fill="none" opacity="0.5" />
-      {/* Inner hexagon */}
       <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke="#22d3ee" strokeWidth="1" fill="rgba(34,211,238,0.03)" />
-      {/* Crosshair horizontal */}
       <line x1="20" y1="32" x2="44" y2="32" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
-      {/* Crosshair vertical */}
       <line x1="32" y1="20" x2="32" y2="44" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
-      {/* Center diamond */}
       <path d="M32 26L38 32L32 38L26 32Z" fill="#22d3ee" opacity="0.85" />
-      {/* Corner ticks */}
       <line x1="20" y1="20" x2="24" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
       <line x1="20" y1="20" x2="20" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
       <line x1="44" y1="20" x2="40" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
@@ -2150,11 +2144,7 @@ export default function TraderRoadmapXP() {
       <line x1="20" y1="44" x2="20" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
       <line x1="44" y1="44" x2="40" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
       <line x1="44" y1="44" x2="44" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      {/* Subtle pulse ring */}
-      <circle cx="32" cy="32" r="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.12">
-        <animate attributeName="r" values="28;29;28" dur="4s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0.12;0.04;0.12" dur="4s" repeatCount="indefinite" />
-      </circle>
+      <circle cx="32" cy="32" r="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.12" />
     </svg>
   );
 
