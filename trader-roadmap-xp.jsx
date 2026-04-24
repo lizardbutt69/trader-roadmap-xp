@@ -2689,8 +2689,8 @@ export default function TraderRoadmapXP() {
           {/* Logo + Brand */}
           <div style={{ padding: "0 20px 24px", borderBottom: "1px solid var(--border-primary)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <TradeSharpLogo size={28} />
-              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)", letterSpacing: 2 }}>TRADESHARP</span>
+              <TradeSharpLogo size={34} />
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "#eaebf0" }}>Trade<span style={{ color: "#22d3ee" }}>Sharp</span></span>
             </div>
             {/* NYSE Clock */}
             <div style={{
@@ -3010,7 +3010,7 @@ export default function TraderRoadmapXP() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <TradeSharpLogo size={24} />
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--text-primary)", letterSpacing: 2 }}>TRADESHARP</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>Trade<span style={{ color: "#22d3ee" }}>Sharp</span></span>
                   </div>
                   <button onClick={() => setMobileMenu(false)} style={{
                     background: "none", border: "none", color: "var(--text-tertiary)",
