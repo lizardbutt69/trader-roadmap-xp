@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import LandingPage from './pages/LandingPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
+import AuthCallback from './pages/AuthCallback.jsx'
 import TraderRoadmapXP from '../trader-roadmap-xp.jsx'
 import PrivacyPolicy from './pages/PrivacyPolicy.jsx'
 import TermsAndConditions from './pages/TermsAndConditions.jsx'
@@ -12,6 +13,22 @@ import { supabase } from './supabase.js'
 
 const BlogPage = React.lazy(() => import('./pages/BlogPage.jsx'))
 const BlogPostPage = React.lazy(() => import('./pages/BlogPostPage.jsx'))
+const PricingPage = React.lazy(() => import('./pages/PricingPage.jsx'))
+
+function RootRoute() {
+  const params = new URLSearchParams(window.location.search)
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const hasAuthCallback =
+    params.has('code') ||
+    params.has('error') ||
+    params.has('error_description') ||
+    hashParams.has('access_token') ||
+    hashParams.has('refresh_token') ||
+    hashParams.has('error') ||
+    hashParams.has('error_description')
+
+  return hasAuthCallback ? <AuthCallback /> : <LandingPage />
+}
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -96,9 +113,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <AchievementAlertProvider>
               <React.Suspense fallback={BlogSpinner}>
                 <Routes>
-                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/" element={<RootRoute />} />
                   <Route path="/login" element={<AuthPage />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/app" element={<ProtectedRoute><TraderRoadmapXP /></ProtectedRoute>} />
+                  <Route path="/pricing" element={<PricingPage />} />
                   <Route path="/blog" element={<BlogPage />} />
                   <Route path="/blog/:slug" element={<BlogPostPage />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />

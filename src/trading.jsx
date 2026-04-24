@@ -6095,7 +6095,7 @@ const NOTEBOOK_SECTIONS = [
   { key: "eod_reflection", label: "EOD REFLECTION", placeholder: "What did you do well today? What needs work? Did you follow your rules? How's your mindset heading into tomorrow?" },
 ];
 
-export function NotebookView({ supabase, user, trades }) {
+export function NotebookView({ supabase, user, trades, privacyMode }) {
   const today = todayKey();
   const [selectedDate, setSelectedDate] = useState(today);
   const [entry, setEntry] = useState({ recap: "", eod_reflection: "", mood: null, ai_summary: "" });
@@ -6112,6 +6112,20 @@ export function NotebookView({ supabase, user, trades }) {
   const [saved, setSaved] = useState(false);
   const [plan, setPlan] = useState({ bias: "", max_trades: "2", session_plan: "" });
   const [moodText, setMoodText] = useState("");
+  const dayTrades = useMemo(() =>
+    trades
+      .filter((t) => t.dt && dateKey(t.dt) === selectedDate)
+      .sort((a, b) => new Date(a.dt) - new Date(b.dt)),
+  [trades, selectedDate]);
+  const takenTrades = useMemo(() => dayTrades.filter((t) => t.taken && t.taken !== "Missed"), [dayTrades]);
+  const dayNetPnl = useMemo(
+    () => takenTrades.reduce((sum, t) => sum + (Number.isFinite(parseFloat(t.profit)) ? parseFloat(t.profit) : 0), 0),
+    [takenTrades]
+  );
+  const hasTakenPnl = useMemo(
+    () => takenTrades.some((t) => t.profit !== "" && t.profit != null && Number.isFinite(parseFloat(t.profit))),
+    [takenTrades]
+  );
 
   // Load all entry dates for calendar dots
   useEffect(() => {
@@ -6467,6 +6481,74 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
         {NOTEBOOK_SECTIONS.map(({ key, label, placeholder }) => (
           <TCard key={key} style={{ padding: 24, marginBottom: 16 }}>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 12 }}>{label}</div>
+            {key === "recap" && (
+              <div style={{ marginBottom: 14, background: "var(--bg-primary)", border: "1px solid var(--border-primary)", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ padding: "7px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: dayTrades.length > 0 ? "1px solid var(--border-primary)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Trades</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{takenTrades.length} taken</span>
+                  </div>
+                  {hasTakenPnl && (
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: dayNetPnl >= 0 ? "var(--green)" : "var(--red)" }}>
+                      {privacyMode ? "••••" : `${dayNetPnl >= 0 ? "+" : ""}$${dayNetPnl.toFixed(0)}`}
+                    </span>
+                  )}
+                </div>
+                {dayTrades.length === 0 ? (
+                  <div style={{ padding: "9px 12px", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", fontStyle: "italic" }}>No trades logged for this date.</div>
+                ) : (
+                  <div>
+                    {dayTrades.map((trade, index) => {
+                      const timeLabel = new Date(trade.dt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+                      const direction = (trade.direction || "").toUpperCase();
+                      const directionColor = direction === "LONG" ? "var(--green)" : direction === "SHORT" ? "var(--red)" : "var(--text-secondary)";
+                      const grade = trade.aplus ? trade.aplus.split(" —")[0] : "";
+                      const isMissed = trade.taken === "Missed";
+                      const parsedPnl = parseFloat(trade.profit);
+                      const hasPnl = trade.profit !== "" && trade.profit != null && Number.isFinite(parsedPnl);
+                      return (
+                        <div key={trade.id ?? `${trade.dt}_${index}`} style={{ padding: "8px 12px", borderTop: index === 0 ? "none" : "1px solid var(--border-primary)", opacity: isMissed ? 0.5 : 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", minWidth: 0 }}>
+                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "var(--text-tertiary)" }}>{timeLabel}</span>
+                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{trade.asset || "—"}</span>
+                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: directionColor }}>{direction || "—"}</span>
+                              {grade && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, border: `1px solid ${aplusColor(grade)}40`, background: `${aplusColor(grade)}16`, color: aplusColor(grade) }}>{grade}</span>}
+                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{trade.taken || "—"}</span>
+                              {trade.model && <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)" }}>{trade.model}</span>}
+                            </div>
+                            {hasPnl && (
+                              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700, color: parsedPnl >= 0 ? "var(--green)" : "var(--red)", flexShrink: 0 }}>
+                                {privacyMode ? "••••" : `${parsedPnl >= 0 ? "+" : ""}$${parsedPnl.toFixed(0)}`}
+                              </span>
+                            )}
+                          </div>
+                          {trade.notes && (
+                            <div style={{ marginTop: 4, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {trade.notes}
+                            </div>
+                          )}
+                          {(trade.tags?.length > 0 || trade.violations?.length > 0) && (
+                            <div style={{ marginTop: 5, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                              {(trade.tags || []).map((tag) => {
+                                const def = TRADE_TAGS.find(tg => tg.value === tag);
+                                const col = def?.color || "var(--text-tertiary)";
+                                return <span key={tag} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, border: `1px solid ${col}40`, background: `${col}12`, color: col }}>{def?.label ?? tag}</span>;
+                              })}
+                              {(trade.violations || []).map((v) => {
+                                const def = TRADE_VIOLATIONS.find(vv => vv.value === v);
+                                const col = def?.color || "#ef4444";
+                                return <span key={v} style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, border: `1px solid ${col}40`, background: `${col}12`, color: col }}>⚠ {def?.label ?? v}</span>;
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             <textarea
               value={entry[key]}
               onChange={(e) => setEntry(prev => ({ ...prev, [key]: e.target.value }))}

@@ -35,7 +35,17 @@ export default function AuthPage() {
   const [signupDone, setSignupDone] = useState(false);
   const [forgotDone, setForgotDone] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
   const [focused, setFocused] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("error");
+    if (authError) {
+      setError(authError);
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []);
 
   // Redirect if already logged in, or handle password recovery link
   useEffect(() => {
@@ -54,13 +64,33 @@ export default function AuthPage() {
     return () => subscription.unsubscribe();
   }, [navigate, mode]);
 
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setLoading(true);
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+    // On success, browser redirects to Google → back to /app
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     if (mode === "signup") {
-      const { error: err } = await supabase.auth.signUp({ email, password });
-      if (err) { setError(err.message); setLoading(false); }
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error: err } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: redirectTo },
+      });
+      setLoading(false);
+      if (err) setError(err.message);
       else setSignupDone(true);
     } else if (mode === "forgot") {
       const redirectTo = `${window.location.origin}/login`;
@@ -91,7 +121,23 @@ export default function AuthPage() {
     setSignupDone(false);
     setForgotDone(false);
     setResetDone(false);
+    setResendDone(false);
     setNewPassword("");
+  };
+
+  const handleResendConfirmation = async () => {
+    setError("");
+    setResendDone(false);
+    setLoading(true);
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    const { error: err } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: redirectTo },
+    });
+    setLoading(false);
+    if (err) setError(err.message);
+    else setResendDone(true);
   };
 
   const inputStyle = (name) => ({
@@ -109,20 +155,35 @@ export default function AuthPage() {
     boxSizing: "border-box",
   });
 
+  const featureItems = [
+    "Structured trade journaling",
+    "Performance dashboard and account tracking",
+    "Roadmap quests for discipline and consistency",
+    "AI-assisted trade review and reflection",
+  ];
+
+  const metricItems = [
+    ["Win Rate", "58%"],
+    ["Avg R", "1.42"],
+    ["Rules Followed", "84%"],
+    ["Journal Streak", "12d"],
+  ];
+
+  const workflowItems = ["Pre-market plan", "Log execution", "Review mistakes", "Track progress"];
+
   return (
     <>
     <SEOHead title="Sign In" description="Sign in to TradeSharp to access your trading journal, performance tracker, and quest roadmap." noIndex={true} />
-    <div style={{
+    <div className="auth-page-root" style={{
       minHeight: "100vh",
       background: "#0b0d13",
       fontFamily: "'Plus Jakarta Sans', sans-serif",
       display: "flex",
-      flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      padding: "24px",
+      padding: "32px",
       position: "relative",
-      overflow: "hidden",
+      overflow: "auto",
     }}>
       <style>{`
         ::-webkit-scrollbar { width: 6px; }
@@ -136,23 +197,84 @@ export default function AuthPage() {
           caret-color: #eaebf0;
           transition: background-color 5000s ease-in-out 0s;
         }
+        .auth-shell {
+          width: 100%;
+          max-width: 1120px;
+          min-height: 680px;
+          display: grid;
+          grid-template-columns: minmax(0, 1.08fr) minmax(390px, 0.92fr);
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.025);
+          box-shadow: 0 24px 72px rgba(0,0,0,0.44), 0 0 60px rgba(34,211,238,0.04);
+          position: relative;
+          z-index: 1;
+        }
+        .auth-left-panel {
+          position: relative;
+          overflow: hidden;
+          padding: 52px;
+          border-right: 1px solid rgba(255,255,255,0.08);
+          background:
+            linear-gradient(135deg, rgba(34,211,238,0.12), rgba(52,211,153,0.05) 38%, rgba(11,13,19,0.2)),
+            #0b0d13;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 36px;
+        }
+        .auth-left-panel::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+          background-size: 44px 44px;
+          mask-image: linear-gradient(120deg, rgba(0,0,0,0.85), transparent 78%);
+          pointer-events: none;
+        }
+        .auth-card {
+          background: rgba(11,13,19,0.72);
+          padding: 48px 42px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+        .auth-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+        @media (max-width: 900px) {
+          .auth-shell {
+            grid-template-columns: 1fr;
+            min-height: auto;
+          }
+          .auth-left-panel {
+            border-right: none;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 34px 28px;
+          }
+          .auth-card {
+            padding: 36px 28px;
+          }
+        }
+        @media (max-width: 560px) {
+          .auth-page-root {
+            padding: 18px !important;
+            align-items: flex-start !important;
+          }
+          .auth-shell {
+            margin-top: 46px;
+          }
+          .auth-left-panel {
+            display: none;
+          }
+          .auth-card {
+            padding: 34px 22px;
+          }
+        }
       `}</style>
-
-      {/* Ambient orbs */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", top: "-10%", left: "-5%",
-          width: 500, height: 500, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(8,145,178,0.08) 0%, transparent 70%)",
-          filter: "blur(40px)",
-        }} />
-        <div style={{
-          position: "absolute", bottom: "0%", right: "-10%",
-          width: 400, height: 400, borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(129,140,248,0.06) 0%, transparent 70%)",
-          filter: "blur(40px)",
-        }} />
-      </div>
 
       {/* Back to home */}
       <button
@@ -171,18 +293,61 @@ export default function AuthPage() {
         ← Back
       </button>
 
+      <div className="auth-shell">
+        <section className="auth-left-panel">
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 36 }}>
+              <TradeSharpLogo size={36} />
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#eaebf0", letterSpacing: "-0.02em" }}>
+                Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
+              </div>
+            </div>
+
+            <div style={{ maxWidth: 520 }}>
+              <div style={{ fontSize: 44, lineHeight: 1.05, fontWeight: 600, color: "#f4f7fb", letterSpacing: 0, marginBottom: 18 }}>
+                Turn every trade into sharper execution.
+              </div>
+              <div style={{ fontSize: 15, color: "#a8b0c2", lineHeight: 1.75, maxWidth: 470 }}>
+                Journal trades, review patterns, track funded accounts, and build discipline through a trader-first roadmap.
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gap: 12, marginTop: 34, maxWidth: 500 }}>
+              {featureItems.map((item) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: 12, color: "#d8dee9", fontSize: 13, fontWeight: 400 }}>
+                  <span style={{ width: 18, height: 18, borderRadius: 4, background: "rgba(34,211,238,0.12)", border: "1px solid rgba(34,211,238,0.28)", color: "#22d3ee", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>✓</span>
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div className="auth-metrics-grid" style={{ marginBottom: 18 }}>
+              {metricItems.map(([label, value]) => (
+                <div key={label} style={{ border: "1px solid rgba(255,255,255,0.09)", background: "rgba(255,255,255,0.04)", padding: "16px 18px", minHeight: 74 }}>
+                  <div style={{ color: "#6f7890", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 800, marginBottom: 8 }}>{label}</div>
+                  <div style={{ color: "#f3f7fb", fontSize: 26, lineHeight: 1, fontWeight: 850, letterSpacing: 0 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ border: "1px solid rgba(255,255,255,0.09)", background: "rgba(0,0,0,0.18)", padding: 18 }}>
+              <div style={{ color: "#22d3ee", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 850, marginBottom: 14 }}>Daily Review Loop</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+                {workflowItems.map((item, index) => (
+                  <div key={item} style={{ color: "#b8c0d2", fontSize: 12, lineHeight: 1.35 }}>
+                    <div style={{ color: index === 3 ? "#34d399" : "#7d879b", fontSize: 11, fontWeight: 850, marginBottom: 5 }}>0{index + 1}</div>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
       {/* Card */}
-      <div style={{
-        width: "100%",
-        maxWidth: 420,
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: 16,
-        padding: "40px 36px",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.4), 0 0 40px rgba(34,211,238,0.04)",
-        position: "relative",
-        zIndex: 1,
-      }}>
+      <div className="auth-card">
         {/* Logo + brand */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ display: "inline-flex", marginBottom: 14 }}>
@@ -240,10 +405,47 @@ export default function AuthPage() {
             <div style={{ fontSize: 13, color: "#6b6e84", lineHeight: 1.6 }}>
               We sent a confirmation link to <span style={{ color: "#a0a3b5" }}>{email}</span>. Click it to activate your account.
             </div>
+            {resendDone && (
+              <div style={{
+                marginTop: 14,
+                padding: "10px 14px",
+                borderRadius: 7,
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.2)",
+                fontSize: 13,
+                color: "#22c55e",
+                lineHeight: 1.5,
+              }}>
+                Confirmation email resent. Check spam or promotions too.
+              </div>
+            )}
+            {error && (
+              <div style={{
+                marginTop: 14,
+                padding: "10px 14px",
+                borderRadius: 7,
+                background: "rgba(251,113,133,0.08)",
+                border: "1px solid rgba(251,113,133,0.2)",
+                fontSize: 13,
+                color: "#fb7185",
+                lineHeight: 1.5,
+              }}>{error}</div>
+            )}
+            <button
+              onClick={handleResendConfirmation}
+              disabled={loading}
+              style={{
+                marginTop: 20, padding: "10px 24px", borderRadius: 7,
+                background: loading ? "rgba(34,211,238,0.4)" : "linear-gradient(135deg, #0891b2, #22d3ee)",
+                border: "none", color: "#0b0d13", fontSize: 13, fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                transition: "all 0.2s",
+              }}
+            >{loading ? "Sending..." : "Resend confirmation email"}</button>
             <button
               onClick={() => switchMode("signin")}
               style={{
-                marginTop: 20, padding: "10px 24px", borderRadius: 7,
+                marginTop: 12, padding: "10px 24px", borderRadius: 7,
                 background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
                 color: "#a0a3b5", fontSize: 13, fontWeight: 600,
                 cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -412,6 +614,49 @@ export default function AuthPage() {
             </form>
           )
         ) : (
+          <>
+            {/* Google OAuth button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 8,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#eaebf0",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: loading ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                transition: "all 0.2s",
+                marginBottom: 14,
+              }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; } }}
+              onMouseLeave={e => { if (!loading) { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; } }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+                <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+              <span style={{ fontSize: 11, color: "#6b6e84", fontFamily: "'Plus Jakarta Sans', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600 }}>or</span>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+            </div>
+
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Email */}
             <div>
@@ -497,13 +742,10 @@ export default function AuthPage() {
               {loading ? "Please wait…" : mode === "signin" ? "Sign In →" : "Create Account →"}
             </button>
           </form>
+          </>
         )}
       </div>
-
-      {/* Bottom tagline */}
-      <p style={{ marginTop: 24, fontSize: 13, color: "#6b6e84", position: "relative", zIndex: 1 }}>
-        Sharpen your edge. Track your path.
-      </p>
+      </div>
     </div>
     </>
   );

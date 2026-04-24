@@ -572,29 +572,24 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.45 }}
               className="ts-hero-btns" style={{ display: "flex", gap: 12 }}
             >
-              <button
-                onClick={() => navigate("/app")}
-                style={{
-                  padding: "13px 28px", borderRadius: 8,
-                  background: "linear-gradient(135deg, #0891b2, #22d3ee)",
-                  border: "none", color: "#0b0d13", fontSize: 15, fontWeight: 700,
-                  cursor: "pointer", letterSpacing: "0.01em",
-                  boxShadow: "0 0 28px rgba(34,211,238,0.25), 0 4px 16px rgba(0,0,0,0.3)",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
-                onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-              >Start Journaling →</button>
-              <a href="#features" style={{
-                padding: "13px 24px", borderRadius: 8,
-                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
-                color: "#a0a3b5", fontSize: 15, fontWeight: 600,
-                cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center",
-                transition: "all 0.2s",
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "#eaebf0"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#a0a3b5"; }}
-              >See Features</a>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+                <button
+                  onClick={() => navigate("/app")}
+                  style={{
+                    padding: "13px 28px", borderRadius: 8,
+                    background: "linear-gradient(135deg, #0891b2, #22d3ee)",
+                    border: "none", color: "#0b0d13", fontSize: 15, fontWeight: 700,
+                    cursor: "pointer", letterSpacing: "0.01em",
+                    boxShadow: "0 0 28px rgba(34,211,238,0.25), 0 4px 16px rgba(0,0,0,0.3)",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                  onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
+                >Start Journaling →</button>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#a0a3b5", letterSpacing: "0.01em" }}>
+                  30 Days Free, Cancel Anytime
+                </div>
+              </div>
             </motion.div>
 
           </div>
@@ -878,8 +873,8 @@ export default function LandingPage() {
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 0 56px rgba(34,211,238,0.4), 0 8px 24px rgba(0,0,0,0.5)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 0 40px rgba(34,211,238,0.3), 0 4px 20px rgba(0,0,0,0.4)"; }}
           >Start Journaling →</button>
-          <p style={{ fontSize: 12, color: "#6b6e84", marginTop: 14, position: "relative" }}>
-            Free. No credit card required.
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#6b6e84", marginTop: 14, position: "relative" }}>
+            30 Days Free, Cancel Anytime
           </p>
         </section>
       </FadeInSection>
@@ -903,7 +898,7 @@ export default function LandingPage() {
           </p>
         </div>
         <p style={{ fontSize: 14, color: "#6b6e84", margin: 0 }}>
-          © {new Date().getFullYear()} TradeSharp. Sharpen your edge. Track your path.
+          © {new Date().getFullYear()} TradeSharp.
         </p>
         <div style={{ display: "flex", gap: 24 }}>
           <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}

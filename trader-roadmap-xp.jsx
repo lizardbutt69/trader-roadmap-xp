@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
+import { useSubscription } from "./src/hooks/useSubscription.js";
 import { ChecklistView, JournalView, TradeStatsView, TradingStatsView, AccountsView, ModelsView, DashboardView, WatchlistView, EducationView, NotebookView, PageBanner, QuickLogModal, AIHubView, EdgeChatView, TradeReplayView, useToast, useAchievement, computeBadges, buildDayMap } from "./src/trading.jsx";
 import { checkNewsAlerts } from "./src/utils/newsAlerts.js";
 import RoadmapModern from "./src/components/RoadmapModern.jsx";
@@ -572,7 +573,7 @@ function OnboardingModal({
     textDecoration: "underline", padding: "0 4px",
   };
 
-  const handleCompleteOnboarding = async () => {
+  const saveOnboardingSetup = async () => {
     if (obSaving) return;
     setObSaving(true);
 
@@ -596,16 +597,27 @@ function OnboardingModal({
       });
     }
     const { data: updatedPrefs } = await supabase.from("user_preferences")
-      .upsert({ user_id: user.id, onboarding_complete: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+      .upsert({ user_id: user.id, ...prefUpdates, onboarding_complete: false, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
       .select().single();
 
-    setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: true }));
+    setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: false }));
     if (obName.trim()) setProfile(p => ({ ...p, display_name: obName.trim() }));
+    setObSaving(false);
+  };
+
+  const completeAndGo = async (nextView) => {
+    if (obSaving) return;
+    setViewAndPersist(nextView);
+    setObSaving(true);
+    const { data: updatedPrefs } = await supabase.from("user_preferences")
+      .upsert({ user_id: user.id, onboarding_complete: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+      .select().single();
+    setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: true }));
     onJustCompleted();
     setObSaving(false);
   };
 
-  const handleSkip = () => { setOnboardStep(4); handleCompleteOnboarding(); };
+  const handleSkip = () => { completeAndGo("map"); };
 
   const cardStyle = {
     maxWidth: 500, width: "100%", position: "relative",
@@ -759,7 +771,10 @@ function OnboardingModal({
               <button
                 style={{ ...btnPrimary, flex: 1, opacity: obSaving ? 0.6 : 1, cursor: obSaving ? "not-allowed" : "pointer" }}
                 disabled={obSaving}
-                onClick={() => { setOnboardStep(4); handleCompleteOnboarding(); }}
+                onClick={async () => {
+                  await saveOnboardingSetup();
+                  setOnboardStep(4);
+                }}
               >
                 Finish
               </button>
@@ -783,9 +798,9 @@ function OnboardingModal({
               <div style={{ fontFamily: ff, fontSize: 11, color: "var(--text-tertiary)", marginBottom: 4 }}>Saving your settings…</div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 24 }}>
-              <button style={btnPrimary} onClick={() => setViewAndPersist("journal")}>Start Trading</button>
-              <button style={btnOutline} onClick={() => setViewAndPersist("roadmap")}>Explore Roadmap</button>
-              <button style={btnTertiary} onClick={() => setViewAndPersist("map")}>Go to Dashboard</button>
+              <button style={btnPrimary} onClick={() => completeAndGo("journal")}>Start Trading</button>
+              <button style={btnOutline} onClick={() => completeAndGo("roadmap")}>Explore Roadmap</button>
+              <button style={btnTertiary} onClick={() => completeAndGo("map")}>Go to Dashboard</button>
             </div>
           </div>
         )}
@@ -813,7 +828,85 @@ function ProgressDots({ step }) {
 
 // ─── SETTINGS VIEW ───────────────────────────────────────────────────────────
 
-function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, dark, setDark, privacyMode, setPrivacyMode, userPrefs, setUserPrefs, uploadAvatar, handleSignOut, currentXP, currentLevel, nextLevel, levels, completed, onNavigate }) {
+function DeleteAccountSection({ supabase, user, handleSignOut, addToast }) {
+  const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      });
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : {};
+      if (!res.ok || json.error) {
+        addToast("Delete failed: " + (json.error || "Unknown error"));
+        setDeleting(false);
+        setConfirm(false);
+        return;
+      }
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (e) {
+      addToast("Delete failed: " + e.message);
+      setDeleting(false);
+      setConfirm(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background: "rgba(239,68,68,0.03)",
+      border: "1px solid rgba(239,68,68,0.15)",
+      borderRadius: 10, padding: "20px 24px", marginBottom: 16,
+    }}>
+      <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--red)", marginBottom: 12 }}>
+        Danger Zone
+      </div>
+      {!confirm ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 3 }}>Delete Account</div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>Permanently removes your account and all data. Cannot be undone.</div>
+          </div>
+          <button
+            onClick={() => setConfirm(true)}
+            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 18px", borderRadius: 6, cursor: "pointer", background: "transparent", border: "1px solid rgba(239,68,68,0.4)", color: "var(--red)", flexShrink: 0 }}
+          >
+            Delete Account
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-primary)", fontWeight: 600 }}>
+            Are you sure? This will permanently delete your account and all trading data.
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", padding: "9px 20px", borderRadius: 6, cursor: deleting ? "not-allowed" : "pointer", background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "var(--red)", opacity: deleting ? 0.6 : 1 }}
+            >
+              {deleting ? "Deleting…" : "Yes, delete everything"}
+            </button>
+            <button
+              onClick={() => setConfirm(false)}
+              disabled={deleting}
+              style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", padding: "9px 16px", borderRadius: 6, cursor: "pointer", background: "transparent", border: "1px solid var(--border-primary)", color: "var(--text-tertiary)" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, dark, setDark, privacyMode, setPrivacyMode, userPrefs, setUserPrefs, uploadAvatar, handleSignOut, currentXP, currentLevel, nextLevel, levels, completed, onNavigate, subIsTrialing, subIsPaid, trialDaysLeft, onUpgrade, onManageSubscription }) {
   const addToast = useToast();
   const avatarRef = useRef(null);
 
@@ -996,6 +1089,60 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
   return (
     <div style={{ padding: "24px 32px 48px", maxWidth: 720, margin: "0 auto" }}>
       <PageBanner label="Account" title="Settings" subtitle="Manage your profile, trading preferences, and integrations" />
+
+      {/* ── Subscription card ── */}
+      {(subIsTrialing || subIsPaid) && (
+        <div style={{
+          background: subIsPaid ? "rgba(34,197,94,0.05)" : "rgba(34,211,238,0.05)",
+          border: `1px solid ${subIsPaid ? "rgba(34,197,94,0.2)" : "rgba(34,211,238,0.2)"}`,
+          borderRadius: 10, padding: "20px 24px", marginBottom: 16,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+        }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: "50%",
+                background: subIsPaid ? "#22c55e" : "#22d3ee",
+                boxShadow: subIsPaid ? "0 0 6px #22c55e" : "0 0 6px #22d3ee",
+              }} />
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: subIsPaid ? "#22c55e" : "#22d3ee" }}>
+                {subIsPaid ? "TradeSharp Pro" : "Free Trial"}
+              </span>
+            </div>
+            {subIsTrialing && (
+              <>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6 }}>
+                  {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining
+                </div>
+                <div style={{ width: 200, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 2, background: trialDaysLeft <= 3 ? "#fb7185" : "#22d3ee", width: `${Math.min(100, (trialDaysLeft / 30) * 100)}%`, transition: "width 0.3s" }} />
+                </div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11, color: "var(--text-tertiary)", marginTop: 6 }}>
+                  Trial ends — add a payment method to keep access
+                </div>
+              </>
+            )}
+            {subIsPaid && (
+              <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "var(--text-secondary)" }}>
+                Active subscription · all features unlocked
+              </div>
+            )}
+          </div>
+          <button
+            onClick={subIsPaid ? onManageSubscription : onUpgrade}
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, fontWeight: 700,
+              letterSpacing: "0.06em", textTransform: "uppercase",
+              padding: "10px 20px", borderRadius: 7, cursor: "pointer", border: "none", flexShrink: 0,
+              background: subIsPaid ? "rgba(34,197,94,0.15)" : "linear-gradient(135deg, #0891b2, #22d3ee)",
+              color: subIsPaid ? "#22c55e" : "#0b0d13",
+              boxShadow: subIsPaid ? "none" : "0 0 20px rgba(34,211,238,0.2)",
+            }}
+          >
+            {subIsPaid ? "Manage Subscription" : "Upgrade Now →"}
+          </button>
+        </div>
+      )}
 
       {/* ── Section 1: Profile ── */}
       <div style={sectionCard}>
@@ -1267,16 +1414,202 @@ function SettingsView({ supabase, user, profile, setProfile, apiKey, setApiKey, 
           >Reset Onboarding</button>
         </div>
       </div>
+
+      {/* ── Danger Zone ── */}
+      <DeleteAccountSection supabase={supabase} user={user} handleSignOut={handleSignOut} addToast={addToast} />
     </div>
   );
 }
 
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
+function SubscriptionLockOverlay({ startCheckout, openPortal, onOpenSettings }) {
+  const [busyPlan, setBusyPlan] = useState(null);
+
+  const handleSelect = async (plan) => {
+    setBusyPlan(plan);
+    try {
+      await startCheckout(plan);
+    } finally {
+      setBusyPlan(null);
+    }
+  };
+
+  const PlanButton = ({ plan, title, price, subtext, highlight, badge }) => (
+    <div style={{
+      position: "relative",
+      background: highlight ? "rgba(34,211,238,0.05)" : "rgba(255,255,255,0.03)",
+      border: `1px solid ${highlight ? "#22d3ee" : "rgba(255,255,255,0.1)"}`,
+      borderRadius: 12,
+      padding: "20px 18px",
+      display: "flex", flexDirection: "column", gap: 10,
+      boxShadow: highlight ? "0 0 28px rgba(34,211,238,0.15)" : "none",
+    }}>
+      {badge && (
+        <div style={{
+          position: "absolute", top: -9, right: 14,
+          background: "linear-gradient(135deg, #0891b2, #22d3ee)",
+          color: "#0b0d13", fontSize: 9, fontWeight: 800,
+          letterSpacing: "0.08em", textTransform: "uppercase",
+          padding: "3px 9px", borderRadius: 4,
+        }}>{badge}</div>
+      )}
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: highlight ? "#22d3ee" : "#6b6e84" }}>{title}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color: "#eaebf0", letterSpacing: "-0.02em", lineHeight: 1 }}>{price}</div>
+      <div style={{ fontSize: 11, color: "#6b6e84", lineHeight: 1.4, minHeight: 30 }}>{subtext}</div>
+      <button
+        onClick={() => handleSelect(plan)}
+        disabled={busyPlan !== null}
+        style={{
+          padding: "10px", borderRadius: 6, marginTop: 4,
+          background: highlight
+            ? (busyPlan ? "rgba(34,211,238,0.4)" : "linear-gradient(135deg, #0891b2, #22d3ee)")
+            : "rgba(255,255,255,0.06)",
+          border: highlight ? "none" : "1px solid rgba(255,255,255,0.12)",
+          color: highlight ? "#0b0d13" : "#eaebf0",
+          fontSize: 13, fontWeight: 700,
+          cursor: busyPlan ? "not-allowed" : "pointer",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          transition: "all 0.2s",
+        }}
+      >
+        {busyPlan === plan ? "Loading…" : "Choose"}
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(6,7,10,0.96)",
+      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 24, overflowY: "auto",
+      fontFamily: "'Plus Jakarta Sans', sans-serif",
+    }}>
+      <style>{`
+        @media (max-width: 720px) {
+          .lock-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      {/* Settings escape hatch */}
+      <button
+        onClick={onOpenSettings}
+        style={{
+          position: "absolute", top: 20, right: 20,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          color: "#a0a3b5", fontSize: 12, fontWeight: 600,
+          borderRadius: 6, padding: "7px 14px", cursor: "pointer",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+        }}
+      >
+        Account Settings
+      </button>
+
+      <div style={{
+        maxWidth: 760, width: "100%",
+        background: "rgba(255,255,255,0.04)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: 16,
+        padding: "36px 32px",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#eaebf0", letterSpacing: "-0.02em" }}>
+            Your free trial has ended
+          </div>
+          <div style={{ fontSize: 13, color: "#6b6e84", marginTop: 8 }}>
+            Choose a plan to continue using TradeSharp
+          </div>
+        </div>
+
+        <div
+          className="lock-grid"
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}
+        >
+          <PlanButton
+            plan="trial_monthly"
+            title="Free Trial"
+            price="$0"
+            subtext="today, then $15/mo"
+            highlight
+            badge="Most Popular"
+          />
+          <PlanButton
+            plan="monthly"
+            title="Monthly"
+            price="$15"
+            subtext="billed monthly"
+          />
+          <PlanButton
+            plan="annual"
+            title="Annual"
+            price="$150"
+            subtext="Save $30/year"
+            badge="Best Value"
+          />
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 22, display: "flex", justifyContent: "center", gap: 20 }}>
+          <button
+            onClick={openPortal}
+            style={{
+              background: "none", border: "none", color: "#6b6e84",
+              fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+              textDecoration: "underline", padding: 0,
+            }}
+          >
+            Manage existing subscription →
+          </button>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); window.location.href = "/login"; }}
+            style={{
+              background: "none", border: "none", color: "#6b6e84",
+              fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+              textDecoration: "underline", padding: 0,
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TraderRoadmapXP() {
   const addToast = useToast();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const {
+    isActive: subIsActive,
+    isTrialing: subIsTrialing,
+    isPaid: subIsPaid,
+    hasSeenPricing: subHasSeenPricing,
+    trialDaysLeft,
+    loading: subLoading,
+    subscribe: subStartCheckout,
+    manageSubscription: subOpenPortal,
+    refresh: subRefresh,
+  } = useSubscription(user);
+
+  // Handle return from Stripe Checkout — webhook may lag, so poll a few times
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("subscription") === "success") {
+      window.history.replaceState({}, "", "/app");
+      let attempts = 0;
+      const poll = setInterval(() => {
+        subRefresh();
+        if (++attempts >= 4) clearInterval(poll);
+      }, 2000);
+      return () => clearInterval(poll);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authError, setAuthError] = useState("");
@@ -1843,6 +2176,26 @@ export default function TraderRoadmapXP() {
     return <Navigate to="/login" replace />;
   }
 
+  // ── WAIT FOR SUBSCRIPTION DATA before rendering (avoids flash of app before redirect)
+  if (subLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <style>{globalStyles}</style>
+        <div style={{ textAlign: "center", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+          <div style={{ marginBottom: 16 }}><TradeSharpLogo size={48} /></div>
+          <div style={{ fontSize: 13, color: "#52546a", letterSpacing: "0.15em", textTransform: "uppercase" }}>LOADING...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── FIRST-TIME USERS: send to pricing page once before entering the app.
+  // Trialing users still get shown pricing (they haven't chosen a plan yet);
+  // only paid users bypass (they already went through checkout).
+  if (!subHasSeenPricing && !subIsPaid) {
+    return <Navigate to="/pricing" replace />;
+  }
+
   // ── MAIN UI ───
   return (
     <div
@@ -1855,6 +2208,15 @@ export default function TraderRoadmapXP() {
       }}
     >
       <style>{globalStyles}</style>
+
+      {/* ── Subscription Expired Overlay ── */}
+      {user && !subLoading && !subIsActive && (
+        <SubscriptionLockOverlay
+          startCheckout={subStartCheckout}
+          openPortal={subOpenPortal}
+          onOpenSettings={() => setViewAndPersist("settings")}
+        />
+      )}
 
       {/* ── Onboarding Wizard ── */}
       {showOnboarding && (
@@ -2532,6 +2894,16 @@ export default function TraderRoadmapXP() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{displayName}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: `${currentLevel.accent}20`, color: currentLevel.accent, border: `1px solid ${currentLevel.accent}40` }}>{currentLevel.tier}</span>
+                    {subIsTrialing && !subIsPaid && (
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: "rgba(34,211,238,0.1)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.3)" }}>
+                        {trialDaysLeft}d left
+                      </span>
+                    )}
+                    {subIsPaid && (
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", padding: "1px 6px", borderRadius: 20, background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
+                        Pro
+                      </span>
+                    )}
                   </div>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -2817,6 +3189,37 @@ export default function TraderRoadmapXP() {
 
         {/* ── Main Content ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Trial countdown banner */}
+          {subIsTrialing && trialDaysLeft <= 14 && (
+            <div style={{
+              background: trialDaysLeft <= 3 ? "rgba(251,113,133,0.1)" : "rgba(34,211,238,0.08)",
+              borderBottom: `1px solid ${trialDaysLeft <= 3 ? "rgba(251,113,133,0.25)" : "rgba(34,211,238,0.15)"}`,
+              padding: "8px 24px",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+              fontSize: 12,
+              color: trialDaysLeft <= 3 ? "#fb7185" : "#22d3ee",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 600,
+            }}>
+              <span>
+                {trialDaysLeft === 0
+                  ? "Your free trial ends today"
+                  : `Free trial — ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} remaining`}
+              </span>
+              <button
+                onClick={() => { window.location.href = "/pricing"; }}
+                style={{
+                  background: trialDaysLeft <= 3 ? "rgba(251,113,133,0.18)" : "rgba(34,211,238,0.15)",
+                  border: `1px solid ${trialDaysLeft <= 3 ? "rgba(251,113,133,0.35)" : "rgba(34,211,238,0.3)"}`,
+                  color: trialDaysLeft <= 3 ? "#fb7185" : "#22d3ee",
+                  borderRadius: 4, padding: "3px 12px",
+                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  letterSpacing: "0.04em",
+                }}
+              >Upgrade</button>
+            </div>
+          )}
           {/* Top bar — minimal */}
           <div className="header-bar" style={{
             background: dark ? "rgba(11,13,19,0.75)" : "rgba(248,249,252,0.85)",
@@ -2946,7 +3349,7 @@ export default function TraderRoadmapXP() {
 
         {/* NOTEBOOK VIEW */}
         {view === "notebook" && (
-          <NotebookView supabase={supabase} user={user} trades={trades} />
+          <NotebookView supabase={supabase} user={user} trades={trades} privacyMode={privacyMode} />
         )}
 
         {/* TRADE REPLAY VIEW */}
@@ -2980,6 +3383,9 @@ export default function TraderRoadmapXP() {
             currentXP={currentXP} currentLevel={currentLevel}
             nextLevel={nextLevel} levels={LEVELS} completed={completed}
             onNavigate={setViewAndPersist}
+            subIsTrialing={subIsTrialing} subIsPaid={subIsPaid} trialDaysLeft={trialDaysLeft}
+            onUpgrade={() => window.location.href = "/pricing"}
+            onManageSubscription={subOpenPortal}
           />
         )}
 
