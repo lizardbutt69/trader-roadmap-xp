@@ -4241,29 +4241,61 @@ export function AccountsView({ supabase, user, privacyMode }) {
         subtitle="Monitor your funded accounts, payouts, and drawdown — stay sharp, stay funded."
       />
       {/* Summary */}
-      <div className="acct-summary" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 12 }}>
-        <StatBox value={fundedCount} label="Funded" color="var(--green)" />
-        <StatBox value={evalCount} label="In Eval" color="var(--accent-secondary)" />
-        <StatBox value={passedCount} label="Passed" color="var(--green)" />
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(34,211,238,0.10) 0%, transparent 100%)" }}>
-          <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPnl >= 0 ? "var(--green)" : "var(--red)" }}>{privacyMode ? MASK : `${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Current P&L</div>
-        </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", background: "linear-gradient(135deg, rgba(52,211,153,0.10) 0%, transparent 100%)" }}>
-          <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalEligiblePayout > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalEligiblePayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Eligible Payout</div>
-        </TCard>
-      </div>
-      <div className="acct-summary-2" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", border: "1px solid rgba(52,211,153,0.18)" }}>
-          <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPaidOut > 0 ? "var(--green)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>YTD Paid Out</div>
-        </TCard>
-        <TCard style={{ padding: "18px 20px", textAlign: "center", border: "1px solid rgba(251,191,36,0.18)" }}>
-          <div className="stat-val" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 24, fontWeight: 700, color: totalPending > 0 ? "var(--gold)" : "var(--text-tertiary)" }}>{privacyMode ? MASK : `$${totalPending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</div>
-          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontWeight: 600 }}>Pending</div>
-        </TCard>
-      </div>
+      {(() => {
+        const totalCapital = accounts.reduce((s, a) => s + (a.account_size != null ? Number(a.account_size) : 0), 0);
+        const summaryStats = [
+          {
+            label: "Funded", value: fundedCount, display: String(fundedCount),
+            color: "var(--green)", accent: "rgba(52,211,153,0.12)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+          },
+          {
+            label: "In Eval", value: evalCount, display: String(evalCount),
+            color: "var(--accent-secondary)", accent: "rgba(34,211,238,0.10)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+          },
+          {
+            label: "Total Capital", value: totalCapital,
+            display: privacyMode ? MASK : `$${totalCapital.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+            color: "var(--accent-secondary)", accent: "rgba(34,211,238,0.08)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/></svg>,
+          },
+          {
+            label: "Current P&L",
+            display: privacyMode ? MASK : `${totalPnl >= 0 ? "+" : "-"}$${Math.abs(totalPnl).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+            color: totalPnl >= 0 ? "var(--green)" : "var(--red)",
+            accent: totalPnl >= 0 ? "rgba(52,211,153,0.08)" : "rgba(239,68,68,0.08)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
+          },
+          {
+            label: "YTD Paid Out",
+            display: privacyMode ? MASK : `$${totalPaidOut.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+            color: totalPaidOut > 0 ? "var(--green)" : "var(--text-tertiary)",
+            accent: "rgba(52,211,153,0.08)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+          },
+          {
+            label: "Pending",
+            display: privacyMode ? MASK : `$${totalPending.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+            color: totalPending > 0 ? "var(--gold)" : "var(--text-tertiary)",
+            accent: "rgba(251,191,36,0.08)",
+            icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+          },
+        ];
+        return (
+          <div className="acct-summary" style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
+            {summaryStats.map(({ label, display, color, accent, icon }) => (
+              <TCard key={label} style={{ padding: "16px 18px", background: accent, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+                  <span style={{ color, opacity: 0.7 }}>{icon}</span>
+                </div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 700, color, letterSpacing: "-0.02em", lineHeight: 1 }}>{display}</div>
+              </TCard>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Account Cards */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -4370,34 +4402,89 @@ export function AccountsView({ supabase, user, privacyMode }) {
           </TCard>
         )}
         {payouts.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-            {payouts.map((p) => {
-              const pStatus = PAYOUT_STATUSES.find((s) => s.value === p.status) || PAYOUT_STATUSES[0];
-              const pMethod = PAYOUT_METHODS.find((m) => m.value === p.method);
-              return (
-                <TCard key={p.id} style={{ padding: "18px 24px", borderLeft: `4px solid ${pStatus.color}` }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: "var(--green)" }}>{privacyMode ? MASK : `$${Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}</span>
-                      <Badge label={pStatus.label} color={pStatus.color} />
-                      {pMethod && <Badge label={pMethod.label} color="var(--text-tertiary)" />}
-                    </div>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)" }}>{p.payout_date}</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--text-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                      <span>{getAccountName(p.account_id)}</span>
-                      {p.notes && <span style={{ color: "var(--text-tertiary)" }}>— {p.notes}</span>}
-                    </div>
-                    <div style={{ display: "flex", gap: 14 }}>
-                      <button onClick={() => openEditPayout(p)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--accent-secondary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
-                      <DeletePopover id={p.id} confirmId={confirmDeletePayout} setConfirmId={setConfirmDeletePayout} onConfirm={deletePayout} buttonStyle={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--text-tertiary)", fontWeight: 600 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg> Delete</DeletePopover>
-                    </div>
-                  </div>
-                </TCard>
-              );
-            })}
-          </div>
+          <TCard style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <thead>
+                <tr style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid var(--border-primary)" }}>
+                  {["Date", "Account", "Amount", "Method", "Status", "Notes", ""].map((h) => (
+                    <th key={h} style={{
+                      padding: "10px 16px", textAlign: h === "Amount" ? "right" : h === "" ? "center" : "left",
+                      fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)",
+                      textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap",
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p, i) => {
+                  const pStatus = PAYOUT_STATUSES.find((s) => s.value === p.status) || PAYOUT_STATUSES[0];
+                  const pMethod = PAYOUT_METHODS.find((m) => m.value === p.method);
+                  return (
+                    <tr
+                      key={p.id}
+                      style={{
+                        borderBottom: i < payouts.length - 1 ? "1px solid var(--border-primary)" : "none",
+                        background: i % 2 === 1 ? "rgba(255,255,255,0.015)" : "transparent",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(34,211,238,0.04)"}
+                      onMouseLeave={e => e.currentTarget.style.background = i % 2 === 1 ? "rgba(255,255,255,0.015)" : "transparent"}
+                    >
+                      <td style={{ padding: "11px 16px", fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                        {p.payout_date}
+                      </td>
+                      <td style={{ padding: "11px 16px", fontSize: 12, color: "var(--text-primary)", fontWeight: 600, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {getAccountName(p.account_id)}
+                      </td>
+                      <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700, color: pStatus.value === "failed" ? "var(--red)" : "var(--green)", textAlign: "right", whiteSpace: "nowrap" }}>
+                        {privacyMode ? MASK : `$${Number(p.amount).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                      </td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                        {pMethod ? pMethod.label : "—"}
+                      </td>
+                      <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", gap: 5,
+                          fontSize: 11, fontWeight: 700, color: pStatus.color,
+                          background: `color-mix(in srgb, ${pStatus.color} 12%, transparent)`,
+                          border: `1px solid color-mix(in srgb, ${pStatus.color} 28%, transparent)`,
+                          borderRadius: 999, padding: "2px 8px",
+                        }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: pStatus.color, flexShrink: 0 }} />
+                          {pStatus.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "11px 16px", fontSize: 11, color: "var(--text-tertiary)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.notes || "—"}
+                      </td>
+                      <td style={{ padding: "11px 16px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                          <button
+                            onClick={() => openEditPayout(p)}
+                            title="Edit"
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: "4px 6px", borderRadius: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                            onMouseEnter={e => e.currentTarget.style.color = "var(--accent)"}
+                            onMouseLeave={e => e.currentTarget.style.color = "var(--text-tertiary)"}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                          </button>
+                          <DeletePopover
+                            id={p.id}
+                            confirmId={confirmDeletePayout}
+                            setConfirmId={setConfirmDeletePayout}
+                            onConfirm={deletePayout}
+                            buttonStyle={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", padding: "4px 6px", borderRadius: 4, display: "flex", alignItems: "center", transition: "color 0.15s" }}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                          </DeletePopover>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TCard>
         )}
 
       </div>
@@ -7321,7 +7408,7 @@ export function EducationView({ supabase, user }) {
                   onChange={(e) => setSessionNotes(e.target.value)}
                   placeholder="Take notes while you watch... timestamps, key concepts, action items..."
                   style={{
-                    ...inputStyle, minHeight: 120, resize: "vertical",
+                    ...inputStyle, minHeight: 240, resize: "vertical",
                     fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, lineHeight: 1.8,
                   }}
                 />

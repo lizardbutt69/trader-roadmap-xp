@@ -281,16 +281,35 @@ export default function AuthPage() {
         onClick={() => navigate("/")}
         style={{
           position: "absolute", top: 24, left: 24,
-          background: "transparent", border: "none",
-          color: "#6b6e84", fontSize: 14, fontWeight: 500,
+          background: "rgba(255,255,255,0.06)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          color: "#a0a3b5", fontSize: 13, fontWeight: 600,
           cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-          padding: "6px 0", transition: "color 0.2s",
+          padding: "8px 16px", borderRadius: 999,
+          transition: "all 0.2s",
           fontFamily: "'Plus Jakarta Sans', sans-serif",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+          zIndex: 10,
         }}
-        onMouseEnter={e => e.currentTarget.style.color = "#a0a3b5"}
-        onMouseLeave={e => e.currentTarget.style.color = "#6b6e84"}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+          e.currentTarget.style.borderColor = "rgba(34,211,238,0.3)";
+          e.currentTarget.style.color = "#eaebf0";
+          e.currentTarget.style.boxShadow = "0 2px 16px rgba(34,211,238,0.12)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+          e.currentTarget.style.color = "#a0a3b5";
+          e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.2)";
+        }}
       >
-        ← Back
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8.5 2.5L4 7l4.5 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Back
       </button>
 
       <div className="auth-shell">
