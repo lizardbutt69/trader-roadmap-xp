@@ -203,11 +203,14 @@ const LEVELS = [
 const ALL_MISSIONS = LEVELS.flatMap((l) => l.missions.map((m) => ({ ...m, levelId: l.id, levelName: l.name, levelAccent: l.accent })));
 const TOTAL_XP = ALL_MISSIONS.reduce((s, m) => s + m.xp, 0);
 
+// Missions that can't be verified from app data — require self-reporting
+const MANUAL_ONLY_IDS = new Set(["b6", "d1", "e1", "e4"]);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export default function RoadmapModern({ completed = new Map(), onMissionComplete, onMissionView }) {
+export default function RoadmapModern({ completed = new Map(), autoVerified = new Set(), onMissionComplete, onMissionView }) {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [hoveredMission, setHoveredMission] = useState(null);
   const [confirmMission, setConfirmMission] = useState(null);
@@ -215,12 +218,13 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
   const [proofLink, setProofLink] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const currentXP = ALL_MISSIONS.filter((m) => completed.has(m.id)).reduce((s, m) => s + m.xp, 0);
+  const effectiveDone = new Set([...completed.keys(), ...autoVerified]);
+  const currentXP = ALL_MISSIONS.filter((m) => effectiveDone.has(m.id)).reduce((s, m) => s + m.xp, 0);
   const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
   const nextLevel = LEVELS.find((l) => l.xpRequired > currentXP);
 
   const handleMissionClick = (mission, level) => {
-    if (completed.has(mission.id)) {
+    if (completed.has(mission.id) || autoVerified.has(mission.id)) {
       if (onMissionView) onMissionView(mission, completed.get(mission.id));
     } else {
       setConfirmMission({ mission, level });
@@ -240,7 +244,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
   };
 
   const getLevelProgress = (level) => {
-    const done = level.missions.filter((m) => completed.has(m.id)).length;
+    const done = level.missions.filter((m) => effectiveDone.has(m.id)).length;
     return { done, total: level.missions.length, pct: Math.round((done / level.missions.length) * 100) };
   };
 
@@ -330,8 +334,12 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         <div className="roadmap-missions-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {level.missions.map((mission, index) => {
             const isCompleted = completed.has(mission.id);
+            const isAutoVerified = !isCompleted && autoVerified.has(mission.id);
+            const isDone = isCompleted || isAutoVerified;
+            const isManualOnly = !isDone && MANUAL_ONLY_IDS.has(mission.id);
             const meta = TYPE_META[mission.type];
             const isHovered = hoveredMission === mission.id;
+            const autoColor = "#22d3ee";
 
             return (
               <div
@@ -339,10 +347,10 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
                 style={{
                   display: "flex", alignItems: "flex-start", gap: 16,
                   padding: "18px", borderRadius: 12, cursor: "pointer",
-                  background: isCompleted ? `${level.accent}08` : isHovered ? "var(--bg-tertiary)" : "var(--bg-secondary)",
-                  border: isCompleted ? `1px solid ${level.accent}30` : "1px solid var(--border-primary)",
-                  transform: isHovered && !isCompleted ? "translateY(-2px)" : "none",
-                  boxShadow: isHovered && !isCompleted ? "0 8px 24px rgba(0,0,0,0.15)" : "none",
+                  background: isCompleted ? `${level.accent}08` : isAutoVerified ? "rgba(34,211,238,0.06)" : isHovered ? "var(--bg-tertiary)" : "var(--bg-secondary)",
+                  border: isCompleted ? `1px solid ${level.accent}30` : isAutoVerified ? "1px solid rgba(34,211,238,0.25)" : "1px solid var(--border-primary)",
+                  transform: isHovered && !isDone ? "translateY(-2px)" : "none",
+                  boxShadow: isHovered && !isDone ? "0 8px 24px rgba(0,0,0,0.15)" : "none",
                   transition: "all 0.2s ease",
                   animation: `slideUp 0.4s ease ${index * 0.06}s both`,
                 }}
@@ -353,20 +361,36 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
                 <div style={{
                   width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: isCompleted ? "#10b981" : "transparent",
-                  border: isCompleted ? "2px solid #10b981" : "2px solid var(--border-primary)",
-                  boxShadow: isCompleted ? "0 0 12px rgba(16,185,129,0.4)" : "none",
+                  background: isCompleted ? "#10b981" : isAutoVerified ? "rgba(34,211,238,0.15)" : "transparent",
+                  border: isCompleted ? "2px solid #10b981" : isAutoVerified ? `2px solid ${autoColor}` : "2px solid var(--border-primary)",
+                  boxShadow: isCompleted ? "0 0 12px rgba(16,185,129,0.4)" : isAutoVerified ? "0 0 8px rgba(34,211,238,0.35)" : "none",
                   transition: "all 0.3s ease",
                 }}>
                   {isCompleted && <Icons.Check color="#fff" size={14} />}
+                  {isAutoVerified && <Icons.Lightning color={autoColor} size={12} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
                     {mission.name}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5, marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5, marginBottom: isManualOnly ? 6 : 8 }}>
                     {mission.desc}
                   </div>
+                  {isManualOnly && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      marginBottom: 8, padding: "6px 10px", borderRadius: 8,
+                      background: "rgba(148,163,184,0.07)",
+                      border: "1px solid rgba(148,163,184,0.15)",
+                    }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                      </svg>
+                      <span style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
+                        Mark complete when you've reached this milestone
+                      </span>
+                    </div>
+                  )}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
@@ -391,12 +415,24 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
                     <span style={{
                       display: "inline-flex", alignItems: "center", gap: 4,
                       padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700,
-                      background: "rgba(251,191,36,0.1)", color: "#fbbf24",
-                      border: "1px solid rgba(251,191,36,0.2)",
+                      background: isCompleted || isAutoVerified ? "transparent" : "rgba(251,191,36,0.1)",
+                      color: isCompleted ? "#10b981" : isAutoVerified ? "#22d3ee" : "#fbbf24",
+                      border: isCompleted ? "1px solid rgba(16,185,129,0.3)" : isAutoVerified ? "1px solid rgba(34,211,238,0.3)" : "1px solid rgba(251,191,36,0.2)",
                     }}>
-                      <Icons.Lightning size={10} color="#fbbf24" />
-                      +{mission.xp} XP
+                      {isCompleted ? <Icons.Check size={10} color="#10b981" /> : isAutoVerified ? <Icons.Lightning size={10} color="#22d3ee" /> : <Icons.Lightning size={10} color="#fbbf24" />}
+                      {isCompleted ? "✓ " : isAutoVerified ? "⚡ " : "+"}{mission.xp} XP
                     </span>
+                    {isAutoVerified && (
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+                        background: "rgba(34,211,238,0.08)", color: "#22d3ee",
+                        border: "1px solid rgba(34,211,238,0.2)",
+                        letterSpacing: "0.03em",
+                      }}>
+                        ⚡ Auto-Verified
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -553,7 +589,7 @@ export default function RoadmapModern({ completed = new Map(), onMissionComplete
         {[
           { label: "Total XP",     value: currentXP.toLocaleString(), sub: `/ ${TOTAL_XP.toLocaleString()}`,                              color: "#fbbf24" },
           { label: "Current Level",value: `Stage ${currentLevel.id}`, sub: currentLevel.name,                                            color: currentLevel.accent },
-          { label: "Missions Done",value: `${completed.size}`,        sub: `/ ${ALL_MISSIONS.length} total`,                             color: "#10b981" },
+          { label: "Missions Done",value: `${effectiveDone.size}`,     sub: `/ ${ALL_MISSIONS.length} total`,                             color: "#10b981" },
           { label: "Next Goal",    value: nextLevel ? nextLevel.name : "MAX", sub: nextLevel ? `${(nextLevel.xpRequired - currentXP).toLocaleString()} XP to go` : "You made it!", color: nextLevel?.accent || "#ec4899" },
         ].map((s, i) => (
           <div key={i} className="roadmap-stat-card" style={{
