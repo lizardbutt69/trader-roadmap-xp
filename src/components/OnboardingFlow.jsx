@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import PlanCard from './PlanCard.jsx';
+import { useSubscription } from '../hooks/useSubscription.js';
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 function TradeSharpLogo({ size = 40, glow = false }) {
@@ -242,6 +244,7 @@ function WelcomeStep({ data, onNext, onSkip }) {
     { icon: Icon.style, label: 'Trading Style', desc: 'Instruments, methodology, session' },
     { icon: Icon.goal, label: 'Your Goal', desc: 'Target payout and timeline' },
     { icon: Icon.account, label: 'First Account', desc: 'Firm, type, and starting size' },
+    { icon: Icon.spark, label: 'Pick a Plan', desc: '30-day free trial, monthly, or annual' },
     { icon: Icon.rocket, label: 'Setup Complete', desc: "You're ready to trade" },
   ];
   return (
@@ -258,9 +261,9 @@ function WelcomeStep({ data, onNext, onSkip }) {
         <span style={{ background: 'linear-gradient(90deg, #22d3ee 0%, #a78bfa 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>a sharper trader.</span>
       </h1>
       <p style={{ marginTop: 18, fontSize: 16, color: 'rgba(255,255,255,0.55)', maxWidth: 520, textAlign: 'center', lineHeight: 1.55 }}>
-        A quick five-step setup — about 90 seconds — tunes the roadmap, journal, and AI coach to exactly how you trade.
+        A quick setup — about 90 seconds — tunes the roadmap, journal, and AI coach to exactly how you trade.
       </p>
-      <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, width: '100%' }}>
+      <div style={{ marginTop: 36, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, width: '100%' }}>
         {items.map((it, i) => (
           <div key={i} style={{
             padding: '16px 14px', borderRadius: 12,
@@ -530,7 +533,72 @@ function AccountStep({ data, update, onNext, onBack, onSkip }) {
           <div><b style={{ color: '#fff' }}>You can add more accounts anytime.</b> TradeSharp tracks each account's P&L, drawdown, and progress separately.</div>
         </div>
       </div>
-      <StepFooter onBack={onBack} onNext={onNext} onSkip={onSkip} nextLabel="Finish setup" />
+      <StepFooter onBack={onBack} onNext={onNext} onSkip={onSkip} />
+    </div>
+  );
+}
+
+function PricingStep({ onSelectPlan, onBack, onSkip, busyPlan }) {
+  return (
+    <div className="ts-ob-step">
+      <StepHeader
+        kicker="Step 05 · Plan"
+        title="Pick the plan that fits your trajectory"
+        subtitle="Start with 30 days free — no charge today, cancel anytime. Or jump straight in and decide later from settings."
+      />
+      <div style={{ maxWidth: 980, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+        <PlanCard
+          title="Free Trial"
+          price="$0"
+          priceSubtext="today, then $15/month after 30 days"
+          features={[
+            "Full access for 30 days",
+            "Cancel anytime before trial ends",
+            "All trading tools unlocked",
+            "Requires a card to start",
+          ]}
+          ctaLabel="Start Free Trial"
+          badge="Most Popular"
+          highlight
+          loading={busyPlan === 'trial_monthly'}
+          onSelect={() => onSelectPlan('trial_monthly')}
+        />
+        <PlanCard
+          title="Monthly"
+          price="$15"
+          priceSubtext="per month, billed monthly"
+          features={[
+            "Full trade journal & equity curve",
+            "AI performance coach (Claude)",
+            "TradeSharp Score — 7-pillar analysis",
+            "Quest progression & XP system",
+            "Cancel anytime",
+          ]}
+          ctaLabel="Choose Monthly"
+          loading={busyPlan === 'monthly'}
+          onSelect={() => onSelectPlan('monthly')}
+        />
+        <PlanCard
+          title="Annual"
+          price="$150"
+          priceSubtext="per year ($12.50/mo equivalent)"
+          features={[
+            "Everything in Monthly",
+            "Trade replay & education library",
+            "Rule violation tracking",
+            "2 months free vs. monthly",
+            "Priority support",
+          ]}
+          ctaLabel="Choose Annual"
+          badge="Save $30"
+          loading={busyPlan === 'annual'}
+          onSelect={() => onSelectPlan('annual')}
+        />
+      </div>
+      <div style={{ marginTop: 16, textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+        Secure payment via Stripe. Manage or cancel anytime from your account settings.
+      </div>
+      <StepFooter onBack={onBack} onNext={onSkip} onSkip={null} nextLabel="Decide later" />
     </div>
   );
 }
@@ -648,6 +716,8 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
     firm: '', accountType: 'eval', size: '',
   });
   const [saving, setSaving] = useState(false);
+  const [busyPlan, setBusyPlan] = useState(null);
+  const { subscribe } = useSubscription(user);
 
   const update = (patch) => setData(d => ({ ...d, ...patch }));
 
@@ -657,6 +727,7 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
     { key: 'style', label: 'Style' },
     { key: 'goals', label: 'Goals' },
     { key: 'account', label: 'Account' },
+    { key: 'pricing', label: 'Plan' },
     { key: 'liftoff', label: 'Liftoff' },
   ];
 
@@ -678,43 +749,57 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
     return () => window.removeEventListener('keydown', onKey);
   }, [step, data, steps]);
 
+  const persistOnboarding = async (markComplete) => {
+    if (data.name.trim()) {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        display_name: data.name.trim(),
+        has_seen_pricing: true,
+        updated_at: new Date().toISOString(),
+      });
+      setProfile(p => ({ ...p, display_name: data.name.trim() }));
+    } else {
+      await supabase.from('profiles').update({
+        has_seen_pricing: true,
+        updated_at: new Date().toISOString(),
+      }).eq('id', user.id);
+    }
+
+    const prefUpdates = {};
+    if (data.exp) prefUpdates.experience_level = data.exp;
+    if (data.session) prefUpdates.primary_session = data.session;
+    if (data.method) prefUpdates.trading_style = data.method;
+    if (data.instruments?.length) prefUpdates.instruments = data.instruments;
+    if (data.risk) prefUpdates.risk_appetite = data.risk;
+    if (data.target) prefUpdates.goal_target = data.target;
+    if (data.timeline) prefUpdates.goal_timeline = data.timeline;
+
+    // Calculate dollar default_risk from risk % × account size (needs both)
+    const riskPctMap = { conservative: 0.0025, balanced: 0.005, aggressive: 0.01 };
+    const accountSize = data.size ? parseFloat(data.size) : 0;
+    if (data.risk && accountSize > 0) {
+      prefUpdates.default_risk = Math.round(accountSize * riskPctMap[data.risk]);
+    }
+
+    const { data: updatedPrefs } = await supabase.from('user_preferences')
+      .upsert({ user_id: user.id, ...prefUpdates, onboarding_complete: markComplete, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select().single();
+    setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: markComplete }));
+
+    if (data.firm.trim()) {
+      await supabase.from('accounts').insert({
+        user_id: user.id, firm: data.firm.trim(), account_name: data.firm.trim(),
+        account_type: data.accountType || 'eval',
+        account_size: accountSize || null,
+        status: 'active',
+      });
+    }
+  };
+
   const saveAndClose = async (dest, markComplete = true) => {
     setSaving(true);
     try {
-      if (data.name.trim()) {
-        await supabase.from('profiles').upsert({ id: user.id, display_name: data.name.trim(), updated_at: new Date().toISOString() });
-        setProfile(p => ({ ...p, display_name: data.name.trim() }));
-      }
-
-      const prefUpdates = {};
-      if (data.exp) prefUpdates.experience_level = data.exp;
-      if (data.session) prefUpdates.primary_session = data.session;
-      if (data.method) prefUpdates.trading_style = data.method;
-      if (data.instruments?.length) prefUpdates.instruments = data.instruments;
-      if (data.risk) prefUpdates.risk_appetite = data.risk;
-      if (data.target) prefUpdates.goal_target = data.target;
-      if (data.timeline) prefUpdates.goal_timeline = data.timeline;
-
-      // Calculate dollar default_risk from risk % × account size (needs both)
-      const riskPctMap = { conservative: 0.0025, balanced: 0.005, aggressive: 0.01 };
-      const accountSize = data.size ? parseFloat(data.size) : 0;
-      if (data.risk && accountSize > 0) {
-        prefUpdates.default_risk = Math.round(accountSize * riskPctMap[data.risk]);
-      }
-
-      const { data: updatedPrefs } = await supabase.from('user_preferences')
-        .upsert({ user_id: user.id, ...prefUpdates, onboarding_complete: markComplete, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-        .select().single();
-      setUserPrefs(p => ({ ...(p ?? {}), ...(updatedPrefs ?? {}), onboarding_complete: markComplete }));
-
-      if (data.firm.trim()) {
-        await supabase.from('accounts').insert({
-          user_id: user.id, firm: data.firm.trim(), account_name: data.firm.trim(),
-          account_type: data.accountType || 'eval',
-          account_size: accountSize || null,
-          status: 'active',
-        });
-      }
+      await persistOnboarding(markComplete);
     } catch (e) {
       console.error('Onboarding save error:', e);
     }
@@ -722,6 +807,21 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
     if (onComplete) onComplete();
     const viewMap = { journal: 'journal', roadmap: 'roadmap', dashboard: 'map' };
     setViewAndPersist(viewMap[dest] || 'map');
+  };
+
+  const handleSelectPlan = async (plan) => {
+    if (busyPlan) return;
+    setBusyPlan(plan);
+    try {
+      await persistOnboarding(true);
+    } catch (e) {
+      console.error('Onboarding save before checkout error:', e);
+    }
+    try {
+      await subscribe(plan);
+    } finally {
+      setBusyPlan(null);
+    }
   };
 
   const handleGo = (dest) => saveAndClose(dest, true);
@@ -756,12 +856,13 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
 
       {/* Step container */}
       <div style={{ position: 'absolute', inset: 0, padding: '100px 32px 32px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto' }}>
-        <div style={{ width: '100%', maxWidth: currentKey === 'welcome' ? 820 : 780, position: 'relative' }}>
+        <div style={{ width: '100%', maxWidth: currentKey === 'welcome' ? 820 : currentKey === 'pricing' ? 1040 : 780, position: 'relative' }}>
           {currentKey === 'welcome' && <WelcomeStep data={data} onNext={next} onSkip={handleSkip} />}
           {currentKey === 'profile' && <ProfileStep data={data} update={update} onNext={next} onBack={back} onSkip={next} />}
           {currentKey === 'style' && <StyleStep data={data} update={update} onNext={next} onBack={back} onSkip={next} />}
           {currentKey === 'goals' && <GoalsStep data={data} update={update} onNext={next} onBack={back} onSkip={next} />}
           {currentKey === 'account' && <AccountStep data={data} update={update} onNext={next} onBack={back} onSkip={next} />}
+          {currentKey === 'pricing' && <PricingStep onSelectPlan={handleSelectPlan} onBack={back} onSkip={next} busyPlan={busyPlan} />}
           {currentKey === 'liftoff' && <LiftoffStep data={data} onGo={handleGo} saving={saving} />}
         </div>
       </div>
