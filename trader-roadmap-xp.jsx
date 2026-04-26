@@ -1776,7 +1776,6 @@ export default function TraderRoadmapXP() {
     isActive: subIsActive,
     isTrialing: subIsTrialing,
     isPaid: subIsPaid,
-    hasSeenPricing: subHasSeenPricing,
     trialDaysLeft,
     loading: subLoading,
     subscribe: subStartCheckout,
@@ -2452,13 +2451,6 @@ export default function TraderRoadmapXP() {
         </div>
       </div>
     );
-  }
-
-  // ── FIRST-TIME USERS: send to pricing page once before entering the app.
-  // Trialing users still get shown pricing (they haven't chosen a plan yet);
-  // only paid users bypass (they already went through checkout).
-  if (!subHasSeenPricing && !subIsPaid) {
-    return <Navigate to="/pricing" replace />;
   }
 
   // ── MAIN UI ───
