@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "./src/supabase.js";
 import { useSubscription } from "./src/hooks/useSubscription.js";
@@ -188,6 +188,194 @@ const TYPE_META = {
   milestone: { icon: "⭐", label: "Milestone", color: "#9b6fe0" },
   payout: { icon: "💰", label: "Payout", color: "#56b886" },
 };
+
+// ─── AUTO-UNLOCK ENGINE ──────────────────────────────────────────────────────
+
+function computeAutoUnlocks(trades, models, accounts, payouts) {
+  const result = new Set();
+  if (!Array.isArray(trades) || !Array.isArray(models)) return result;
+
+  // b1: Evaluation Passed — any eval account marked passed/funded, or any funded account exists
+  if (Array.isArray(accounts) && accounts.some((a) =>
+    a.status === "passed" || a.status === "funded_active" ||
+    a.account_type === "funded"
+  )) result.add("b1");
+
+  // b4: First Payout — any payout with status "received"
+  if (Array.isArray(payouts) && payouts.some((p) => p.status === "received")) result.add("b4");
+
+  const dk = (dt) => {
+    const d = new Date(dt);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const isoWeekKey = (dt) => {
+    const d = new Date(dt);
+    const day = d.getUTCDay();
+    const thu = new Date(d);
+    thu.setUTCDate(d.getUTCDate() + (4 - (day === 0 ? 7 : day)));
+    const yearStart = new Date(Date.UTC(thu.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil(((thu - yearStart) / 86400000 + 1) / 7);
+    return `${thu.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+  };
+  const monthKey = (dt) => dk(dt).slice(0, 7);
+
+  const takenTrades = trades.filter((t) => t.dt && t.taken && t.taken !== "Missed");
+
+  // a1: ≥1 model defined
+  if (models.length >= 1) result.add("a1");
+  // a5: any model with ≥3 items
+  if (models.some((m) => Array.isArray(m.items) && m.items.length >= 3)) result.add("a5");
+
+  // Build per-day aggregates
+  const dayMap = {};
+  trades.forEach((t) => {
+    if (!t.dt) return;
+    const key = dk(t.dt);
+    if (!dayMap[key]) dayMap[key] = { takenCount: 0, allQuality: true, pnl: 0, pnlFunded: 0 };
+    if (t.taken && t.taken !== "Missed") {
+      dayMap[key].takenCount++;
+      const isQuality = t.aplus?.startsWith("A+") || t.aplus?.startsWith("B");
+      if (!isQuality) dayMap[key].allQuality = false;
+    }
+    dayMap[key].pnl += parseFloat(t.profit) || 0;
+    dayMap[key].pnlFunded += parseFloat(t.profit_funded) || 0;
+  });
+
+  const sortedDays = Object.keys(dayMap).sort();
+  const activeDays = sortedDays.filter((k) => dayMap[k].takenCount > 0);
+
+  // a2: 10 consecutive calendar days with any trade logged
+  {
+    let streak = 0, best = 0, prev = null;
+    for (const k of sortedDays) {
+      const diff = prev ? (new Date(k) - new Date(prev)) / 86400000 : 0;
+      streak = prev && diff === 1 ? streak + 1 : 1;
+      best = Math.max(best, streak);
+      prev = k;
+    }
+    if (best >= 10) result.add("a2");
+  }
+
+  // a3 + b3: 10 consecutive trading days with ≤2 taken trades
+  {
+    let streak = 0, best = 0;
+    for (const k of sortedDays) {
+      if (dayMap[k].takenCount <= 2) { best = Math.max(best, ++streak); } else { streak = 0; }
+    }
+    if (best >= 10) { result.add("a3"); result.add("b3"); }
+  }
+
+  // a4: 20 consecutive taken trades with model assigned
+  {
+    const sorted = [...takenTrades].sort((a, b) => new Date(a.dt) - new Date(b.dt));
+    let streak = 0, best = 0;
+    for (const t of sorted) {
+      if (t.model?.trim()) { best = Math.max(best, ++streak); } else { streak = 0; }
+    }
+    if (best >= 20) result.add("a4");
+  }
+
+  // b2: any Mon–Sun week where all taken trades are A+/B
+  {
+    const weekMap = {};
+    takenTrades.forEach((t) => {
+      const wk = isoWeekKey(t.dt);
+      if (!weekMap[wk]) weekMap[wk] = { total: 0, quality: 0 };
+      weekMap[wk].total++;
+      if (t.aplus?.startsWith("A+") || t.aplus?.startsWith("B")) weekMap[wk].quality++;
+    });
+    if (Object.values(weekMap).some((w) => w.total >= 1 && w.quality === w.total)) result.add("b2");
+  }
+
+  // b5: 10 red P&L days followed by a next trading day with only quality setups
+  {
+    let instances = 0;
+    for (let i = 0; i < activeDays.length - 1; i++) {
+      const curr = activeDays[i], next = activeDays[i + 1];
+      const currPnl = dayMap[curr].pnl + dayMap[curr].pnlFunded;
+      if (currPnl < 0 && dayMap[next].takenCount > 0 && dayMap[next].allQuality) instances++;
+    }
+    if (instances >= 10) result.add("b5");
+  }
+
+  // c1 / c5: distinct funded account IDs
+  {
+    const ids = new Set(trades.filter((t) => t.account_id_funded).map((t) => t.account_id_funded));
+    if (ids.size >= 3) result.add("c1");
+    if (ids.size >= 5) result.add("c5");
+  }
+
+  // Monthly funded P&L aggregates
+  const monthlyFunded = {};
+  const monthlyCombined = {};
+  const monthlyPersonal = {};
+  trades.forEach((t) => {
+    if (!t.dt) return;
+    const mk = monthKey(t.dt);
+    const pnl = parseFloat(t.profit) || 0;
+    const funded = parseFloat(t.profit_funded) || 0;
+    monthlyFunded[mk] = (monthlyFunded[mk] || 0) + funded;
+    monthlyCombined[mk] = (monthlyCombined[mk] || 0) + pnl + funded;
+    monthlyPersonal[mk] = (monthlyPersonal[mk] || 0) + pnl;
+  });
+
+  // c3 / c6: monthly funded P&L thresholds
+  const maxFundedMonth = Math.max(0, ...Object.values(monthlyFunded));
+  if (maxFundedMonth > 1000) result.add("c3");
+  if (maxFundedMonth > 5000) result.add("c6");
+
+  // c4: lifetime funded total
+  const lifetimeFunded = trades.reduce((s, t) => s + (parseFloat(t.profit_funded) || 0), 0);
+  if (lifetimeFunded > 5000) result.add("c4");
+
+  // d2 / d5 / e2: monthly combined thresholds
+  const maxCombinedMonth = Math.max(0, ...Object.values(monthlyCombined));
+  if (maxCombinedMonth > 10000) result.add("d2");
+  if (maxCombinedMonth > 20000) result.add("d5");
+  if (maxCombinedMonth > 25000) result.add("e2");
+
+  // d4: lifetime combined
+  const lifetimeCombined = trades.reduce((s, t) => s + (parseFloat(t.profit) || 0) + (parseFloat(t.profit_funded) || 0), 0);
+  if (lifetimeCombined > 25000) result.add("d4");
+
+  // d3: 3 consecutive profitable personal months
+  {
+    const months = Object.keys(monthlyPersonal).sort();
+    let streak = 0, best = 0, prev = null;
+    for (const mk of months) {
+      if (monthlyPersonal[mk] > 0) {
+        if (prev) {
+          const [py, pm] = prev.split("-").map(Number);
+          const [cy, cm] = mk.split("-").map(Number);
+          streak = (cy * 12 + cm === py * 12 + pm + 1) ? streak + 1 : 1;
+        } else { streak = 1; }
+        best = Math.max(best, streak);
+      } else { streak = 0; }
+      prev = mk;
+    }
+    if (best >= 3) result.add("d3");
+  }
+
+  // e3: 12 consecutive profitable combined months
+  {
+    const months = Object.keys(monthlyCombined).sort();
+    let streak = 0, best = 0, prev = null;
+    for (const mk of months) {
+      if (monthlyCombined[mk] > 0) {
+        if (prev) {
+          const [py, pm] = prev.split("-").map(Number);
+          const [cy, cm] = mk.split("-").map(Number);
+          streak = (cy * 12 + cm === py * 12 + pm + 1) ? streak + 1 : 1;
+        } else { streak = 1; }
+        best = Math.max(best, streak);
+      } else { streak = 0; }
+      prev = mk;
+    }
+    if (best >= 12) result.add("e3");
+  }
+
+  return result;
+}
 
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
@@ -1784,6 +1972,9 @@ export default function TraderRoadmapXP() {
   // Trading app state
   const [trades, setTrades] = useState([]);
   const [tradesLoading, setTradesLoading] = useState(true);
+  const [roadmapModels, setRoadmapModels] = useState([]);
+  const [roadmapAccounts, setRoadmapAccounts] = useState([]);
+  const [roadmapPayouts, setRoadmapPayouts] = useState([]);
 
   // Auth listener
   const wasAuthenticatedRef = useRef(false);
@@ -1874,6 +2065,38 @@ export default function TraderRoadmapXP() {
 
   useEffect(() => { loadTrades(); }, [loadTrades]);
 
+  const loadRoadmapModels = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("checklist_items")
+      .select("items")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data?.items?.v === 2 && Array.isArray(data.items.models)) {
+      setRoadmapModels(data.items.models);
+    } else if (Array.isArray(data?.items)) {
+      setRoadmapModels([{ id: "legacy", name: "My Model", items: data.items }]);
+    }
+  }, [user]);
+
+  useEffect(() => { loadRoadmapModels(); }, [loadRoadmapModels]);
+
+  const loadRoadmapAccounts = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("accounts").select("account_type, status").eq("user_id", user.id);
+    if (data) setRoadmapAccounts(data);
+  }, [user]);
+
+  useEffect(() => { loadRoadmapAccounts(); }, [loadRoadmapAccounts]);
+
+  const loadRoadmapPayouts = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("payouts").select("id, status").eq("user_id", user.id);
+    if (data) setRoadmapPayouts(data);
+  }, [user]);
+
+  useEffect(() => { loadRoadmapPayouts(); }, [loadRoadmapPayouts]);
+
   const triggerAchievement = useAchievement();
   useEffect(() => {
     if (!trades.length || !triggerAchievement) return;
@@ -1942,10 +2165,45 @@ export default function TraderRoadmapXP() {
 
   const displayName = profile.display_name || user?.email?.split("@")[0] || "Trader";
 
-  const currentXP = ALL_ACH.filter((a) => completed.has(a.id)).reduce((s, a) => s + a.xp, 0);
+  // Auto-unlock: computed from trade data + models, no DB writes
+  const autoVerified = useMemo(
+    () => computeAutoUnlocks(trades, roadmapModels, roadmapAccounts, roadmapPayouts),
+    [trades, roadmapModels, roadmapAccounts, roadmapPayouts]
+  );
+
+  const effectiveCompleted = useMemo(
+    () => new Set([...completed.keys(), ...autoVerified]),
+    [completed, autoVerified]
+  );
+
+  const currentXP = ALL_ACH.filter((a) => effectiveCompleted.has(a.id)).reduce((s, a) => s + a.xp, 0);
   const currentLevel = [...LEVELS].reverse().find((l) => currentXP >= l.xpRequired) || LEVELS[0];
   const nextLevel = LEVELS.find((l) => l.xpRequired > currentXP);
   const selectedData = LEVELS.find((l) => l.id === selectedLevel);
+
+  // Fire toast when a mission is newly auto-verified (skip initial load to avoid spam)
+  const prevAutoVerified = useRef(null);
+  useEffect(() => {
+    if (!triggerAchievement) return;
+    // On first run, snapshot current state without firing — prevents toast spam on page load
+    if (prevAutoVerified.current === null) {
+      prevAutoVerified.current = new Set(autoVerified);
+      return;
+    }
+    autoVerified.forEach((id) => {
+      if (!prevAutoVerified.current.has(id) && !completed.has(id)) {
+        const ach = ALL_ACH.find((a) => a.id === id);
+        if (ach) {
+          triggerAchievement({
+            name: ach.name,
+            desc: "Mission auto-verified from your trading data",
+            color: "#22d3ee",
+          });
+        }
+      }
+    });
+    prevAutoVerified.current = new Set(autoVerified);
+  }, [autoVerified, completed, triggerAchievement]);
 
   const handleToggle = (id) => {
     if (completed.has(id)) {
@@ -1975,6 +2233,14 @@ export default function TraderRoadmapXP() {
         });
         return n;
       });
+      const ach = ALL_ACH.find((a) => a.id === confirm);
+      if (ach && triggerAchievement) {
+        triggerAchievement({
+          name: ach.name,
+          desc: `+${ach.xp} XP earned`,
+          color: TYPE_META[ach.type]?.color || "#22d3ee",
+        });
+      }
     }
     setSaving(false);
     setConfirm(null);
@@ -1992,6 +2258,14 @@ export default function TraderRoadmapXP() {
         n.set(id, { note, link, completedAt: new Date().toISOString() });
         return n;
       });
+      const ach = ALL_ACH.find((a) => a.id === id);
+      if (ach && triggerAchievement) {
+        triggerAchievement({
+          name: ach.name,
+          desc: `+${ach.xp} XP earned`,
+          color: TYPE_META[ach.type]?.color || "#22d3ee",
+        });
+      }
     }
   };
 
@@ -3298,6 +3572,7 @@ export default function TraderRoadmapXP() {
         {view === "roadmap" && (
           <RoadmapModern
             completed={completed}
+            autoVerified={autoVerified}
             onMissionComplete={handleMissionComplete}
             onMissionView={(mission, proof) => setViewingProof(mission.id)}
           />
