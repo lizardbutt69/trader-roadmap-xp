@@ -3,17 +3,30 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import LandingPage from './pages/LandingPage.jsx'
-import AuthPage from './pages/AuthPage.jsx'
-import AuthCallback from './pages/AuthCallback.jsx'
-import TraderRoadmapXP from '../trader-roadmap-xp.jsx'
-import PrivacyPolicy from './pages/PrivacyPolicy.jsx'
-import TermsAndConditions from './pages/TermsAndConditions.jsx'
-import { ToastProvider, AchievementAlertProvider } from './trading.jsx'
 import { supabase } from './supabase.js'
 
+const AuthPage = React.lazy(() => import('./pages/AuthPage.jsx'))
+const AuthCallback = React.lazy(() => import('./pages/AuthCallback.jsx'))
+const TraderRoadmapXP = React.lazy(() => import('../trader-roadmap-xp.jsx'))
+const PrivacyPolicy = React.lazy(() => import('./pages/PrivacyPolicy.jsx'))
+const TermsAndConditions = React.lazy(() => import('./pages/TermsAndConditions.jsx'))
 const BlogPage = React.lazy(() => import('./pages/BlogPage.jsx'))
 const BlogPostPage = React.lazy(() => import('./pages/BlogPostPage.jsx'))
 const PricingPage = React.lazy(() => import('./pages/PricingPage.jsx'))
+
+// Toast + Achievement providers live in their own module so importing them
+// here doesn't drag trading.jsx into the public landing bundle. They're only
+// applied around /app, which is the only place that uses them.
+const AppProviders = React.lazy(async () => {
+  const mod = await import('./contexts/AppProviders.jsx')
+  return {
+    default: ({ children }) => (
+      <mod.ToastProvider>
+        <mod.AchievementAlertProvider>{children}</mod.AchievementAlertProvider>
+      </mod.ToastProvider>
+    ),
+  }
+})
 
 function RootRoute() {
   const params = new URLSearchParams(window.location.search)
@@ -109,24 +122,29 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <HelmetProvider>
       <ErrorBoundary>
         <BrowserRouter>
-          <ToastProvider>
-            <AchievementAlertProvider>
-              <React.Suspense fallback={BlogSpinner}>
-                <Routes>
-                  <Route path="/" element={<RootRoute />} />
-                  <Route path="/login" element={<AuthPage />} />
-                  <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/app" element={<ProtectedRoute><TraderRoadmapXP /></ProtectedRoute>} />
-                  <Route path="/pricing" element={<PricingPage />} />
-                  <Route path="/blog" element={<BlogPage />} />
-                  <Route path="/blog/:slug" element={<BlogPostPage />} />
-                  <Route path="/privacy" element={<PrivacyPolicy />} />
-                  <Route path="/terms" element={<TermsAndConditions />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </React.Suspense>
-            </AchievementAlertProvider>
-          </ToastProvider>
+          <React.Suspense fallback={BlogSpinner}>
+            <Routes>
+              <Route path="/" element={<RootRoute />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route
+                path="/app"
+                element={
+                  <ProtectedRoute>
+                    <AppProviders>
+                      <TraderRoadmapXP />
+                    </AppProviders>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsAndConditions />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </React.Suspense>
         </BrowserRouter>
       </ErrorBoundary>
     </HelmetProvider>
