@@ -71,18 +71,23 @@ export function useSubscription(user) {
   const manageSubscription = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const res = await fetch('/api/manage-subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-    });
-    const json = await res.json();
+    let res, json;
+    try {
+      res = await fetch('/api/manage-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      json = await res.json();
+    } catch (err) {
+      console.error('Portal network error:', err);
+      throw new Error('Network error — could not reach the billing server. Please try again.');
+    }
     if (!res.ok || json.error) {
       console.error('Portal error:', json.error);
-      alert(`Could not open billing portal: ${json.error || 'Unknown error'}`);
-      return;
+      throw new Error(json.error || 'Could not open billing portal. Please try again.');
     }
     window.location.href = json.url;
   };

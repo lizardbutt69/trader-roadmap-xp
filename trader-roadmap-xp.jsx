@@ -1783,6 +1783,14 @@ export default function TraderRoadmapXP() {
     refresh: subRefresh,
   } = useSubscription(user);
 
+  const handleManageSubscription = useCallback(async () => {
+    try {
+      await subOpenPortal();
+    } catch (err) {
+      addToast(err.message || 'Could not open billing portal. Please try again.', 'error');
+    }
+  }, [subOpenPortal]);
+
   // Handle return from Stripe Checkout — webhook may lag, so poll a few times
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2414,22 +2422,22 @@ export default function TraderRoadmapXP() {
   `;
 
   // ── TRADESHARP LOGO (SVG) ───
-  const TradeSharpLogo = ({ size = 64 }) => (
+  const TradeSharpLogo = ({ size = 64, color = dark ? "#22d3ee" : "#000000" }) => (
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke="#22d3ee" strokeWidth="1.5" fill="none" opacity="0.5" />
-      <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke="#22d3ee" strokeWidth="1" fill="rgba(34,211,238,0.03)" />
-      <line x1="20" y1="32" x2="44" y2="32" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
-      <line x1="32" y1="20" x2="32" y2="44" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
-      <path d="M32 26L38 32L32 38L26 32Z" fill="#22d3ee" opacity="0.85" />
-      <line x1="20" y1="20" x2="24" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="20" y1="20" x2="20" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="44" y1="20" x2="40" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="44" y1="20" x2="44" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="20" y1="44" x2="24" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="20" y1="44" x2="20" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="44" y1="44" x2="40" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <line x1="44" y1="44" x2="44" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
-      <circle cx="32" cy="32" r="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.12" />
+      <path d="M32 2L58 17V47L32 62L6 47V17L32 2Z" stroke={color} strokeWidth="1.5" fill="none" opacity="0.5" />
+      <path d="M32 10L50 21V43L32 54L14 43V21L32 10Z" stroke={color} strokeWidth="1" fill={dark ? "rgba(34,211,238,0.03)" : "rgba(0,0,0,0.03)"} />
+      <line x1="20" y1="32" x2="44" y2="32" stroke={color} strokeWidth="1.5" opacity="0.7" />
+      <line x1="32" y1="20" x2="32" y2="44" stroke={color} strokeWidth="1.5" opacity="0.7" />
+      <path d="M32 26L38 32L32 38L26 32Z" fill={color} opacity="0.85" />
+      <line x1="20" y1="20" x2="24" y2="20" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="20" x2="20" y2="24" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="40" y2="20" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="44" y2="24" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="24" y2="44" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="20" y2="40" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="40" y2="44" stroke={color} strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="44" y2="40" stroke={color} strokeWidth="1" opacity="0.35" />
+      <circle cx="32" cy="32" r="28" stroke={color} strokeWidth="0.5" opacity="0.12" />
     </svg>
   );
 
@@ -2481,7 +2489,7 @@ export default function TraderRoadmapXP() {
       {user && !subLoading && !subIsActive && (
         <SubscriptionLockOverlay
           startCheckout={subStartCheckout}
-          openPortal={subOpenPortal}
+          openPortal={handleManageSubscription}
           onOpenSettings={() => setViewAndPersist("settings")}
         />
       )}
@@ -2959,7 +2967,7 @@ export default function TraderRoadmapXP() {
           <div style={{ padding: "0 20px 24px", borderBottom: "1px solid var(--border-primary)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
               <TradeSharpLogo size={34} />
-              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "#eaebf0" }}>Trade<span style={{ color: "#22d3ee" }}>Sharp</span></span>
+              <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: dark ? "#eaebf0" : "#000000" }}>Trade<span style={{ color: dark ? "#22d3ee" : "#000000" }}>Sharp</span></span>
             </div>
             {/* NYSE Clock */}
             <div style={{
@@ -3279,7 +3287,7 @@ export default function TraderRoadmapXP() {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <TradeSharpLogo size={24} />
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>Trade<span style={{ color: "#22d3ee" }}>Sharp</span></span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: dark ? "#eaebf0" : "#000000" }}>Trade<span style={{ color: dark ? "#22d3ee" : "#000000" }}>Sharp</span></span>
                   </div>
                   <button onClick={() => setMobileMenu(false)} style={{
                     background: "none", border: "none", color: "var(--text-tertiary)",
@@ -3645,7 +3653,7 @@ export default function TraderRoadmapXP() {
             onNavigate={setViewAndPersist}
             subIsTrialing={subIsTrialing} subIsPaid={subIsPaid} trialDaysLeft={trialDaysLeft}
             onUpgrade={() => window.location.href = "/pricing"}
-            onManageSubscription={subOpenPortal}
+            onManageSubscription={handleManageSubscription}
           />
         )}
 
