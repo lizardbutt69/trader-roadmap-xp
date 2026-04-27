@@ -131,6 +131,7 @@ export default function PricingPage() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [busyPlan, setBusyPlan] = useState(null);
+  const [checkoutError, setCheckoutError] = useState(null);
 
   const markPricingSeen = useCallback(async () => {
     if (!user) return;
@@ -174,9 +175,12 @@ export default function PricingPage() {
       goToApp();
       return;
     }
+    setCheckoutError(null);
     setBusyPlan(plan);
     try {
       await subscribe(plan);
+    } catch (err) {
+      setCheckoutError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setBusyPlan(null);
     }
@@ -272,6 +276,35 @@ export default function PricingPage() {
               fontFamily: "inherit", fontSize: 13, padding: 0, marginLeft: 4,
             }}
           >Back to app →</button>
+        </div>
+      )}
+
+      {/* Checkout error banner */}
+      {checkoutError && (
+        <div style={{
+          background: "rgba(239,68,68,0.08)",
+          border: "1px solid rgba(239,68,68,0.25)",
+          borderRadius: 10,
+          padding: "12px 20px",
+          marginBottom: 20,
+          color: "#f87171",
+          fontSize: 13,
+          fontWeight: 600,
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}>
+          <span>⚠</span>
+          <span>{checkoutError}</span>
+          <button
+            onClick={() => setCheckoutError(null)}
+            style={{
+              marginLeft: "auto", background: "transparent", border: "none",
+              color: "#f87171", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0,
+            }}
+          >×</button>
         </div>
       )}
 
