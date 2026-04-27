@@ -1901,6 +1901,7 @@ export default function TraderRoadmapXP() {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [justCompletedOnboarding, setJustCompletedOnboarding] = useState(false);
   const [onboardStep, setOnboardStep] = useState(1);
+  const [obInitialStep, setObInitialStep] = useState(0);
   const [obName, setObName] = useState("");
   const [obExpLevel, setObExpLevel] = useState("");
   const [obSession, setObSession] = useState("");
@@ -1942,6 +1943,16 @@ export default function TraderRoadmapXP() {
   };
 
   const showOnboarding = prefsLoaded && !userPrefs?.onboarding_complete;
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    const resuming = localStorage.getItem('ob_resume_liftoff') === '1';
+    const fromStripe = new URLSearchParams(window.location.search).has('subscription');
+    if (resuming && fromStripe && !userPrefs?.onboarding_complete) {
+      localStorage.removeItem('ob_resume_liftoff');
+      setObInitialStep(6);
+    }
+  }, [prefsLoaded]);
 
   // Escape key — close whichever modal is open (priority order)
   useEffect(() => {
@@ -2482,6 +2493,7 @@ export default function TraderRoadmapXP() {
           setViewAndPersist={setViewAndPersist}
           setUserPrefs={setUserPrefs} setProfile={setProfile}
           onComplete={() => setJustCompletedOnboarding(true)}
+          initialStep={obInitialStep}
         />
       )}
 
