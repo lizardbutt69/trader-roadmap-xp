@@ -46,19 +46,24 @@ export function useSubscription(user) {
       window.location.href = '/login';
       return;
     }
-    const res = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ plan }),
-    });
-    const json = await res.json();
+    let res, json;
+    try {
+      res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plan }),
+      });
+      json = await res.json();
+    } catch (err) {
+      console.error('Checkout network error:', err);
+      throw new Error('Network error — could not reach the payment server. Please try again.');
+    }
     if (!res.ok || json.error) {
       console.error('Checkout error:', json.error);
-      alert(`Checkout failed: ${json.error || 'Unknown error'}`);
-      return;
+      throw new Error(json.error || 'Checkout failed. Please try again.');
     }
     window.location.href = json.url;
   };

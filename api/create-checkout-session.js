@@ -54,11 +54,12 @@ export default async function handler(req, res) {
   };
 
   const { plan } = req.body || {};
-  if (!plan || !PLAN_TO_PRICE[plan]) {
+  const validPlans = Object.keys(PLAN_TO_PRICE);
+  if (!plan || !validPlans.includes(plan)) {
     return res.status(400).json({ error: "Invalid or missing plan" });
   }
   if (!PLAN_TO_PRICE[plan]) {
-    return res.status(500).json({ error: `Server misconfiguration: Stripe price ID for plan '${plan}' missing.` });
+    return res.status(500).json({ error: `Server misconfiguration: Stripe price ID for plan '${plan}' is not configured.` });
   }
 
   const authHeader = req.headers.authorization;
