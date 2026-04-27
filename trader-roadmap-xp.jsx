@@ -3006,8 +3006,8 @@ export default function TraderRoadmapXP() {
               return [
               { section: null, items: [{ key: "map", label: "Dashboard", reset: false }] },
               { section: "Trade", items: [
-                { key: "journal", label: "Journal", reset: false },
-                { key: "notebook", label: "Notebook", reset: false },
+                { key: "journal", label: "Log a Trade", reset: false },
+                { key: "notebook", label: "Journal", reset: false },
                 { key: "models", label: "Models", reset: false },
                 { key: "charts", label: "Trade Replay (Beta)", reset: false },
               ]},
@@ -3304,8 +3304,8 @@ export default function TraderRoadmapXP() {
                 {[
                   { key: "map", label: "Dashboard" },
                   { key: "roadmap", label: "Roadmap", reset: true },
-                  { key: "journal", label: "Journal" },
-                  { key: "notebook", label: "Notebook" },
+                  { key: "journal", label: "Log a Trade" },
+                  { key: "notebook", label: "Journal" },
                   { key: "watchlist", label: "Watchlist" },
                   { key: "accounts", label: "Accounts" },
                   { key: "models", label: "Models" },
@@ -3490,7 +3490,7 @@ export default function TraderRoadmapXP() {
                 }}
               >☰</button>
               <h1 className="header-title" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
-                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Journal" : view === "notebook" ? "Notebook" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "models" ? "Models" : view === "stats" ? "Stats" : view === "charts" ? "Trade Replay" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
+                {view === "map" ? "Dashboard" : view === "roadmap" ? "Roadmap" : view === "journal" ? "Log a Trade" : view === "notebook" ? "Journal" : view === "watchlist" ? "Watchlist" : view === "accounts" ? "Accounts" : view === "models" ? "Models" : view === "stats" ? "Stats" : view === "charts" ? "Trade Replay" : view === "education" ? "Education" : view === "edge-chat" ? "Edge AI" : view === "settings" ? "Settings" : view === "level" ? selectedData?.name || "Level" : "TradeSharp"}
               </h1>
             </div>
             <div className="header-right" style={{ display: "flex", alignItems: "center", gap: 6 }}>

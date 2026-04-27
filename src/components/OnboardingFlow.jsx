@@ -617,7 +617,7 @@ function LiftoffStep({ data, onGo, saving }) {
   ].filter(Boolean);
 
   const destinations = [
-    { key: 'journal', icon: Icon.pencil, label: 'Log your first trade', desc: 'Open the Journal and the A+ checklist', primary: true },
+    { key: 'journal', icon: Icon.pencil, label: 'Log your first trade', desc: 'Open Log a Trade and the A+ checklist', primary: true },
     { key: 'roadmap', icon: Icon.map, label: 'See the roadmap', desc: 'Tour the 5-stage progression' },
     { key: 'dashboard', icon: Icon.chart, label: 'Go to dashboard', desc: 'Overview, stats, and AI summary' },
   ];
