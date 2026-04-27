@@ -18,8 +18,10 @@ import { requestNotificationPermission } from "./utils/newsAlerts.js";
 // ─── TOAST + ACHIEVEMENT SYSTEM ──────────────────────────────────────────────
 // Moved to ./contexts/AppProviders.jsx so the public landing page doesn't pull
 // in trading.jsx via the providers. Re-exported here for backwards compat.
-export { ToastProvider, useToast, AchievementAlertProvider, useAchievement } from "./contexts/AppProviders.jsx";
+// `export { ... } from` does NOT create local bindings, so we also import
+// useToast for internal calls below.
 import { useToast } from "./contexts/AppProviders.jsx";
+export { ToastProvider, useToast, AchievementAlertProvider, useAchievement } from "./contexts/AppProviders.jsx";
 
 // ─── DELETE POPOVER CONFIRM ──────────────────────────────────────────────────
 function DeletePopover({ id, confirmId, setConfirmId, onConfirm, children, buttonStyle = {} }) {
