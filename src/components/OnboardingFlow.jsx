@@ -708,8 +708,8 @@ const OB_STYLES = `
 `;
 
 // ─── MAIN EXPORT ─────────────────────────────────────────────────────────────
-export default function OnboardingFlow({ user, supabase, setViewAndPersist, setUserPrefs, setProfile, onComplete }) {
-  const [step, setStep] = useState(0);
+export default function OnboardingFlow({ user, supabase, setViewAndPersist, setUserPrefs, setProfile, onComplete, initialStep = 0 }) {
+  const [step, setStep] = useState(initialStep);
   const [data, setData] = useState({
     name: '', exp: '', instruments: ['futures'], method: 'ict',
     session: 'ny', target: 10000, timeline: '12mo', risk: 'balanced',
@@ -813,12 +813,16 @@ export default function OnboardingFlow({ user, supabase, setViewAndPersist, setU
     if (busyPlan) return;
     setBusyPlan(plan);
     try {
-      await persistOnboarding(true);
+      await persistOnboarding(false);
     } catch (e) {
       console.error('Onboarding save before checkout error:', e);
     }
     try {
+      localStorage.setItem('ob_resume_liftoff', '1');
       await subscribe(plan);
+    } catch (e) {
+      localStorage.removeItem('ob_resume_liftoff');
+      console.error('Checkout error:', e);
     } finally {
       setBusyPlan(null);
     }
