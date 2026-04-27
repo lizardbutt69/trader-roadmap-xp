@@ -19,6 +19,7 @@ import { requestNotificationPermission } from "./utils/newsAlerts.js";
 // Moved to ./contexts/AppProviders.jsx so the public landing page doesn't pull
 // in trading.jsx via the providers. Re-exported here for backwards compat.
 export { ToastProvider, useToast, AchievementAlertProvider, useAchievement } from "./contexts/AppProviders.jsx";
+import { useToast } from "./contexts/AppProviders.jsx";
 
 // ─── DELETE POPOVER CONFIRM ──────────────────────────────────────────────────
 function DeletePopover({ id, confirmId, setConfirmId, onConfirm, children, buttonStyle = {} }) {
@@ -1484,9 +1485,9 @@ export function JournalView({ supabase, user, loadTrades, privacyMode, prefs }) 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease" }}>
       <PageBanner
-        label="TRADE JOURNAL"
-        title="Track every session, grow every week."
-        subtitle="Log your trades, review your equity curve, and hold yourself accountable to the process."
+        label="LOG A TRADE"
+        title="Record it. Review it. Repeat what works."
+        subtitle="Log each trade with full context — entry, bias, A+ criteria, and outcome. Build your edge one rep at a time."
       />
       {/* Log Trade Form */}
       <TCard style={{ padding: 28 }}>
@@ -2949,7 +2950,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
             No trades logged for {new Date(calYear, calMonth).toLocaleString("default", { month: "long", year: "numeric" })}
           </div>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-tertiary)", marginBottom: 20, lineHeight: 1.6 }}>
-            Head to the Journal tab to log trades and they'll appear here.
+            Head to the Log a Trade tab to log trades and they'll appear here.
           </div>
           <button
             onClick={() => onNavigate?.("journal")}
@@ -3866,10 +3867,10 @@ const ACCOUNT_STATUSES = [
 const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", payout_pct: "", notes: "" };
 
 const PAYOUT_METHODS = [
-  { value: "ach", label: "ACH" },
   { value: "wire", label: "Wire" },
+  { value: "wise", label: "Wise" },
+  { value: "rise", label: "Rise" },
   { value: "crypto", label: "Crypto" },
-  { value: "paypal", label: "PayPal" },
   { value: "other", label: "Other" },
 ];
 const PAYOUT_STATUSES = [
@@ -6230,7 +6231,7 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
           .nb-date-bar { flex-wrap: wrap !important; }
         }
       `}</style>
-      <PageBanner label="NOTEBOOK" title="Write it down. Own the day." subtitle="Pre-market gameplan, trade recap, and EOD reflection — in one place. AI coached." />
+      <PageBanner label="JOURNAL" title="Write it down. Own the day." subtitle="Pre-market gameplan, intraday notes, and EOD reflection — all in one place. AI coached." />
 
       {/* ── Date Navigation Bar ── */}
       <div ref={calRef} style={{ position: "relative", marginBottom: 20 }}>
