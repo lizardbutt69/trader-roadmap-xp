@@ -6508,8 +6508,8 @@ Quote their exact words where relevant. Be honest, be real, but keep it construc
             </div>
           )}
           {aiOutput && !aiLoading && (
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.8, whiteSpace: "pre-wrap", padding: "16px 20px", background: "var(--bg-tertiary)", borderRadius: 6, border: "1px solid var(--border-primary)" }}>
-              {aiOutput}
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, padding: "16px 20px", background: "var(--bg-tertiary)", borderRadius: 6, border: "1px solid var(--border-primary)" }}>
+              {renderEdgeMarkdown(aiOutput)}
             </div>
           )}
           {!aiOutput && !aiLoading && (

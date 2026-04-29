@@ -1997,13 +1997,22 @@ export default function TraderRoadmapXP() {
   // Auth listener
   const wasAuthenticatedRef = useRef(false);
   useEffect(() => {
+    // Keep the same user reference when only the token refreshed (same id).
+    // Prevents cascading re-renders that flash the LOADING splash and re-fetch
+    // user-keyed data on every tab refocus.
+    const updateUser = (next) => {
+      setUser(prev => {
+        if (prev?.id && next?.id && prev.id === next.id) return prev;
+        return next;
+      });
+    };
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      updateUser(session?.user ?? null);
       if (session?.user) wasAuthenticatedRef.current = true;
       setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
+      updateUser(session?.user ?? null);
       // Only reset to map on a real new sign-in (not token refresh re-firing SIGNED_IN)
       if (event === "SIGNED_IN" && !wasAuthenticatedRef.current) {
         localStorage.setItem("ts_active_tab", "map");
