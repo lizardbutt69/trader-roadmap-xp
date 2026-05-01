@@ -1922,6 +1922,7 @@ export default function TraderRoadmapXP() {
 
   // completed is a Map: quest_id -> { note, link, completedAt }
   const [completed, setCompleted] = useState(new Map());
+  const [completionsLoaded, setCompletionsLoaded] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [view, setView] = useState(() => localStorage.getItem("ts_active_tab") || "map");
   const setViewAndPersist = useCallback((v) => { localStorage.setItem("ts_active_tab", v); setView(v); }, []);
@@ -2041,6 +2042,7 @@ export default function TraderRoadmapXP() {
       });
       setCompleted(map);
     }
+    setCompletionsLoaded(true);
   }, [user]);
 
   useEffect(() => { loadCompletions(); }, [loadCompletions]);
@@ -2156,6 +2158,8 @@ export default function TraderRoadmapXP() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setCompleted(new Map());
+    setCompletionsLoaded(false);
+    prevAutoVerified.current = null;
     setProfile({ display_name: "", avatar_url: "" });
     setUserPrefs(null);
     setPrefsLoaded(false);
@@ -2212,7 +2216,9 @@ export default function TraderRoadmapXP() {
   const prevAutoVerified = useRef(null);
   useEffect(() => {
     if (!triggerAchievement) return;
-    // On first run, snapshot current state without firing — prevents toast spam on page load
+    // Wait for trades + completions to finish loading before snapshotting,
+    // otherwise the snapshot captures empty state and every loaded mission fires as "new".
+    if (tradesLoading || !completionsLoaded) return;
     if (prevAutoVerified.current === null) {
       prevAutoVerified.current = new Set(autoVerified);
       return;
@@ -2230,7 +2236,7 @@ export default function TraderRoadmapXP() {
       }
     });
     prevAutoVerified.current = new Set(autoVerified);
-  }, [autoVerified, completed, triggerAchievement]);
+  }, [autoVerified, completed, triggerAchievement, tradesLoading, completionsLoaded]);
 
   const handleToggle = (id) => {
     if (completed.has(id)) {
