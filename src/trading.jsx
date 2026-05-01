@@ -13,7 +13,6 @@ import {
   formatEventTime,
   getTodayET,
 } from "./utils/calendarUtils.js";
-import { requestNotificationPermission } from "./utils/newsAlerts.js";
 
 // ─── TOAST + ACHIEVEMENT SYSTEM ──────────────────────────────────────────────
 // Moved to ./contexts/AppProviders.jsx so the public landing page doesn't pull
@@ -5296,12 +5295,6 @@ const TIMEZONE_OPTIONS = [
 export function EconomicCalendarView() {
   const [now, setNow] = useState(new Date());
   const displayTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const [alertsEnabled, setAlertsEnabled] = useState(
-    () => { try { return localStorage.getItem("newsAlertsEnabled") === "true"; } catch { return false; } }
-  );
-  const [notifPermission, setNotifPermission] = useState(
-    () => (typeof Notification !== "undefined" ? Notification.permission : "unsupported")
-  );
   const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
@@ -5329,20 +5322,6 @@ export function EconomicCalendarView() {
   const hasHighToday = todayHigh.length > 0;
   const hasMediumToday = todayMedium.length > 0;
   const imminent = minsUntilNext !== null && minsUntilNext >= -10 && minsUntilNext <= 30;
-
-  async function handleEnableAlerts() {
-    if (alertsEnabled) {
-      setAlertsEnabled(false);
-      try { localStorage.setItem("newsAlertsEnabled", "false"); } catch {}
-      return;
-    }
-    const perm = await requestNotificationPermission();
-    setNotifPermission(perm);
-    if (perm === "granted" || perm === "denied") {
-      setAlertsEnabled(perm === "granted");
-      try { localStorage.setItem("newsAlertsEnabled", perm === "granted" ? "true" : "false"); } catch {}
-    }
-  }
 
   // Status shield config
   const statusConfig = imminent
@@ -5462,32 +5441,6 @@ export function EconomicCalendarView() {
                 }}
               >›</button>
             </div>
-            {/* Divider */}
-            <div style={{ width: 1, height: 20, background: "var(--border-primary)" }} />
-            {/* Alerts icon button */}
-            <button
-              onClick={handleEnableAlerts}
-              title={alertsEnabled ? "Alerts on — click to disable" : "Enable news alerts"}
-              style={{
-                width: 30, height: 30, borderRadius: 5, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: alertsEnabled ? "1px solid #34d399" : "1px solid var(--border-primary)",
-                background: alertsEnabled ? "rgba(52,211,153,0.1)" : "transparent",
-                color: alertsEnabled ? "#34d399" : "var(--text-tertiary)",
-                transition: "all 0.2s", fontSize: 15,
-              }}
-            >
-              {alertsEnabled ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6V11c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                </svg>
-              ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-              )}
-            </button>
           </div>
         </div>
         <div>

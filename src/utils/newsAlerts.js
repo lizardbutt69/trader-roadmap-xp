@@ -3,30 +3,6 @@ import { getSortedEvents, getMinutesUntil, formatEventTime } from "./calendarUti
 // Module-level set — tracks which alerts already fired this session
 const firedAlerts = new Set();
 
-// Plays a descending 3-tone alert (distinct from the ascending NYSE opening bell)
-export function playNewsWarningTone() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const tones = [880, 660, 440]; // descending
-    tones.forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      const start = ctx.currentTime + i * 0.22;
-      gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.35);
-    });
-  } catch (_) {
-    // AudioContext not available (e.g., test env) — silently skip
-  }
-}
-
 // Call this on a 30-second interval from the main app.
 // alertMinutes: array of minute thresholds to fire at (e.g. [30, 15])
 export function checkNewsAlerts(now, addToast, displayTZ, alertMinutes = [30, 15]) {
@@ -62,9 +38,6 @@ export function checkNewsAlerts(now, addToast, displayTZ, alertMinutes = [30, 15
             icon: "/favicon.svg",
           });
         }
-
-        // Audio alert
-        playNewsWarningTone();
       }
     });
   });
