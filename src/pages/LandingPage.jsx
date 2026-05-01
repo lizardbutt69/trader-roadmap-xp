@@ -468,7 +468,7 @@ export default function LandingPage() {
         }}
       >
         {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
           <TradeSharpLogo size={34} />
           <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>
             Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
@@ -481,6 +481,7 @@ export default function LandingPage() {
             { label: "Features", href: "#features" },
             { label: "The Path", href: "#the-path" },
             { label: "Score", href: "#score" },
+            { label: "Blog", href: "/blog" },
           ].map((link) => (
             <a key={link.label} href={link.href} style={{
               fontSize: 15, fontWeight: 500, color: "#a0a3b5",
@@ -901,6 +902,10 @@ export default function LandingPage() {
           © {new Date().getFullYear()} TradeSharp.
         </p>
         <div style={{ display: "flex", gap: 24 }}>
+          <Link to="/blog" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
+            onMouseEnter={e => e.target.style.color = "#22d3ee"}
+            onMouseLeave={e => e.target.style.color = "#6b6e84"}
+          >Blog</Link>
           <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
             onMouseEnter={e => e.target.style.color = "#22d3ee"}
             onMouseLeave={e => e.target.style.color = "#6b6e84"}

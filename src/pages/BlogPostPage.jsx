@@ -14,6 +14,15 @@ function TradeSharpLogo({ size = 32 }) {
       <line x1="20" y1="32" x2="44" y2="32" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
       <line x1="32" y1="20" x2="32" y2="44" stroke="#22d3ee" strokeWidth="1.5" opacity="0.7" />
       <path d="M32 26L38 32L32 38L26 32Z" fill="#22d3ee" opacity="0.85" />
+      <line x1="20" y1="20" x2="24" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="20" x2="20" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="40" y2="20" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="20" x2="44" y2="24" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="24" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="20" y1="44" x2="20" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="40" y2="44" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <line x1="44" y1="44" x2="44" y2="40" stroke="#22d3ee" strokeWidth="1" opacity="0.35" />
+      <circle cx="32" cy="32" r="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.12" />
     </svg>
   )
 }
@@ -30,7 +39,7 @@ function ArticleBody({ post }) {
         {post.sections.map((section, i) => (
           <section key={i} style={{ marginBottom: 36 }}>
             <h2 style={{
-              fontSize: 22, fontWeight: 600, letterSpacing: '-0.025em', lineHeight: 1.2,
+              fontSize: 22, fontWeight: 500, letterSpacing: '-0.025em', lineHeight: 1.2,
               color: '#eaebf0', margin: '0 0 14px',
             }}>
               {section.heading}
@@ -128,11 +137,12 @@ export default function BlogPostPage() {
       )}
       <style>{`
         @media (max-width: 900px) {
+          .post-nav-links, .post-nav-ctas { display: none !important; }
           .post-layout { grid-template-columns: 1fr !important; }
           .post-sidebar { display: none !important; }
         }
         @media (max-width: 680px) {
-          .post-hero { padding: 80px 20px 32px !important; }
+          .post-hero { padding: 104px 20px 32px !important; }
           .post-body-section { padding: 0 20px 64px !important; }
           .post-h1 { font-size: 34px !important; }
         }
@@ -145,43 +155,68 @@ export default function BlogPostPage() {
       </div>
 
       {/* Nav */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 48px',
-        background: 'rgba(11,13,19,0.8)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        <Link to="/blog" style={{
-          textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8,
-          fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.45)',
-          transition: 'color 0.15s',
+      <motion.nav
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+          background: 'rgba(11,13,19,0.8)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          padding: '0 32px',
+          height: 70,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}
-          onMouseEnter={e => e.currentTarget.style.color = '#eaebf0'}
-          onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-          All Posts
-        </Link>
-
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TradeSharpLogo size={26} />
-          <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-0.02em', color: '#eaebf0' }}>
+      >
+        <div onClick={() => navigate('/')} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}>
+          <TradeSharpLogo size={34} />
+          <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', color: '#eaebf0' }}>
             Trade<span style={{ color: '#22d3ee' }}>Sharp</span>
           </span>
-        </Link>
+        </div>
 
-        <button onClick={() => navigate('/login')} style={{
-          padding: '8px 18px', borderRadius: 7,
-          background: 'linear-gradient(135deg, #0891b2, #22d3ee)',
-          border: 'none', color: '#0b0d13', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 0 18px rgba(34,211,238,0.2)',
-        }}>
-          Start Journaling →
-        </button>
-      </nav>
+        <div className="post-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+          {[
+            { label: 'Features', href: '/#features' },
+            { label: 'The Path', href: '/#the-path' },
+            { label: 'Score', href: '/#score' },
+            { label: 'Blog', href: '/blog' },
+          ].map((link) => (
+            <a key={link.label} href={link.href} style={{
+              fontSize: 15, fontWeight: 500, color: '#a0a3b5',
+              textDecoration: 'none', letterSpacing: '0.01em',
+              transition: 'color 0.2s',
+            }}
+              onMouseEnter={e => e.target.style.color = '#eaebf0'}
+              onMouseLeave={e => e.target.style.color = '#a0a3b5'}
+            >{link.label}</a>
+          ))}
+        </div>
+
+        <div className="post-nav-ctas" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => navigate('/login')} style={{
+            padding: '9px 22px', borderRadius: 7,
+            background: 'transparent', border: '1px solid rgba(255,255,255,0.14)',
+            color: '#a0a3b5', fontSize: 15, fontWeight: 500, cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(34,211,238,0.3)'; e.currentTarget.style.color = '#eaebf0' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; e.currentTarget.style.color = '#a0a3b5' }}
+          >Sign In</button>
+          <button onClick={() => navigate('/login')} style={{
+            padding: '9px 22px', borderRadius: 7,
+            background: 'linear-gradient(135deg, #0891b2, #22d3ee)',
+            border: 'none', color: '#0b0d13', fontSize: 15, fontWeight: 600,
+            cursor: 'pointer', letterSpacing: '0.01em',
+            boxShadow: '0 0 20px rgba(34,211,238,0.2)',
+            transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 28px rgba(34,211,238,0.35)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(34,211,238,0.2)'}
+          >Start Journaling →</button>
+        </div>
+      </motion.nav>
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -191,7 +226,7 @@ export default function BlogPostPage() {
       ) : post && (
         <main style={{ position: 'relative', zIndex: 1 }}>
           {/* Hero header */}
-          <header className="post-hero" style={{ padding: '72px 48px 36px', maxWidth: 1100, margin: '0 auto' }}>
+          <header className="post-hero" style={{ padding: '112px 48px 36px', maxWidth: 1100, margin: '0 auto' }}>
             {/* Breadcrumb */}
             <nav aria-label="Breadcrumb" style={{ marginBottom: 28 }}>
               <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>
@@ -215,7 +250,7 @@ export default function BlogPostPage() {
               {/* Meta row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
                 <span style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: accent, background: `${accent}12`, border: `1px solid ${accent}25`,
                   padding: '4px 10px', borderRadius: 5,
                 }}>
@@ -232,7 +267,7 @@ export default function BlogPostPage() {
 
               {/* H1 */}
               <h1 className="post-h1" style={{
-                fontSize: 48, fontWeight: 600, letterSpacing: '-0.04em', lineHeight: 1.08,
+                fontSize: 48, fontWeight: 500, letterSpacing: '-0.04em', lineHeight: 1.08,
                 color: '#eaebf0', margin: '0 0 16px', maxWidth: 820,
               }}>
                 {post.title}
@@ -280,13 +315,13 @@ export default function BlogPostPage() {
                   padding: '18px 20px', borderRadius: 10,
                   background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
                 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 12 }}>
                     Tags
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {(post.tags || []).map(tag => (
                       <span key={tag} style={{
-                        fontSize: 11.5, fontWeight: 700, padding: '5px 10px', borderRadius: 20,
+                        fontSize: 11.5, fontWeight: 600, padding: '5px 10px', borderRadius: 20,
                         background: `${accent}10`, border: `1px solid ${accent}20`, color: accent,
                       }}>
                         #{tag}
@@ -300,7 +335,7 @@ export default function BlogPostPage() {
                   padding: '20px', borderRadius: 10,
                   background: 'rgba(34,211,238,0.04)', border: '1px solid rgba(34,211,238,0.14)',
                 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#eaebf0', marginBottom: 8, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#eaebf0', marginBottom: 8, lineHeight: 1.4 }}>
                     Track every trade with TradeSharp
                   </div>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, margin: '0 0 14px' }}>
@@ -309,7 +344,7 @@ export default function BlogPostPage() {
                   <button onClick={() => navigate('/login')} style={{
                     width: '100%', padding: '9px 0', borderRadius: 7,
                     background: 'linear-gradient(135deg, #0891b2, #22d3ee)',
-                    border: 'none', color: '#0b0d13', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                    border: 'none', color: '#0b0d13', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   }}>
                     Start Journaling →
                   </button>
@@ -321,7 +356,7 @@ export default function BlogPostPage() {
                     padding: '18px 20px', borderRadius: 10,
                     background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
                   }}>
-                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 14 }}>
                       More to Read
                     </div>
                     <div style={{ display: 'grid', gap: 10 }}>
@@ -335,10 +370,10 @@ export default function BlogPostPage() {
                           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)' }}
                         >
-                          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: rel.accent || '#22d3ee', marginBottom: 6 }}>
+                          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: rel.accent || '#22d3ee', marginBottom: 6 }}>
                             {rel.category || rel.tags?.[0]}
                           </div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#eaebf0', lineHeight: 1.3, marginBottom: 4 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: '#eaebf0', lineHeight: 1.3, marginBottom: 4 }}>
                             {rel.title}
                           </div>
                           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
@@ -364,7 +399,7 @@ export default function BlogPostPage() {
       }}>
         <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
           <TradeSharpLogo size={22} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>TradeSharp</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>TradeSharp</span>
         </Link>
         <div style={{ display: 'flex', gap: 24 }}>
           {[{ label: 'Privacy', to: '/privacy' }, { label: 'Terms', to: '/terms' }].map(l => (
