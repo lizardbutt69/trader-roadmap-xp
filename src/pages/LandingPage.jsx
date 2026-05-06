@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
+import SiteFooter from "../components/SiteFooter.jsx";
 
 // ─── LOGO ─────────────────────────────────────────────────────────────────────
 
@@ -407,7 +408,6 @@ export default function LandingPage() {
         .ts-score-section { padding: 80px 48px; }
         .ts-score-inner { flex-direction: row; gap: 64px; }
         .ts-cta-section { padding: 80px 48px; }
-        .ts-footer { flex-direction: row; gap: 0; }
 
         @media (max-width: 900px) {
           .ts-nav-links { display: none !important; }
@@ -427,7 +427,6 @@ export default function LandingPage() {
           .ts-score-inner { flex-direction: column !important; gap: 36px !important; align-items: flex-start !important; }
           .ts-spider-wrap { width: 100% !important; max-width: 300px !important; }
           .ts-cta-section { padding: 60px 24px !important; }
-          .ts-footer { flex-direction: column !important; gap: 12px !important; text-align: center !important; padding: 24px !important; }
         }
       `}</style>
       {/* Ambient bg orbs */}
@@ -881,41 +880,7 @@ export default function LandingPage() {
       </FadeInSection>
 
       {/* ── FOOTER ── */}
-      <footer className="ts-footer" style={{
-        position: "relative", zIndex: 1,
-        borderTop: "1px solid rgba(255,255,255,0.06)",
-        padding: "32px 48px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, maxWidth: 540 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <TradeSharpLogo size={28} />
-            <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.02em", color: "#eaebf0" }}>
-              Trade<span style={{ color: "#22d3ee" }}>Sharp</span>
-            </span>
-          </div>
-          <p style={{ fontSize: 11.5, color: "#6b6e84", lineHeight: 1.65, margin: 0 }}>
-            Trading futures, currencies, and options carries a high level of risk and is not suitable for every trader. Use only funds you can afford to lose. Any testimonials, examples, or client stories shown here are for illustration only and should not be interpreted as typical outcomes or assurances of future results.
-          </p>
-        </div>
-        <p style={{ fontSize: 14, color: "#6b6e84", margin: 0 }}>
-          © {new Date().getFullYear()} TradeSharp.
-        </p>
-        <div style={{ display: "flex", gap: 24 }}>
-          <Link to="/blog" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
-            onMouseEnter={e => e.target.style.color = "#22d3ee"}
-            onMouseLeave={e => e.target.style.color = "#6b6e84"}
-          >Blog</Link>
-          <Link to="/privacy" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
-            onMouseEnter={e => e.target.style.color = "#22d3ee"}
-            onMouseLeave={e => e.target.style.color = "#6b6e84"}
-          >Privacy Policy</Link>
-          <Link to="/terms" style={{ fontSize: 13, color: "#6b6e84", textDecoration: "none" }}
-            onMouseEnter={e => e.target.style.color = "#22d3ee"}
-            onMouseLeave={e => e.target.style.color = "#6b6e84"}
-          >Terms & Conditions</Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

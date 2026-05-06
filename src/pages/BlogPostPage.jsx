@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SEOHead from '../components/SEOHead.jsx'
+import SiteFooter from '../components/SiteFooter.jsx'
 import { getPostBySlug, getRelatedPosts } from '../lib/blog.js'
 
 const DOMAIN = 'https://tradesharp.xyz'
@@ -124,7 +125,7 @@ export default function BlogPostPage() {
   } : null
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0d13', color: '#eaebf0', fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: '#0b0d13', color: '#eaebf0', fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {post && (
         <SEOHead
           title={post.title}
@@ -219,12 +220,12 @@ export default function BlogPostPage() {
       </motion.nav>
 
       {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
           <div style={{ width: 32, height: 32, border: '3px solid rgba(34,211,238,0.15)', borderTopColor: '#22d3ee', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       ) : post && (
-        <main style={{ position: 'relative', zIndex: 1 }}>
+        <main style={{ position: 'relative', zIndex: 1, flex: 1 }}>
           {/* Hero header */}
           <header className="post-hero" style={{ padding: '112px 48px 36px', maxWidth: 1100, margin: '0 auto' }}>
             {/* Breadcrumb */}
@@ -391,25 +392,7 @@ export default function BlogPostPage() {
       )}
 
       {/* Footer */}
-      <footer style={{
-        position: 'relative', zIndex: 1,
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        padding: '24px 48px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-      }}>
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TradeSharpLogo size={22} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>TradeSharp</span>
-        </Link>
-        <div style={{ display: 'flex', gap: 24 }}>
-          {[{ label: 'Privacy', to: '/privacy' }, { label: 'Terms', to: '/terms' }].map(l => (
-            <Link key={l.to} to={l.to} style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'none', fontWeight: 500, transition: 'color 0.15s' }}
-              onMouseEnter={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
-              onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.3)'}
-            >{l.label}</Link>
-          ))}
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

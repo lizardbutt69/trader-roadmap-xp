@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SEOHead from '../components/SEOHead.jsx'
+import SiteFooter from '../components/SiteFooter.jsx'
 import { getPublishedPosts, getAllTags } from '../lib/blog.js'
 
 function TradeSharpLogo({ size = 32 }) {
@@ -232,7 +233,7 @@ export default function BlogPage() {
   const rest = posts.filter(p => !p.featured || activeTag)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0b0d13', color: '#eaebf0', fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: '#0b0d13', color: '#eaebf0', fontFamily: "'Plus Jakarta Sans', sans-serif", overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <SEOHead
         title="Blog — Futures Trading Insights"
         description="Expert guides on ICT concepts, prop firm evaluations, funded trading, trade journaling, and building consistency as a futures trader."
@@ -325,7 +326,7 @@ export default function BlogPage() {
         </div>
       </motion.nav>
 
-      <main style={{ position: 'relative', zIndex: 1 }}>
+      <main style={{ position: 'relative', zIndex: 1, flex: 1 }}>
         {/* Hero */}
         <section className="blog-hero-section" style={{ padding: '112px 48px 48px', maxWidth: 1100, margin: '0 auto' }}>
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
@@ -340,7 +341,7 @@ export default function BlogPage() {
               </span>
             </div>
             <h1 className="blog-hero-title" style={{
-              fontSize: 52, fontWeight: 500, letterSpacing: '-0.04em', lineHeight: 1.05,
+              fontSize: 44, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.1,
               margin: '0 0 16px', color: '#eaebf0', maxWidth: 700,
             }}>
               The trading journal for<br />
@@ -409,26 +410,7 @@ export default function BlogPage() {
       </main>
 
       {/* Footer */}
-      <footer style={{
-        position: 'relative', zIndex: 1,
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        padding: '28px 48px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
-      }}>
-        <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <TradeSharpLogo size={22} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.4)' }}>TradeSharp</span>
-        </Link>
-        <div style={{ display: 'flex', gap: 24 }}>
-          {[{ label: 'Privacy', to: '/privacy' }, { label: 'Terms', to: '/terms' }].map(l => (
-            <Link key={l.to} to={l.to} style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textDecoration: 'none', fontWeight: 500,
-              transition: 'color 0.15s' }}
-              onMouseEnter={e => e.target.style.color = 'rgba(255,255,255,0.6)'}
-              onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.3)'}
-            >{l.label}</Link>
-          ))}
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
