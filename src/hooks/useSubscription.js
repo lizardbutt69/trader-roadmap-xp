@@ -2,29 +2,33 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 
 export function useSubscription(user) {
-  const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  // Track which user id `data` belongs to. Loading is derived synchronously
+  // from this — prevents a flash of the unsubscribed UI on the render between
+  // user becoming set and the fetch effect firing.
+  const [dataUserId, setDataUserId] = useState(null);
+  const userId = user?.id ?? null;
+  const loading = !!userId && dataUserId !== userId;
 
   const loadSubscription = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setData(null);
-      setLoading(false);
+      setDataUserId(null);
       return;
     }
     const { data: row, error } = await supabase
       .from('profiles')
       .select('subscription_status, trial_ends_at, subscription_ends_at, stripe_customer_id, has_seen_pricing')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
     if (error && error.code !== 'PGRST116') {
       console.error('useSubscription load error:', error);
     }
     setData(row ?? null);
-    setLoading(false);
-  }, [user]);
+    setDataUserId(userId);
+  }, [userId]);
 
   useEffect(() => {
-    setLoading(true);
     loadSubscription();
   }, [loadSubscription]);
 

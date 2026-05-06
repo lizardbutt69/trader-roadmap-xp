@@ -2786,6 +2786,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       notes: trade.notes || "", after_thoughts: trade.after_thoughts || "",
       model: trade.model || "",
       tags: trade.tags || [],
+      violations: trade.violations || [],
       account_id_personal: trade.account_id_personal || "",
       account_id_funded: trade.account_id_funded || "",
       entry_price: trade.entry_price != null ? String(trade.entry_price) : "",
@@ -2810,6 +2811,7 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
       after_thoughts: editForm.after_thoughts,
       model: editForm.model || null,
       tags: editForm.tags && editForm.tags.length > 0 ? editForm.tags : null,
+      violations: editForm.violations && editForm.violations.length > 0 ? editForm.violations : null,
       account_id_personal: editForm.account_id_personal || null,
       account_id_funded: editForm.account_id_funded || null,
       entry_price: editForm.entry_price !== "" && editForm.entry_price != null ? parseFloat(editForm.entry_price) : null,
@@ -3445,6 +3447,9 @@ export function TradeStatsView({ supabase, user, trades, loadTrades, privacyMode
                 <textarea style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} placeholder="What did I learn? What would I do differently?" value={editForm.after_thoughts} onChange={(e) => setEditForm({ ...editForm, after_thoughts: e.target.value })} />
                 <TagPicker selected={editForm.tags || []} onChange={(val) => setEditForm({ ...editForm, tags: val })} />
               </Field>
+              <Field label="Rule Violations" full>
+                <ViolationPicker selected={editForm.violations || []} onChange={(val) => setEditForm({ ...editForm, violations: val })} allViolations={buildEffectiveViolations(prefs)} />
+              </Field>
               <Field label="Entry Price"><input type="number" step="0.01" style={inputStyle} value={editForm.entry_price || ""} onChange={e => setEditForm({ ...editForm, entry_price: e.target.value })} placeholder="e.g. 18450.25" /></Field>
               <Field label="Exit Price"><input type="number" step="0.01" style={inputStyle} value={editForm.exit_price || ""} onChange={e => setEditForm({ ...editForm, exit_price: e.target.value })} placeholder="e.g. 18510.50" /></Field>
               <Field label="Stop Loss"><input type="number" step="0.01" style={inputStyle} value={editForm.stop_loss || ""} onChange={e => setEditForm({ ...editForm, stop_loss: e.target.value })} placeholder="e.g. 18400.00" /></Field>
@@ -3850,10 +3855,37 @@ export function TradingStatsView({ trades, privacyMode }) {
 // ACCOUNTS VIEW — Track funded accounts, evals, personal accounts
 // ═══════════════════════════════════════════════════════════════════════════
 
+const ACCOUNT_TYPE_ICONS = {
+  eval: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2"/>
+    </svg>
+  ),
+  funded: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+      <path d="M4 22h16"/>
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+    </svg>
+  ),
+  personal: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+    </svg>
+  ),
+};
+
 const ACCOUNT_TYPES = [
-  { value: "eval", label: "Evaluation", color: "var(--accent-secondary)" },
-  { value: "funded", label: "Funded", color: "var(--green)" },
-  { value: "personal", label: "Personal", color: "var(--purple)" },
+  { value: "eval", label: "Evaluation", color: "var(--accent-secondary)", solid: "#22d3ee", tint: "rgba(34,211,238,0.10)", border: "rgba(34,211,238,0.28)" },
+  { value: "funded", label: "Funded", color: "var(--green)", solid: "#34d399", tint: "rgba(52,211,153,0.10)", border: "rgba(52,211,153,0.28)" },
+  { value: "personal", label: "Personal", color: "var(--purple)", solid: "#a78bfa", tint: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.28)" },
 ];
 const ACCOUNT_STATUSES = [
   { value: "active", label: "Active", color: "var(--accent-secondary)" },
@@ -3866,6 +3898,131 @@ const ACCOUNT_STATUSES = [
 ];
 
 const emptyForm = { firm: "", account_name: "", account_type: "", account_size: "", status: "", profit_target: "", current_pnl: "", max_drawdown: "", daily_loss_limit: "", payout_pct: "", notes: "" };
+
+function ProfitTargetBar({ current, target, privacyMode, fmtMoney }) {
+  if (!target || target <= 0) return null;
+  const rawPct = (current / target) * 100;
+  const isHit = rawPct >= 100;
+  const isDrawdown = current < 0;
+  const fillPct = Math.max(0, Math.min(100, rawPct));
+  const overflowPct = isHit ? Math.min(40, rawPct - 100) : 0;
+
+  const fillColor = isHit
+    ? "linear-gradient(90deg, #34d399 0%, #22d3ee 70%, #67e8f9 100%)"
+    : rawPct >= 60
+      ? "linear-gradient(90deg, #34d399 0%, #6ee7b7 100%)"
+      : rawPct >= 25
+        ? "linear-gradient(90deg, #fbbf24 0%, #34d399 100%)"
+        : "linear-gradient(90deg, #fbbf24 0%, #fde68a 100%)";
+
+  const labelColor = isHit ? "var(--accent-secondary)" : isDrawdown ? "var(--red)" : "var(--green)";
+  const pctText = privacyMode ? "••" : `${Math.round(rawPct)}%`;
+
+  return (
+    <div style={{ marginTop: 4, marginBottom: 14, padding: "14px 0 4px", borderTop: "1px solid var(--border-primary)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9, gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 10, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+            Profit Target
+          </span>
+          {isHit && (
+            <span style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 9, fontWeight: 800, color: "#0b0d13",
+              background: "linear-gradient(90deg, #22d3ee, #67e8f9)",
+              padding: "3px 8px", borderRadius: 999,
+              textTransform: "uppercase", letterSpacing: "0.14em",
+              boxShadow: "0 0 14px rgba(34,211,238,0.45)",
+              animation: "fadeSlideIn 0.4s ease",
+            }}>
+              Target Hit
+            </span>
+          )}
+          {isDrawdown && (
+            <span style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontSize: 9, fontWeight: 800, color: "var(--red)",
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              padding: "2px 8px", borderRadius: 999,
+              textTransform: "uppercase", letterSpacing: "0.14em",
+            }}>
+              Drawdown
+            </span>
+          )}
+        </div>
+        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: labelColor, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" }}>
+          {pctText}
+        </span>
+      </div>
+
+      <div style={{
+        position: "relative",
+        height: 10,
+        borderRadius: 999,
+        background: isDrawdown ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.04)",
+        border: "1px solid var(--border-primary)",
+        overflow: "hidden",
+        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.3)",
+      }}>
+        {!isDrawdown && (
+          <div style={{
+            position: "absolute", top: 0, left: 0, bottom: 0,
+            width: `${fillPct}%`,
+            background: fillColor,
+            borderRadius: 999,
+            boxShadow: isHit
+              ? "0 0 18px rgba(34,211,238,0.55), 0 0 6px rgba(52,211,153,0.4)"
+              : "0 0 10px rgba(52,211,153,0.25)",
+            transition: "width 0.9s cubic-bezier(0.22, 1, 0.36, 1)",
+            animation: "fadeSlideIn 0.6s ease",
+          }}>
+            <div style={{
+              position: "absolute", top: 0, right: 0, bottom: 0,
+              width: 24,
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4))",
+              opacity: 0.6,
+            }} />
+          </div>
+        )}
+        {isHit && overflowPct > 0 && (
+          <div style={{
+            position: "absolute", top: 0, bottom: 0,
+            right: 0, width: `${(overflowPct / 140) * 100}%`,
+            background: "repeating-linear-gradient(135deg, rgba(34,211,238,0.4) 0 4px, transparent 4px 8px)",
+            mixBlendMode: "screen",
+          }} />
+        )}
+        {/* target marker — always at 100% */}
+        <div style={{
+          position: "absolute", top: -3, bottom: -3, left: "100%",
+          width: 1, background: "rgba(255,255,255,0.25)",
+          transform: "translateX(-1px)",
+        }} />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 11 }}>
+        <span style={{ color: "var(--text-tertiary)", fontWeight: 600, letterSpacing: "0.02em" }}>
+          <span style={{ color: current >= 0 ? "var(--text-secondary)" : "var(--red)", fontWeight: 700 }}>
+            {privacyMode ? "••••" : `${current >= 0 ? "" : "−"}${fmtMoney(current)}`}
+          </span>
+          <span style={{ opacity: 0.5, margin: "0 6px" }}>/</span>
+          <span style={{ color: "var(--text-secondary)", fontWeight: 700 }}>{fmtMoney(target)}</span>
+        </span>
+        {!isHit && !isDrawdown && (
+          <span style={{ color: "var(--text-tertiary)", fontWeight: 600 }}>
+            {privacyMode ? "••••" : fmtMoney(target - current)} <span style={{ opacity: 0.7 }}>to go</span>
+          </span>
+        )}
+        {isHit && (
+          <span style={{ color: "var(--accent-secondary)", fontWeight: 700, letterSpacing: "0.02em" }}>
+            +{privacyMode ? "••••" : fmtMoney(current - target)} <span style={{ opacity: 0.7, fontWeight: 600 }}>over target</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const PAYOUT_METHODS = [
   { value: "wire", label: "Wire" },
@@ -4124,12 +4281,44 @@ export function AccountsView({ supabase, user, privacyMode }) {
       <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
         {accounts.map((acc) => {
           const statusMeta = getStatusMeta(acc.status);
+          const typeMeta = ACCOUNT_TYPES.find((t) => t.value === acc.account_type) || ACCOUNT_TYPES[0];
+          const typeIcon = ACCOUNT_TYPE_ICONS[typeMeta.value];
           const pnl = acc.current_pnl != null ? Number(acc.current_pnl) : null;
           return (
-            <TCard key={acc.id} style={{ padding: 24, borderLeft: `4px solid ${statusMeta.color}` }}>
+            <TCard key={acc.id} style={{
+              padding: 24,
+              borderLeft: `4px solid ${typeMeta.solid}`,
+              background: `radial-gradient(ellipse 220px 120px at top right, ${typeMeta.tint} 0%, transparent 70%), var(--bg-secondary)`,
+            }}>
               <>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{acc.account_name || acc.firm}</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                      <div style={{
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: 36, height: 36, borderRadius: 10,
+                        background: typeMeta.tint,
+                        border: `1px solid ${typeMeta.border}`,
+                        color: typeMeta.solid,
+                        boxShadow: `0 0 14px ${typeMeta.tint}`,
+                        flexShrink: 0,
+                      }}>
+                        {typeIcon}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                        <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{acc.account_name || acc.firm}</span>
+                        <span style={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontSize: 9, fontWeight: 800,
+                          color: typeMeta.solid,
+                          textTransform: "uppercase", letterSpacing: "0.14em",
+                        }}>
+                          {typeMeta.label}
+                          {acc.firm && acc.account_name && acc.firm !== acc.account_name && (
+                            <span style={{ color: "var(--text-tertiary)", fontWeight: 600, marginLeft: 6, letterSpacing: "0.08em" }}>· {acc.firm}</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
                     <Badge label={statusMeta.label} color={statusMeta.color} />
                   </div>
                   <div className="acct-card-stats" style={{ display: "flex", gap: 28, fontSize: 14, flexWrap: "wrap", marginBottom: 14 }}>
@@ -4143,12 +4332,6 @@ export function AccountsView({ supabase, user, privacyMode }) {
                       <div>
                         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Current P&L</div>
                         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: pnl >= 0 ? "var(--green)" : "var(--red)", fontSize: 15 }}>{privacyMode ? MASK : `${pnl >= 0 ? "+" : "-"}${fmtMoney(pnl)}`}</div>
-                      </div>
-                    )}
-                    {acc.profit_target != null && (
-                      <div>
-                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: "var(--text-tertiary)", fontWeight: 600, textTransform: "uppercase", fontSize: 10, letterSpacing: "0.1em", marginBottom: 2 }}>Profit Target</div>
-                        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>{fmtMoney(acc.profit_target)}</div>
                       </div>
                     )}
                     {acc.max_drawdown != null && (
@@ -4181,6 +4364,14 @@ export function AccountsView({ supabase, user, privacyMode }) {
                       ) : null;
                     })()}
                   </div>
+                  {acc.profit_target != null && (
+                    <ProfitTargetBar
+                      current={pnl ?? 0}
+                      target={Number(acc.profit_target)}
+                      privacyMode={privacyMode}
+                      fmtMoney={fmtMoney}
+                    />
+                  )}
                   {acc.notes && (
                     <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, padding: "10px 0", borderTop: "1px solid var(--border-primary)", whiteSpace: "pre-wrap" }}>{acc.notes}</div>
                   )}
